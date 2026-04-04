@@ -31,6 +31,23 @@ body {
   min-height: 100dvh;
 }
 
+/* Shell iOS / Safari: respeta notch y home indicator sin cambiar el layout en escritorio */
+@media (max-width: 768px) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left, 0px));
+    padding-right: max(0px, env(safe-area-inset-right, 0px));
+    padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 768px) {
+  button,
+  [role="button"],
+  a[href] {
+    touch-action: manipulation;
+  }
+}
+
 .font-mono-cli {
   font-family: var(--font-mono-ui), ui-monospace, monospace;
 }
