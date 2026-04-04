@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
   appName: "IEStudio",
   webDir: "public/capacitor-shell",
   server: {
-    url: "https://iestudio.vercel.app",
+    url: "https://studyos-delta.vercel.app",
     cleartext: false,
   },
 };

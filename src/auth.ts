@@ -1,6 +1,15 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { JWT } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
+
+/** Alineado con defaultCookies de Auth.js (https en prod / Vercel). */
+function useSecureCookies(req: NextRequest | undefined): boolean {
+  const proto = req?.headers.get("x-forwarded-proto");
+  if (proto === "https") return true;
+  if (proto === "http") return false;
+  return process.env.VERCEL === "1";
+}
 
 /**
  * Lee env en tiempo de petición (Vercel inyecta aquí). Evita depender del valor
@@ -46,11 +55,13 @@ async function refreshGoogleAccessToken(token: JWT): Promise<JWT> {
   };
 }
 
-const nextAuth = NextAuth(() => {
+const nextAuth = NextAuth((req) => {
   const secret = env("AUTH_SECRET") ?? env("NEXTAUTH_SECRET");
   const clientId = env("AUTH_GOOGLE_ID") ?? env("GOOGLE_CLIENT_ID");
   const clientSecret =
     env("AUTH_GOOGLE_SECRET") ?? env("GOOGLE_CLIENT_SECRET");
+  const secure = useSecureCookies(req);
+  const cookiePrefix = secure ? "__Secure-" : "";
 
   if (!secret) {
     console.error(
@@ -66,6 +77,18 @@ const nextAuth = NextAuth(() => {
   return {
     trustHost: true,
     secret,
+    /** Nuevo nombre para no leer cookies viejas con URL inválida (p. ej. WebView). */
+    cookies: {
+      callbackUrl: {
+        name: `${cookiePrefix}authjs.callback-url.v2`,
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure,
+        },
+      },
+    },
     providers: [
       Google({
         clientId: clientId ?? "",

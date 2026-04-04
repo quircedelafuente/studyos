@@ -25,6 +25,7 @@ import {
   loadImportantDeadlines,
   saveImportantDeadlines,
 } from "@/lib/deadlines-storage";
+import { getOAuthCallbackUrl } from "@/lib/auth-callback-url";
 import { loadStudyPlans, STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
 import {
   STUDY_PLAN_PREVIEW_CALENDAR_ID,
@@ -420,7 +421,9 @@ export function CalendarPanel() {
         <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 py-4">
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: "/" })}
+            onClick={() =>
+              signIn("google", { callbackUrl: getOAuthCallbackUrl() })
+            }
             className="inline-flex items-center gap-2 rounded-xl bg-[var(--ink)] px-6 py-3 text-base font-semibold text-white transition hover:opacity-90"
           >
             <SyncIcon className="h-5 w-5 shrink-0" />
@@ -433,7 +436,9 @@ export function CalendarPanel() {
         <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 py-4">
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: "/" })}
+            onClick={() =>
+              signIn("google", { callbackUrl: getOAuthCallbackUrl() })
+            }
             className="inline-flex items-center gap-2 rounded-xl border-2 border-[var(--border-strong)] px-6 py-3 text-base font-semibold"
           >
             <SyncIcon className="h-5 w-5 shrink-0" />
@@ -537,7 +542,9 @@ export function CalendarPanel() {
               </button>
               <button
                 type="button"
-                onClick={() => signIn("google", { callbackUrl: "/" })}
+                onClick={() =>
+                  signIn("google", { callbackUrl: getOAuthCallbackUrl() })
+                }
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-zinc-700 shadow-sm ring-1 ring-zinc-200/80 transition hover:bg-zinc-50 hover:ring-zinc-300 active:scale-[0.97]"
                 title="Conectar o actualizar Google Calendar"
                 aria-label="Conectar o actualizar Google Calendar"

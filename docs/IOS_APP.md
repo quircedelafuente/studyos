@@ -1,6 +1,6 @@
 # App iOS (Capacitor) — IEStudio
 
-La app nativa es un **complemento**: envuelve la misma web desplegada en Vercel (`https://iestudio.vercel.app`) dentro de un **WKWebView**. No sustituye al proyecto Next.js; el dashboard, las APIs, NextAuth y la sincronización con Neon siguen siendo los mismos.
+La app nativa es un **complemento**: envuelve la misma web desplegada en Vercel (`https://studyos-delta.vercel.app`) dentro de un **WKWebView**. No sustituye al proyecto Next.js; el dashboard, las APIs, NextAuth y la sincronización con Neon siguen siendo los mismos.
 
 ## Requisitos
 
