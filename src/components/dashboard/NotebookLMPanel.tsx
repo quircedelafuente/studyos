@@ -39,10 +39,10 @@ export function NotebookLMPanel() {
   const checkAuth = useCallback(async () => {
     setBackendOffline(false);
     try {
-      await apiJson<{ authenticated: boolean; connected: boolean }>(
+      const data = await apiJson<{ authenticated: boolean; connected: boolean }>(
         "/api/notebooklm/auth/status",
       );
-      setAuthenticated(true);
+      setAuthenticated(Boolean(data.authenticated));
     } catch (err) {
       if (err instanceof NotebookApiError) {
         if (err.status === 401) {
@@ -156,11 +156,26 @@ export function NotebookLMPanel() {
       {authenticated === false && !backendOffline && <NotebookLMAuthBanner />}
       {backendOffline && (
         <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 md:mx-10">
-          Backend de NotebookLM no disponible. Inicia `npm run notebooklm:backend`.
+          <p className="font-semibold text-amber-900">
+            No se pudo conectar con el backend de NotebookLM
+          </p>
+          <p className="mt-1">
+            En{" "}
+            <strong className="font-medium">Vercel</strong>: variable{" "}
+            <code className="rounded bg-amber-100 px-1 font-mono text-[11px]">
+              NOTEBOOKLM_BACKEND_URL
+            </code>{" "}
+            = URL <code className="font-mono text-[11px]">https://…</code> de Railway (sin
+            / final), luego Redeploy. En local:{" "}
+            <code className="rounded bg-amber-100 px-1 font-mono text-[11px]">
+              npm run notebooklm:backend
+            </code>
+            .
+          </p>
           <button
             type="button"
             onClick={checkAuth}
-            className="ml-2 font-semibold underline"
+            className="mt-2 font-semibold underline"
           >
             Reintentar
           </button>

@@ -92,8 +92,10 @@ async def notebooklm_error_handler(request, exc: NotebookLMError):
 
 @app.get("/auth/status")
 async def auth_status():
-    client = get_client()
-    return {"authenticated": True, "connected": client.is_connected}
+    """Siempre 200 si el API está vivo; sin sesión NotebookLM → authenticated false."""
+    if _client is None:
+        return {"authenticated": False, "connected": False}
+    return {"authenticated": True, "connected": _client.is_connected}
 
 
 # ---------------------------------------------------------------------------
