@@ -1036,8 +1036,26 @@ export function AssignmentsPanel() {
         </section>
       ) : isMobile &&
         cloud.initialSyncDone &&
+        cloud.phase === "ready" &&
         allCourses.length === 0 &&
-        (cloud.serverStats?.bbKeys ?? 0) === 0 ? (
+        cloud.serverStats === null ? (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center shadow-sm">
+          <p className="text-sm font-medium text-[var(--ink-muted)]">
+            Obteniendo estado de la nube…
+          </p>
+          <button
+            type="button"
+            onClick={() => void cloud.refresh()}
+            className="mt-4 rounded-xl border border-[var(--border)] px-4 py-2 text-xs font-semibold text-[var(--ink)]"
+          >
+            Volver a comprobar
+          </button>
+        </section>
+      ) : isMobile &&
+        cloud.initialSyncDone &&
+        allCourses.length === 0 &&
+        cloud.serverStats !== null &&
+        cloud.serverStats.bbKeys === 0 ? (
         <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center shadow-sm">
           <h2 className="text-sm font-bold text-[var(--ink)]">Sin datos de cursos en la nube</h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--ink-muted)]">
@@ -1055,7 +1073,8 @@ export function AssignmentsPanel() {
       ) : isMobile &&
         cloud.initialSyncDone &&
         allCourses.length === 0 &&
-        (cloud.serverStats?.bbKeys ?? 0) > 0 ? (
+        cloud.serverStats !== null &&
+        cloud.serverStats.bbKeys > 0 ? (
         <section className="rounded-2xl border border-amber-400/40 bg-amber-50/80 p-6 text-center shadow-sm">
           <h2 className="text-sm font-bold text-[var(--ink)]">Hay datos en el servidor pero no en este dispositivo</h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--ink-muted)]">

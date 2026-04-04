@@ -11,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useDeviceMode } from "@/components/providers/DeviceModeContext";
+import { detectMobileClient } from "@/components/providers/DeviceModeContext";
 import {
   applyCloudEntriesSmartMerge,
   BLACKBOARD_CLOUD_KEY_PREFIX,
@@ -85,7 +85,6 @@ export function useCloudSync(): CloudSyncSnapshot {
 export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const userId = session?.user?.id;
-  const isMobile = useDeviceMode();
   const lastPushedSig = useRef<string>("");
 
   const [phase, setPhase] = useState<CloudSyncPhase>("unauthenticated");
@@ -111,8 +110,6 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       stats?: { totalKeys: number; bbKeys: number; approxBytes: number } | null;
     };
     if (data.disabled) return;
-    if (data.stats) setServerStats(data.stats);
-    if (typeof data.updatedAt === "string") setServerUpdatedAt(data.updatedAt);
     let serverEntries = normalizeCloudPayload(data.entries ?? {});
     let hasPayload = Object.keys(serverEntries).length > 0;
     const serverBbKeysFromEntries = Object.keys(serverEntries).filter((k) =>
@@ -120,6 +117,12 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     ).length;
     const serverBbKeys =
       data.stats?.bbKeys ?? serverBbKeysFromEntries;
+    if (data.stats) {
+      setServerStats(data.stats);
+    } else {
+      setServerStats(computeCloudEntryStats(serverEntries));
+    }
+    if (typeof data.updatedAt === "string") setServerUpdatedAt(data.updatedAt);
     const needsLocalBb =
       typeof serverBbKeys === "number" &&
       serverBbKeys > 0 &&
@@ -150,13 +153,18 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           stats?: { totalKeys: number; bbKeys: number; approxBytes: number } | null;
         };
         if (data2.disabled) return;
-        if (data2.stats) setServerStats(data2.stats);
+        if (data2.stats) {
+          setServerStats(data2.stats);
+        }
         if (typeof data2.updatedAt === "string") {
           setServerUpdatedAt(data2.updatedAt);
           updatedAtForApplied = data2.updatedAt;
         }
         serverEntries = normalizeCloudPayload(data2.entries ?? {});
         hasPayload = Object.keys(serverEntries).length > 0;
+        if (!data2.stats) {
+          setServerStats(computeCloudEntryStats(serverEntries));
+        }
       }
     }
     if (hasPayload) {
@@ -170,14 +178,15 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 
   const push = useCallback(async () => {
     if (!userId?.trim()) return;
+    const isMobileNow = detectMobileClient();
     await syncPullIfServerNewer();
-    const entries = collectSyncableEntriesForUpload(isMobile);
+    const entries = collectSyncableEntriesForUpload(isMobileNow);
     const sig = syncSnapshotSignature(entries);
     if (sig === lastPushedSig.current) return;
     const res = await fetch("/api/user-sync", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entries, merge: isMobile }),
+      body: JSON.stringify({ entries, merge: isMobileNow }),
       ...FETCH_OPTS,
     });
     if (res.ok) {
@@ -190,7 +199,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       setLastSuccessfulPushAt(Date.now());
       bumpLocalStats();
     }
-  }, [userId, isMobile, syncPullIfServerNewer, bumpLocalStats]);
+  }, [userId, syncPullIfServerNewer, bumpLocalStats]);
 
   const runBootstrap = useCallback(async () => {
     if (!userId?.trim()) return;
@@ -222,13 +231,16 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         bumpLocalStats();
         return;
       }
-      if (data.stats) setServerStats(data.stats);
-      if (typeof data.updatedAt === "string") setServerUpdatedAt(data.updatedAt);
-
       let appliedTimestamp: string | null =
         typeof data.updatedAt === "string" ? data.updatedAt : null;
       let server = normalizeCloudPayload(data.entries ?? {});
-      const serverBbKeysStat = data.stats?.bbKeys ?? 0;
+      if (data.stats) {
+        setServerStats(data.stats);
+      } else {
+        setServerStats(computeCloudEntryStats(server));
+      }
+      if (typeof data.updatedAt === "string") setServerUpdatedAt(data.updatedAt);
+      const serverBbKeysStat = data.stats?.bbKeys ?? computeCloudEntryStats(server).bbKeys;
       if (Object.keys(server).length === 0 && serverBbKeysStat > 0) {
         clearCloudServerAppliedAt();
         const res2 = await fetch("/api/user-sync", FETCH_OPTS);
@@ -244,6 +256,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
             appliedTimestamp = data2.updatedAt;
           }
           server = normalizeCloudPayload(data2.entries ?? {});
+          if (!data2.stats) {
+            setServerStats(computeCloudEntryStats(server));
+          }
         }
       }
       if (Object.keys(server).length === 0) {

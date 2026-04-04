@@ -4,7 +4,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 const DeviceModeContext = createContext(false);
 
-function detectMobileClient(): boolean {
+/** Detección síncrona (misma lógica que el estado del provider). Úsala en efectos que no pueden esperar al re-render (p. ej. sync a Neon). */
+export function detectMobileClient(): boolean {
   if (typeof window === "undefined") return false;
   const ua = navigator.userAgent || "";
   if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) {
