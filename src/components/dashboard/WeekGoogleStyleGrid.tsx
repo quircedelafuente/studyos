@@ -4,9 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { GoogleCalendarEventItem } from "@/lib/google-calendar-types";
 import { getGoogleEventColorStyle } from "@/lib/google-calendar-event-colors";
 import {
-  GRID_HEIGHT_PX,
   HOURS_IN_GRID,
-  PX_PER_HOUR,
+  getGridMetrics,
   buildAllDayChipsByColumn,
   buildTimedSegmentsForWeek,
 } from "@/lib/week-time-grid-layout";
@@ -50,6 +49,16 @@ export function WeekGoogleStyleGrid({
   deletingKey,
   onMoveEvent,
 }: WeekGoogleStyleGridProps) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const { pxPerHour, gridHeightPx } = useMemo(() => getGridMetrics(isMobile), [isMobile]);
+
   const timed = useMemo(
     () => buildTimedSegmentsForWeek(events, weekDates),
     [events, weekDates],
@@ -69,12 +78,12 @@ export function WeekGoogleStyleGrid({
     function tick() {
       const t = new Date();
       const mins = t.getHours() * 60 + t.getMinutes() + t.getSeconds() / 60;
-      setNowLinePx((mins / (HOURS_IN_GRID * 60)) * GRID_HEIGHT_PX);
+      setNowLinePx((mins / (HOURS_IN_GRID * 60)) * gridHeightPx);
     }
     tick();
     const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
-  }, []);
+  }, [gridHeightPx]);
 
   const todayCol = weekDates.findIndex((d) => isTodayDate(d));
 
@@ -105,7 +114,7 @@ export function WeekGoogleStyleGrid({
     const target =
       timed.length === 0 ? 0 : Math.max(0, Math.min(earliestTimedTopPx, maxScroll));
     el.scrollTop = target;
-  }, [weekKey, earliestTimedTopPx, timed.length, allDayRowHeight]);
+  }, [weekKey, earliestTimedTopPx, timed.length, allDayRowHeight, gridHeightPx]);
 
   const dragRef = useRef<{
     eventId: string;
@@ -157,9 +166,9 @@ export function WeekGoogleStyleGrid({
       setDraggingEventId(null);
       setDragDeltaPx(0);
 
-      const newTopPx = Math.max(0, Math.min(GRID_HEIGHT_PX - drag.heightPx, drag.origTopPx + (e.clientY - drag.startY)));
+      const newTopPx = Math.max(0, Math.min(gridHeightPx - drag.heightPx, drag.origTopPx + (e.clientY - drag.startY)));
       const SNAP_MINUTES = 15;
-      const totalMinutes = (newTopPx / GRID_HEIGHT_PX) * HOURS_IN_GRID * 60;
+      const totalMinutes = (newTopPx / gridHeightPx) * HOURS_IN_GRID * 60;
       const snapped = Math.round(totalMinutes / SNAP_MINUTES) * SNAP_MINUTES;
       const h = Math.floor(snapped / 60);
       const m = snapped % 60;
@@ -170,20 +179,20 @@ export function WeekGoogleStyleGrid({
         : drag.eventId;
       onMoveEvent?.({ eventId: rawId, newTime });
     },
-    [onMoveEvent],
+    [onMoveEvent, gridHeightPx],
   );
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-white via-zinc-50/95 to-zinc-100/50 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.14)] ring-1 ring-zinc-200/70">
       <div
         ref={scrollBodyRef}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-auto"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-auto scrollbar-hide"
       >
         <div
-          className="sticky top-0 z-20 min-w-[960px] border-b border-zinc-200/80 bg-gradient-to-b from-white/98 to-zinc-50/95 backdrop-blur-sm"
+          className="sticky top-0 z-20 min-w-full border-b border-zinc-200/80 bg-gradient-to-b from-white/98 to-zinc-50/95 backdrop-blur-sm"
           style={{
             display: "grid",
-            gridTemplateColumns: `4.75rem repeat(7, minmax(7rem, 1fr))`,
+            gridTemplateColumns: `${isMobile ? "3rem" : "4.75rem"} repeat(7, minmax(0, 1fr))`,
           }}
         >
           <div className="border-r border-zinc-200/60 bg-zinc-100/40" />
@@ -192,16 +201,16 @@ export function WeekGoogleStyleGrid({
             return (
               <div
                 key={d.toISOString()}
-                className="border-r border-zinc-200/60 bg-gradient-to-b from-white/90 to-zinc-50/70 px-1.5 py-1 last:border-r-0"
+                className="border-r border-zinc-200/60 bg-gradient-to-b from-white/90 to-zinc-50/70 px-0.5 py-1 sm:px-1.5 last:border-r-0"
               >
-                <div className="flex items-center justify-center gap-1.5 leading-none">
-                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 leading-none">
+                  <span className="shrink-0 text-[8px] sm:text-[10px] font-bold sm:font-medium uppercase tracking-tighter sm:tracking-wide text-zinc-500">
                     {WEEKDAYS[col]}
                   </span>
                   <span
-                    className={`flex h-6 min-h-[1.25rem] w-6 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums shadow-sm ${
+                    className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-[11px] font-bold tabular-nums shadow-sm ${
                       today
-                        ? "bg-black text-white shadow-md ring-2 ring-black/25"
+                        ? "bg-black text-white shadow-md ring-1 sm:ring-2 ring-black/25"
                         : "bg-white/90 text-zinc-800 ring-1 ring-zinc-200/80"
                     }`}
                   >
@@ -212,14 +221,14 @@ export function WeekGoogleStyleGrid({
             );
           })}
 
-          <div className="flex items-center border-r border-t border-zinc-200/60 bg-zinc-50/50 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
-            Todo el día
+          <div className="flex items-center justify-center border-r border-t border-zinc-200/60 bg-zinc-50/50 px-1 py-1.5 text-[8px] font-bold uppercase tracking-widest text-zinc-400">
+            {isMobile ? "T.D." : "Todo el día"}
           </div>
           {weekDates.map((d, col) => (
             <div
               key={`allday-${d.toISOString()}`}
-              className="border-r border-t border-zinc-200/60 bg-zinc-50/30 p-1.5 last:border-r-0"
-              style={{ minHeight: allDayRowHeight }}
+              className="border-r border-t border-zinc-200/60 bg-zinc-50/30 p-1 sm:p-1.5 last:border-r-0"
+              style={{ minHeight: isMobile ? 32 : allDayRowHeight }}
             >
               <div className="flex flex-col gap-0.5">
                 {(allDayByCol.get(col) ?? []).map((chip) => {
@@ -235,18 +244,18 @@ export function WeekGoogleStyleGrid({
                   return (
                     <div
                       key={chip.key}
-                      className="flex min-w-0 items-start gap-1 rounded-lg border px-1.5 py-1 text-xs font-medium shadow-sm ring-1 ring-black/[0.04]"
+                      className="flex min-w-0 items-start gap-1 rounded-md sm:rounded-lg border px-1 sm:px-1.5 py-0.5 sm:py-1 text-[9px] sm:text-xs font-bold sm:font-medium shadow-sm ring-1 ring-black/[0.04]"
                       style={{
                         backgroundColor: c.bg,
                         borderColor: c.border,
-                        borderLeftWidth: 3,
+                        borderLeftWidth: isMobile ? 2 : 3,
                         borderLeftColor: c.borderLeft,
                         color: c.text,
                       }}
                       title={chip.title}
                     >
                       <span className="min-w-0 flex-1 truncate">{chip.title}</span>
-                      {showDelete ? (
+                      {showDelete && !isMobile ? (
                         <button
                           type="button"
                           className="shrink-0 rounded p-0.5 opacity-80 hover:bg-black/10 hover:opacity-100 disabled:opacity-40"
@@ -272,20 +281,20 @@ export function WeekGoogleStyleGrid({
         </div>
 
         <div
-          className="flex min-w-[960px] bg-zinc-50/20"
-          style={{ minHeight: GRID_HEIGHT_PX }}
+          className="flex min-w-full bg-zinc-50/20"
+          style={{ minHeight: gridHeightPx }}
         >
           <div
             className="shrink-0 border-r border-zinc-200/60 bg-gradient-to-b from-zinc-50/80 to-white/40"
-            style={{ width: "4.75rem" }}
+            style={{ width: isMobile ? "3rem" : "4.75rem" }}
           >
             {hours.map((h) => (
               <div
                 key={h}
                 className="relative box-border text-right"
-                style={{ height: PX_PER_HOUR }}
+                style={{ height: pxPerHour }}
               >
-                <span className="absolute -top-2.5 right-1.5 font-mono-cli text-xs tabular-nums text-zinc-400">
+                <span className="absolute -top-2.5 right-1 sm:right-1.5 font-mono-cli text-[9px] sm:text-xs tabular-nums text-zinc-400 font-bold">
                   {h.toString().padStart(2, "0")}:00
                 </span>
               </div>
@@ -294,7 +303,7 @@ export function WeekGoogleStyleGrid({
 
           <div
             className="relative grid flex-1 grid-cols-7"
-            style={{ height: GRID_HEIGHT_PX }}
+            style={{ height: gridHeightPx }}
           >
             {weekDates.map((d, col) => (
               <div

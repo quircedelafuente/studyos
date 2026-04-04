@@ -6,6 +6,19 @@ export const PX_PER_HOUR = 76;
 export const HOURS_IN_GRID = 24;
 export const GRID_HEIGHT_PX = PX_PER_HOUR * HOURS_IN_GRID;
 
+/** Versión dinámica para cálculos que dependen del contexto móvil */
+export function getGridMetrics(isMobile: boolean) {
+  // En móvil queremos ver ~9 horas sin scroll.
+  // Altura típica de pantalla libre para el calendario en iOS (después de header/safe area) es ~600px-700px.
+  // 650 / 9 = ~72px. Usaremos un valor dinámico.
+  const pxPerHour = isMobile ? 70 : 76; 
+  return {
+    pxPerHour,
+    hoursInGrid: HOURS_IN_GRID,
+    gridHeightPx: pxPerHour * HOURS_IN_GRID,
+  };
+}
+
 export type ParsedEventRange = {
   start: Date;
   end: Date;
