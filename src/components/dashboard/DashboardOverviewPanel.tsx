@@ -813,7 +813,7 @@ export function DashboardOverviewPanel() {
   const upcomingDeliveries = useMemo<UpcomingDelivery[]>(() => {
     if (typeof window === "undefined") return [];
     const snap = readBbDisplayedCoursesSnapshot();
-    if (!snap.hasConfig) return [];
+    if (!snap.hasConfig && snap.apiCourses.length === 0) return [];
     const now = Date.now();
 
     // Forzamos el semestre actual con la regla existente de Blackboard:
@@ -992,7 +992,7 @@ export function DashboardOverviewPanel() {
   const criticalAlerts = useMemo<UpcomingDelivery[]>(() => {
     if (typeof window === "undefined") return [];
     const snap = readBbDisplayedCoursesSnapshot();
-    if (!snap.hasConfig) return [];
+    if (!snap.hasConfig && snap.apiCourses.length === 0) return [];
     const now = Date.now();
 
     const semesterCourses = filterCoursesByMode(snap.curatedCourses, "__auto__");

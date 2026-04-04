@@ -39,6 +39,7 @@ const rowClass =
 export function CoursesPanel() {
   const [hydrated, setHydrated] = useState(false);
   const [hasConfig, setHasConfig] = useState(false);
+  const [readOnlyFromCloud, setReadOnlyFromCloud] = useState(false);
   const [apiCourses, setApiCourses] = useState<BbCourseItem[]>([]);
   const [curation, setCuration] = useState(loadBbCourseCuration);
   const [filterMode, setFilterModeState] = useState<CourseFilterMode>(() =>
@@ -60,6 +61,7 @@ export function CoursesPanel() {
   const refreshFromStorage = useCallback(() => {
     const snap = readBbDisplayedCoursesSnapshot();
     setHasConfig(snap.hasConfig);
+    setReadOnlyFromCloud(snap.readOnlyBbFromCloud);
     setApiCourses(snap.apiCourses);
     setCuration(snap.curation);
     setFilterModeState(snap.filterMode);
@@ -188,7 +190,7 @@ export function CoursesPanel() {
     );
   }
 
-  if (!hasConfig) {
+  if (!hasConfig && apiCourses.length === 0) {
     return (
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col px-4 py-6 md:px-10 md:py-8">
         <header className="shrink-0">
@@ -217,6 +219,13 @@ export function CoursesPanel() {
         <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
           Tus asignaturas
         </h1>
+        {readOnlyFromCloud ? (
+          <p className="mt-3 max-w-xl rounded-xl border border-sky-200/80 bg-sky-50/50 px-3 py-2 text-sm text-sky-950 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-100">
+            Estás viendo datos de Blackboard <strong>sincronizados desde tu cuenta</strong>. Para
+            actualizarlos, abre IEStudio en el ordenador con la extensión puente y vuelve a sincronizar;
+            al iniciar sesión aquí se cargará la última versión guardada en la nube.
+          </p>
+        ) : null}
         <p className="mt-2 max-w-xl text-sm text-[var(--ink-muted)]">
           Misma lista que en Assignments y Documentos (caché de Blackboard).{" "}
           <strong className="text-[var(--ink)]">Quitar</strong> oculta el curso en todas las pestañas; puedes

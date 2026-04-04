@@ -336,7 +336,11 @@ export function DeadlinesPanel() {
     setDeadlines(loadImportantDeadlines().filter((d) => !d.id.startsWith("study-")));
     setTagRegistry(loadDeadlineTags());
     const snap = readBbDisplayedCoursesSnapshot();
-    setDisplayedCourses(snap.hasConfig ? snap.displayedCourses : []);
+    setDisplayedCourses(
+      snap.hasConfig || snap.apiCourses.length > 0
+        ? snap.displayedCourses
+        : [],
+    );
   }, []);
 
   useEffect(() => {

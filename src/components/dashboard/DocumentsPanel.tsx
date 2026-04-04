@@ -792,7 +792,7 @@ export function DocumentsPanel() {
       catTotals: courseCategoryTotals(snap.curatedCourses),
       curatedLength: snap.curatedCourses.length,
     });
-    if (!snap.hasConfig) {
+    if (!snap.hasConfig && snap.apiCourses.length === 0) {
       setEmptyKind("no_config");
       setCourses([]);
       setActiveId("");

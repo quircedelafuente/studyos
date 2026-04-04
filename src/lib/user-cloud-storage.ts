@@ -15,8 +15,37 @@ import { BB_CONFIG_CHANGED } from "@/lib/blackboard-config";
 
 const SYNC_PREFIX = "iestudio-";
 
+/** Dispara un push inmediato (escucha `UserCloudSync`). */
+export const IESTUDIO_CLOUD_PUSH_REQUEST = "iestudio-cloud-push-request";
+
+/** Último `updated_at` del servidor que aplicamos en local (ISO). Evita pisar datos nuevos con un cliente obsoleto. */
+export const CLOUD_SERVER_APPLIED_AT_KEY = "iestudio-cloud-server-applied-at";
+
 /** Claves que nunca se suben a la nube (documentos / archivos de cursos en este navegador). */
 const CLOUD_EXCLUDE = new Set<string>([MANUAL_COURSES_STORAGE_KEY]);
+
+export function getCloudServerAppliedAt(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(CLOUD_SERVER_APPLIED_AT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setCloudServerAppliedAt(iso: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CLOUD_SERVER_APPLIED_AT_KEY, iso);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function requestCloudSyncPush(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(IESTUDIO_CLOUD_PUSH_REQUEST));
+}
 
 export function collectSyncableEntries(): Record<string, string> {
   if (typeof window === "undefined") return {};

@@ -23,6 +23,7 @@ import {
 import { getDefaultBlackboardBaseUrl } from "@/lib/blackboard-defaults";
 import {
   BB_COURSES_STORAGE_CHANGED,
+  BB_GRADEBOOK_STORAGE_CHANGED,
   loadBbCourses,
   saveBbCourses,
   loadBbGradebook,
@@ -53,6 +54,8 @@ import {
   isBlackboardBridgeConfigured,
   pingBlackboardBridge,
 } from "@/lib/blackboard-bridge-client";
+import { readBbDisplayedCoursesSnapshot } from "@/lib/bb-displayed-courses";
+import { requestCloudSyncPush } from "@/lib/user-cloud-storage";
 import { getSubmissionLight } from "@/lib/blackboard-submission-status";
 
 /* ─── Inline SVG icons ─── */
@@ -337,6 +340,21 @@ export function AssignmentsPanel() {
       window.removeEventListener(BB_COURSES_STORAGE_CHANGED, syncCourses);
   }, []);
 
+  useEffect(() => {
+    const syncGb = () => {
+      const id = selectedCourseIdRef.current;
+      if (!id) return;
+      const cached = loadBbGradebook(id);
+      if (cached) {
+        setGradebook(cached.columns);
+        setGbFetched(cached.fetchedAt);
+      }
+    };
+    window.addEventListener(BB_GRADEBOOK_STORAGE_CHANGED, syncGb);
+    return () =>
+      window.removeEventListener(BB_GRADEBOOK_STORAGE_CHANGED, syncGb);
+  }, []);
+
   const curatedCourses = useMemo(
     () => applyBbCourseCuration(allCourses, curation),
     [allCourses, curation],
@@ -391,6 +409,7 @@ export function AssignmentsPanel() {
     setConfig(newCfg);
     setShowConfig(false);
     void pingBlackboardBridge().then(setBridgeOk);
+    requestCloudSyncPush();
   }
 
   function handleDisconnect() {
@@ -426,6 +445,7 @@ export function AssignmentsPanel() {
       saveBbCourses(courses);
       setCoursesFetched(new Date().toISOString());
       setCurrentSemester(semester);
+      requestCloudSyncPush();
     } catch (e) {
       setCoursesError(e instanceof Error ? e.message : "Error al cargar cursos");
     } finally {
@@ -459,6 +479,7 @@ export function AssignmentsPanel() {
         };
         saveBbGradebook(cache);
         setGbFetched(cache.fetchedAt);
+        requestCloudSyncPush();
       } catch (e) {
         setGbError(e instanceof Error ? e.message : "Error al cargar gradebook");
       } finally {
@@ -513,6 +534,7 @@ export function AssignmentsPanel() {
 
     setBulkGbProgress("");
     setBulkGbLoading(false);
+    if (ok > 0) requestCloudSyncPush();
     if (fail === 0) {
       setBulkGbSummary({
         variant: "success",
@@ -537,8 +559,7 @@ export function AssignmentsPanel() {
     } else {
       setGradebook([]);
       setGbFetched(null);
-      // Sin botón manual de “Actualizar”: si no hay caché, carga automáticamente.
-      void fetchGradebookForCourse(courseId);
+      if (bridgeOk) void fetchGradebookForCourse(courseId);
     }
   }
 
@@ -590,6 +611,15 @@ export function AssignmentsPanel() {
     return withIdx.map((x) => x.col);
   }, [gradebook, gbSortMode]);
 
+  const readOnlyBbView = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const snap = readBbDisplayedCoursesSnapshot();
+    return (
+      snap.readOnlyBbFromCloud ||
+      (bridgeChecked && !bridgeOk && allCourses.length > 0)
+    );
+  }, [bridgeChecked, bridgeOk, allCourses.length]);
+
   /* ─── Render ─── */
 
   if (!configLoaded) {
@@ -612,20 +642,40 @@ export function AssignmentsPanel() {
             Gradebook &amp; Tareas
           </h1>
         </div>
-        {config ? (
-          <button
-            type="button"
-            onClick={() => setShowConfig((v) => !v)}
-            className="shrink-0 rounded-xl border border-[var(--border)] p-2.5 text-[var(--ink-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"
-            aria-label="Ajustes Blackboard"
-          >
-            <IconSettings className="h-5 w-5" />
-          </button>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {!config && allCourses.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowConfig(true)}
+              className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--ink-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"
+            >
+              Ajustes Blackboard
+            </button>
+          ) : null}
+          {config ? (
+            <button
+              type="button"
+              onClick={() => setShowConfig((v) => !v)}
+              className="shrink-0 rounded-xl border border-[var(--border)] p-2.5 text-[var(--ink-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"
+              aria-label="Ajustes Blackboard"
+            >
+              <IconSettings className="h-5 w-5" />
+            </button>
+          ) : null}
+        </div>
       </header>
 
+      {readOnlyBbView ? (
+        <p className="rounded-xl border border-sky-200/80 bg-sky-50/50 px-3 py-2 text-sm text-sky-950 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-100">
+          <strong>Solo lectura:</strong> estás viendo cursos y gradebooks guardados en tu cuenta
+          (sincronizados desde el ordenador). Para actualizar desde Blackboard, usa Chrome/Edge con
+          la extensión puente en el PC; aquí se cargará la última versión al abrir la app o al
+          volver a conexión.
+        </p>
+      ) : null}
+
       {/* ─── Config panel ─── */}
-      {!config || showConfig ? (
+      {(!config && allCourses.length === 0) || showConfig ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
           <h2 className="text-sm font-bold text-[var(--ink)]">
             {config ? "Configuración de Blackboard" : "Conectar con Blackboard Learn"}
@@ -797,7 +847,9 @@ export function AssignmentsPanel() {
                 <button
                   type="button"
                   onClick={() => void fetchCourses()}
-                  disabled={coursesLoading || bulkGbLoading}
+                  disabled={
+                    coursesLoading || bulkGbLoading || readOnlyBbView
+                  }
                   className="flex items-center gap-2 rounded-xl bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                 >
                   <IconRefresh
@@ -811,7 +863,12 @@ export function AssignmentsPanel() {
                   <button
                     type="button"
                     onClick={() => void refreshAllGradebooks()}
-                    disabled={bulkGbLoading || coursesLoading || gbLoading}
+                    disabled={
+                      bulkGbLoading ||
+                      coursesLoading ||
+                      gbLoading ||
+                      readOnlyBbView
+                    }
                     className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)] disabled:opacity-50"
                   >
                     <IconRefresh
@@ -848,7 +905,7 @@ export function AssignmentsPanel() {
       ) : null}
 
       {/* ─── Connected state ─── */}
-      {config && !showConfig ? (
+      {(config || allCourses.length > 0) && !showConfig ? (
         <div className="flex min-h-0 flex-1 flex-col gap-5">
           <div className="flex flex-wrap items-center justify-end gap-3">
             {(coursesLoading || bulkGbLoading) &&
@@ -924,7 +981,12 @@ export function AssignmentsPanel() {
                   <button
                     type="button"
                     onClick={() => void refreshAllGradebooks()}
-                    disabled={bulkGbLoading || coursesLoading || gbLoading}
+                    disabled={
+                      bulkGbLoading ||
+                      coursesLoading ||
+                      gbLoading ||
+                      readOnlyBbView
+                    }
                     className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)] disabled:opacity-50"
                     title="Actualizar todos los gradebooks"
                     aria-label="Actualizar todos los gradebooks"

@@ -17,11 +17,19 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const rows = await sql`
-    SELECT payload FROM user_app_kv WHERE user_id = ${session.user.id}
+    SELECT payload, updated_at FROM user_app_kv WHERE user_id = ${session.user.id}
   `;
-  const row = rows[0] as { payload: unknown } | undefined;
+  const row = rows[0] as
+    | { payload: unknown; updated_at: string | Date }
+    | undefined;
   const entries = normalizeCloudPayload(row?.payload ?? {});
-  return NextResponse.json({ entries });
+  const updatedAt =
+    row?.updated_at instanceof Date
+      ? row.updated_at.toISOString()
+      : typeof row?.updated_at === "string"
+        ? row.updated_at
+        : null;
+  return NextResponse.json({ entries, updatedAt });
 }
 
 export async function PUT(request: Request) {
@@ -48,12 +56,20 @@ export async function PUT(request: Request) {
   );
   delete sanitized[MANUAL_COURSES_STORAGE_KEY];
   const json = JSON.stringify(sanitized);
-  await sql`
+  const out = await sql`
     INSERT INTO user_app_kv (user_id, payload, updated_at)
     VALUES (${session.user.id}, ${json}::jsonb, NOW())
     ON CONFLICT (user_id) DO UPDATE SET
       payload = EXCLUDED.payload,
       updated_at = NOW()
+    RETURNING updated_at
   `;
-  return NextResponse.json({ ok: true });
+  const row = out[0] as { updated_at: string | Date } | undefined;
+  const updatedAt =
+    row?.updated_at instanceof Date
+      ? row.updated_at.toISOString()
+      : typeof row?.updated_at === "string"
+        ? row.updated_at
+        : new Date().toISOString();
+  return NextResponse.json({ ok: true, updatedAt });
 }

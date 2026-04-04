@@ -5,6 +5,10 @@ import { useCallback, useEffect, useRef } from "react";
 import {
   applyCloudEntries,
   collectSyncableEntries,
+  getCloudServerAppliedAt,
+  IESTUDIO_CLOUD_PUSH_REQUEST,
+  normalizeCloudPayload,
+  setCloudServerAppliedAt,
   syncSnapshotSignature,
 } from "@/lib/user-cloud-storage";
 
@@ -15,8 +19,28 @@ export function UserCloudSync() {
   const userId = session?.user?.id;
   const lastPushedSig = useRef<string>("");
 
+  /** Si el servidor tiene un snapshot más reciente, sustituye localStorage (móvil / otro dispositivo). */
+  const syncPullIfServerNewer = useCallback(async () => {
+    const res = await fetch("/api/user-sync", { credentials: "same-origin" });
+    if (!res.ok) return;
+    const data = (await res.json()) as {
+      disabled?: boolean;
+      entries?: Record<string, unknown>;
+      updatedAt?: string | null;
+    };
+    if (data.disabled) return;
+    if (!data.updatedAt) return;
+    const applied = getCloudServerAppliedAt();
+    if (applied !== null && data.updatedAt <= applied) return;
+    const serverEntries = normalizeCloudPayload(data.entries ?? {});
+    applyCloudEntries(serverEntries);
+    setCloudServerAppliedAt(data.updatedAt);
+    lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
+  }, []);
+
   const push = useCallback(async () => {
     if (!userId) return;
+    await syncPullIfServerNewer();
     const entries = collectSyncableEntries();
     const sig = syncSnapshotSignature(entries);
     if (sig === lastPushedSig.current) return;
@@ -26,8 +50,12 @@ export function UserCloudSync() {
       body: JSON.stringify({ entries }),
       credentials: "same-origin",
     });
-    if (res.ok) lastPushedSig.current = sig;
-  }, [userId]);
+    if (res.ok) {
+      const body = (await res.json()) as { updatedAt?: string };
+      if (body.updatedAt) setCloudServerAppliedAt(body.updatedAt);
+      lastPushedSig.current = sig;
+    }
+  }, [userId, syncPullIfServerNewer]);
 
   useEffect(() => {
     if (status !== "authenticated" || !userId) {
@@ -37,18 +65,22 @@ export function UserCloudSync() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/user-sync", { credentials: "same-origin" });
+        const res = await fetch("/api/user-sync", {
+          credentials: "same-origin",
+        });
         if (cancelled || !res.ok) return;
         const data = (await res.json()) as {
           disabled?: boolean;
-          entries?: Record<string, string>;
+          entries?: Record<string, unknown>;
+          updatedAt?: string | null;
         };
         if (data.disabled) return;
-        const server = data.entries ?? {};
+        const server = normalizeCloudPayload(data.entries ?? {});
         if (Object.keys(server).length === 0) {
           await push();
         } else {
           applyCloudEntries(server);
+          if (data.updatedAt) setCloudServerAppliedAt(data.updatedAt);
           lastPushedSig.current = syncSnapshotSignature(
             collectSyncableEntries(),
           );
@@ -69,29 +101,39 @@ export function UserCloudSync() {
     }, PUSH_INTERVAL_MS);
     const onVis = () => {
       if (document.visibilityState === "hidden") void push();
+      if (document.visibilityState === "visible") void syncPullIfServerNewer();
     };
     document.addEventListener("visibilitychange", onVis);
+    const onOnline = () => {
+      void syncPullIfServerNewer();
+      void push();
+    };
+    window.addEventListener("online", onOnline);
     return () => {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("online", onOnline);
     };
+  }, [status, userId, push, syncPullIfServerNewer]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !userId) return;
+    const onReq = () => {
+      void push();
+    };
+    window.addEventListener(IESTUDIO_CLOUD_PUSH_REQUEST, onReq);
+    return () =>
+      window.removeEventListener(IESTUDIO_CLOUD_PUSH_REQUEST, onReq);
   }, [status, userId, push]);
 
   useEffect(() => {
     if (status !== "authenticated" || !userId) return;
     const flush = () => {
-      const entries = collectSyncableEntries();
-      void fetch("/api/user-sync", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries }),
-        keepalive: true,
-        credentials: "same-origin",
-      });
+      void push();
     };
     window.addEventListener("pagehide", flush);
     return () => window.removeEventListener("pagehide", flush);
-  }, [status, userId]);
+  }, [status, userId, push]);
 
   return null;
 }
