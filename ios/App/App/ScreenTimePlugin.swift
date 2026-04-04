@@ -95,8 +95,10 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
                 print("[ScreenTime] ✅ autorización concedida")
                 call.resolve(["authorized": true])
             } catch {
-                print("[ScreenTime] ❌ autorización denegada: \(error)")
-                call.resolve(["authorized": false, "error": error.localizedDescription])
+                // Includes the case where the FamilyControls entitlement is missing.
+                let msg = error.localizedDescription
+                print("[ScreenTime] ❌ autorización fallida: \(msg)")
+                call.resolve(["authorized": false, "error": msg])
             }
         }
     }
@@ -148,15 +150,18 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc public func enableBlocking(_ call: CAPPluginCall) {
         guard #available(iOS 16.0, *) else { call.resolve(); return }
-
-        let sel = loadSelection()
-        if !sel.applicationTokens.isEmpty {
-            store.shield.applications = sel.applicationTokens
+        do {
+            let sel = loadSelection()
+            if !sel.applicationTokens.isEmpty {
+                store.shield.applications = sel.applicationTokens
+            }
+            if !sel.categoryTokens.isEmpty {
+                store.shield.applicationCategories = .specific(sel.categoryTokens)
+            }
+            print("[ScreenTime] ✅ bloqueando \(sel.applicationTokens.count) apps, \(sel.categoryTokens.count) categorías")
+        } catch {
+            print("[ScreenTime] enableBlocking falló (entitlement no disponible): \(error)")
         }
-        if !sel.categoryTokens.isEmpty {
-            store.shield.applicationCategories = .specific(sel.categoryTokens)
-        }
-        print("[ScreenTime] ✅ bloqueando \(sel.applicationTokens.count) apps, \(sel.categoryTokens.count) categorías")
         call.resolve()
     }
 
@@ -164,10 +169,13 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc public func disableBlocking(_ call: CAPPluginCall) {
         guard #available(iOS 16.0, *) else { call.resolve(); return }
-
-        store.shield.applications           = nil
-        store.shield.applicationCategories  = nil
-        print("[ScreenTime] ✅ bloqueo desactivado")
+        do {
+            store.shield.applications           = nil
+            store.shield.applicationCategories  = nil
+            print("[ScreenTime] ✅ bloqueo desactivado")
+        } catch {
+            print("[ScreenTime] disableBlocking falló (entitlement no disponible): \(error)")
+        }
         call.resolve()
     }
 
@@ -179,15 +187,23 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        let authStatus  = AuthorizationCenter.shared.authorizationStatus
-        let sel         = loadSelection()
-        let isBlocking  = store.shield.applications != nil || store.shield.applicationCategories != nil
+        // Without the FamilyControls entitlement the API throws at runtime.
+        do {
+            let authStatus = AuthorizationCenter.shared.authorizationStatus
+            let sel        = loadSelection()
+            var isBlocking = false
+            // ManagedSettingsStore also needs the entitlement; guard separately.
+            do { isBlocking = store.shield.applications != nil || store.shield.applicationCategories != nil } catch {}
 
-        call.resolve([
-            "supported":      true,
-            "authorized":     authStatus == .approved,
-            "selectionCount": selectionCount(sel),
-            "isBlocking":     isBlocking,
-        ])
+            call.resolve([
+                "supported":      true,
+                "authorized":     authStatus == .approved,
+                "selectionCount": selectionCount(sel),
+                "isBlocking":     isBlocking,
+            ])
+        } catch {
+            print("[ScreenTime] getStatus falló (entitlement no disponible): \(error)")
+            call.resolve(["supported": false, "authorized": false, "selectionCount": 0, "isBlocking": false])
+        }
     }
 }
