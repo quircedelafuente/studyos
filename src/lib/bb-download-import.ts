@@ -11,7 +11,13 @@ import {
 import type { CourseFileKind, CourseFileStored, CourseFolder } from "@/types/dashboard";
 
 type TreeFolder = { name: string; parentPath: string | null };
-type TreeFile = { name: string; parentPath: string | null; relativePath: string };
+export type TreeFile = {
+  name: string;
+  parentPath: string | null;
+  relativePath: string;
+  /** Solo en modo manifiesto (descarga en cliente). */
+  sourceUrl?: string;
+};
 export type DownloadTree = { folders: TreeFolder[]; files: TreeFile[] };
 
 function kindFromName(name: string): CourseFileKind {

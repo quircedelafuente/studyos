@@ -17,8 +17,12 @@ type DownloadAllBody = {
   cookieHeader?: string;
   xsrfToken?: string;
   courseName?: string;
-  /** En Vercel / sin disco escribible: empaqueta en ZIP (temp + stream al cliente). */
-  responseMode?: "json" | "zip";
+  /**
+   * - json: escribe en disco del servidor (solo útil en dev local).
+   * - zip: empaqueta en temp y envía ZIP al cliente.
+   * - manifest: solo lista carpetas + URLs por archivo (descarga archivo a archivo en el navegador).
+   */
+  responseMode?: "json" | "zip" | "manifest";
 };
 
 type BbContentsResponse = {
@@ -54,7 +58,13 @@ type BbAttachment = {
 };
 
 type TreeFolder = { name: string; parentPath: string | null };
-type TreeFile = { name: string; parentPath: string | null; relativePath: string };
+type TreeFile = {
+  name: string;
+  parentPath: string | null;
+  relativePath: string;
+  /** Presente si responseMode=manifest (descarga en cliente vía /fetch). */
+  sourceUrl?: string;
+};
 type DownloadTree = { folders: TreeFolder[]; files: TreeFile[] };
 
 /* ── Helpers ── */
@@ -212,7 +222,8 @@ async function crawlContents(
   depth: number,
   tree: DownloadTree,
   treePath: string | null,
-  containerId?: string,
+  containerId: string | undefined,
+  persist: { writeFiles: boolean; mkdirFolders: boolean },
 ): Promise<CrawlStats> {
   if (depth > MAX_DEPTH) return { downloaded: 0, folders: 0, visited: 0, skipped: 0 };
 
@@ -256,14 +267,20 @@ async function crawlContents(
           if (!rawUrl) continue;
           const absolute = rawUrl.startsWith("http") ? rawUrl : `${baseUrl}${rawUrl}`;
           const fileName = sanitizeName(getAttachmentFileName(att) || `${title}-attachment`, "attachment");
+          const relPath = treePath ? `${treePath}/${fileName}` : fileName;
           try {
-            const fileBytes = await bbDownloadBinary(absolute, cookieHeader, xsrfToken);
-            const targetFile = path.join(currentFolder, fileName);
-            await writeFile(targetFile, fileBytes);
+            if (persist.writeFiles) {
+              const fileBytes = await bbDownloadBinary(absolute, cookieHeader, xsrfToken);
+              const targetFile = path.join(currentFolder, fileName);
+              await writeFile(targetFile, fileBytes);
+            }
             downloaded += 1;
-
-            const relPath = treePath ? `${treePath}/${fileName}` : fileName;
-            tree.files.push({ name: fileName, parentPath: treePath, relativePath: relPath });
+            tree.files.push({
+              name: fileName,
+              parentPath: treePath,
+              relativePath: relPath,
+              ...(persist.writeFiles ? {} : { sourceUrl: absolute }),
+            });
           } catch {
             skipped += 1;
           }
@@ -294,14 +311,19 @@ async function crawlContents(
               const bbFileJson = decodeHtmlQuotes(bbFileRaw);
               const parsed = JSON.parse(bbFileJson) as { displayName?: string };
               const fileName = sanitizeName(parsed.displayName ?? "document-attachment", "document-attachment");
-
-              const fileBytes = await bbDownloadBinary(absolute, cookieHeader, xsrfToken);
-              const targetFile = path.join(currentFolder, fileName);
-              await writeFile(targetFile, fileBytes);
-              downloaded += 1;
-
               const relPath = treePath ? `${treePath}/${fileName}` : fileName;
-              tree.files.push({ name: fileName, parentPath: treePath, relativePath: relPath });
+              if (persist.writeFiles) {
+                const fileBytes = await bbDownloadBinary(absolute, cookieHeader, xsrfToken);
+                const targetFile = path.join(currentFolder, fileName);
+                await writeFile(targetFile, fileBytes);
+              }
+              downloaded += 1;
+              tree.files.push({
+                name: fileName,
+                parentPath: treePath,
+                relativePath: relPath,
+                ...(persist.writeFiles ? {} : { sourceUrl: absolute }),
+              });
             } catch {
               skipped += 1;
             }
@@ -322,7 +344,9 @@ async function crawlContents(
 
       const nextFolder = isUltraDocumentBody ? currentFolder : path.join(currentFolder, title);
       if (!isUltraDocumentBody) {
-        await mkdir(nextFolder, { recursive: true });
+        if (persist.mkdirFolders) {
+          await mkdir(nextFolder, { recursive: true });
+        }
         folders += 1;
         tree.folders.push({ name: title, parentPath: treePath });
       }
@@ -332,7 +356,7 @@ async function crawlContents(
         : (treePath ? `${treePath}/${title}` : title);
       const sub = await crawlContents(
         courseId, nextFolder, baseUrl, cookieHeader, xsrfToken,
-        seenIds, depth + 1, tree, childPath, item.id,
+        seenIds, depth + 1, tree, childPath, item.id, persist,
       );
       downloaded += sub.downloaded;
       folders += sub.folders;
@@ -350,14 +374,20 @@ async function crawlContents(
         ? info.permanentUrl
         : `${baseUrl}${info.permanentUrl}`;
 
+      const relPath = treePath ? `${treePath}/${fileName}` : fileName;
       try {
-        const fileBytes = await bbDownloadBinary(absolute, cookieHeader, xsrfToken);
-        const targetFile = path.join(currentFolder, fileName);
-        await writeFile(targetFile, fileBytes);
+        if (persist.writeFiles) {
+          const fileBytes = await bbDownloadBinary(absolute, cookieHeader, xsrfToken);
+          const targetFile = path.join(currentFolder, fileName);
+          await writeFile(targetFile, fileBytes);
+        }
         downloaded += 1;
-
-        const relPath = treePath ? `${treePath}/${fileName}` : fileName;
-        tree.files.push({ name: fileName, parentPath: treePath, relativePath: relPath });
+        tree.files.push({
+          name: fileName,
+          parentPath: treePath,
+          relativePath: relPath,
+          ...(persist.writeFiles ? {} : { sourceUrl: absolute }),
+        });
       } catch {
         skipped += 1;
       }
@@ -420,7 +450,9 @@ export async function POST(
     const { courseId } = await params;
     const body = (await req.json().catch(() => ({}))) as DownloadAllBody;
     const rawBasePath = (body.basePath ?? "").trim();
-    const wantZip = body.responseMode === "zip";
+    const responseMode = body.responseMode ?? "json";
+    const wantZip = responseMode === "zip";
+    const wantManifest = responseMode === "manifest";
     const baseUrl = (body.baseUrl ?? BLACKBOARD_BASE).trim().replace(/\/+$/, "");
     const cookieHeader = typeof body.cookieHeader === "string" ? body.cookieHeader : "";
     const xsrfToken = typeof body.xsrfToken === "string" ? body.xsrfToken : "";
@@ -435,23 +467,71 @@ export async function POST(
     let finalPath: string;
     let workRoot: string | null = null;
 
+    const persist =
+      wantManifest
+        ? { writeFiles: false as const, mkdirFolders: false as const }
+        : { writeFiles: true as const, mkdirFolders: true as const };
+
     if (wantZip) {
       workRoot = path.join(os.tmpdir(), `iestudio-bb-${randomUUID()}`);
       finalPath = path.join(workRoot, dirName);
+    } else if (wantManifest) {
+      finalPath = path.join(
+        os.tmpdir(),
+        `iestudio-mf-${randomUUID()}`,
+        dirName,
+      );
     } else {
       const basePath =
         rawBasePath || path.join(process.cwd(), "downloads", "blackboard");
       finalPath = path.join(basePath, dirName);
     }
 
-    await mkdir(finalPath, { recursive: true });
+    if (!wantManifest) {
+      await mkdir(finalPath, { recursive: true });
+    }
 
     const tree: DownloadTree = { folders: [], files: [] };
 
     const stats = await crawlContents(
-      courseId, finalPath, baseUrl, cookieHeader, xsrfToken,
-      new Set<string>(), 0, tree, null,
+      courseId,
+      finalPath,
+      baseUrl,
+      cookieHeader,
+      xsrfToken,
+      new Set<string>(),
+      0,
+      tree,
+      null,
+      undefined,
+      persist,
     );
+
+    if (wantManifest) {
+      for (const f of tree.files) {
+        if (!f.sourceUrl) {
+          return Response.json(
+            {
+              ok: false,
+              error: "Manifiesto incompleto",
+              detail: "Falta sourceUrl en un archivo",
+            },
+            { status: 500 },
+          );
+        }
+      }
+      return Response.json({
+        ok: true,
+        message: "Manifiesto listo: descarga cada archivo desde el navegador",
+        courseId,
+        responseMode: "manifest" as const,
+        downloadedFiles: stats.downloaded,
+        createdFolders: stats.folders,
+        visitedItems: stats.visited,
+        skippedItems: stats.skipped,
+        tree,
+      });
+    }
 
     if (wantZip) {
       const manifest = {

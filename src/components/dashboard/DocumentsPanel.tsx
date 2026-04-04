@@ -42,6 +42,11 @@ import {
   importBlackboardTreeFromZipBuffer,
   type DownloadTree,
 } from "@/lib/bb-download-import";
+import {
+  downloadManifestToCourseFolder,
+  pickWritableDirectory,
+  supportsFolderPicker,
+} from "@/lib/bb-manifest-to-local";
 import { CourseFilterSelect } from "./CourseFilterSelect";
 import { CourseGlyph } from "./CourseGlyph";
 import { IconFolder } from "./icons";
@@ -59,11 +64,20 @@ function fileBadge(kind: CourseFileStored["kind"]) {
 
 const TEXT_PREVIEW_MAX = 120_000;
 
-/** En producción (Vercel) no hay carpeta `downloads/` en el servidor: usamos ZIP + descarga local. */
-function preferZipDownload(): boolean {
+/** Host desplegado (p. ej. Vercel): sin escritura en disco del servidor. */
+function isDeployedHost(): boolean {
   if (typeof window === "undefined") return false;
   const h = window.location.hostname;
   return h !== "localhost" && h !== "127.0.0.1";
+}
+
+function sanitizeLocalFolderName(name: string, fallback: string): string {
+  const out = name
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return out || fallback;
 }
 
 function guessMimeFromName(name: string): string {
@@ -953,9 +967,33 @@ export function DocumentsPanel() {
 
   async function handleDownloadAll() {
     if (!active || downloadAllBusy) return;
-    const zipMode = preferZipDownload();
+    const deployed = isDeployedHost();
+    const canPick = supportsFolderPicker();
+
     let basePath = "";
-    if (!zipMode) {
+    let responseMode: "json" | "zip" | "manifest" = "json";
+    let courseDir: FileSystemDirectoryHandle | null = null;
+
+    if (deployed && canPick) {
+      responseMode = "manifest";
+      try {
+        const parentDir = await pickWritableDirectory();
+        const safe = sanitizeLocalFolderName(active.name, active.id);
+        courseDir = await parentDir.getDirectoryHandle(safe, { create: true });
+      } catch (e) {
+        if ((e as DOMException).name === "AbortError") return;
+        throw e;
+      }
+    } else if (deployed && !canPick) {
+      if (
+        !window.confirm(
+          "Este navegador no permite elegir una carpeta en tu disco. ¿Quieres descargar todo en un único archivo ZIP?",
+        )
+      ) {
+        return;
+      }
+      responseMode = "zip";
+    } else {
       const defaultPath = `./downloads/blackboard`;
       const basePathRaw = window.prompt(
         "Ruta base para guardar el curso (servidor Next.js local):",
@@ -964,6 +1002,7 @@ export function DocumentsPanel() {
       if (basePathRaw === null) return;
       basePath = basePathRaw.trim();
       if (!basePath) return;
+      responseMode = "json";
     }
 
     const config = loadBbConfig();
@@ -974,15 +1013,16 @@ export function DocumentsPanel() {
       const auth = await bridgeBlackboardAuthSnapshot(
         config?.baseUrl ?? "https://blackboard.ie.edu",
       );
+      const baseUrl = config?.baseUrl ?? "https://blackboard.ie.edu";
       const res = await fetch(
         `/api/courses/${encodeURIComponent(active.id)}/download-all`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...(zipMode ? {} : { basePath }),
-            responseMode: zipMode ? "zip" : "json",
-            baseUrl: config?.baseUrl ?? "https://blackboard.ie.edu",
+            ...(responseMode === "json" ? { basePath } : {}),
+            responseMode,
+            baseUrl,
             cookieHeader: auth.cookieHeader,
             xsrfToken: auth.xsrfToken,
             courseName: active.name,
@@ -991,7 +1031,44 @@ export function DocumentsPanel() {
       );
       const ct = res.headers.get("content-type") ?? "";
 
-      if (zipMode || ct.includes("application/zip")) {
+      if (responseMode === "manifest") {
+        const payload = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          tree?: DownloadTree;
+          error?: string;
+          detail?: string;
+          skippedItems?: number;
+        };
+        if (!res.ok || !payload.ok || !payload.tree || !courseDir) {
+          throw new Error(
+            payload.detail ??
+              payload.error ??
+              "No se pudo obtener el manifiesto del curso.",
+          );
+        }
+        setDownloadAllMsg("Descargando archivo por archivo a tu carpeta…");
+        const out = await downloadManifestToCourseFolder(
+          active.id,
+          active.name,
+          baseUrl,
+          auth.cookieHeader,
+          auth.xsrfToken,
+          payload.tree,
+          courseDir,
+          (label, done, total) => {
+            setDownloadAllMsg(`${label}: ${done}/${total}…`);
+          },
+        );
+        refresh();
+        setDownloadAllMsg(
+          `Listo: ${out.written} archivos guardados en la carpeta que elegiste${
+            out.failed > 0 ? ` (${out.failed} fallidos)` : ""
+          }. En IEStudio: ${out.importedFiles} archivos nuevos, ${out.importedFolders} carpetas (${out.skippedFiles} ya existían).`,
+        );
+        return;
+      }
+
+      if (responseMode === "zip" || ct.includes("application/zip")) {
         if (!res.ok) {
           const errBody = (await res.json().catch(() => ({}))) as {
             detail?: string;
@@ -1084,10 +1161,42 @@ export function DocumentsPanel() {
 
   async function handleSyncAllCourses() {
     if (syncAllBusy || courses.length === 0) return;
-    const zipMode = preferZipDownload();
     const basePath = "./downloads/blackboard";
     const config = loadBbConfig();
     const baseUrl = config?.baseUrl ?? "https://blackboard.ie.edu";
+    const deployed = isDeployedHost();
+    const canPick = supportsFolderPicker();
+
+    let parentRoot: FileSystemDirectoryHandle | undefined;
+    let remoteMode: "manifest" | "zip" | null = null;
+
+    if (deployed) {
+      if (canPick) {
+        try {
+          parentRoot = await pickWritableDirectory();
+        } catch (e) {
+          if ((e as DOMException).name === "AbortError") return;
+          setSyncAllErr(
+            e instanceof Error ? e.message : "No se pudo elegir la carpeta.",
+          );
+          return;
+        }
+        remoteMode = "manifest";
+      } else {
+        if (
+          !window.confirm(
+            "Este navegador no permite elegir una carpeta. ¿Descargar cada curso como un ZIP?",
+          )
+        ) {
+          setSyncAllErr(
+            "Usa Chrome o Edge para guardar todos los cursos en carpetas, o acepta ZIP en el cuadro de confirmación.",
+          );
+          return;
+        }
+        remoteMode = "zip";
+      }
+    }
+
     setSyncAllBusy(true);
     setSyncAllErr(null);
     setSyncAllMsg("Obteniendo credenciales...");
@@ -1136,8 +1245,8 @@ export function DocumentsPanel() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                ...(zipMode ? {} : { basePath }),
-                responseMode: zipMode ? "zip" : "json",
+                ...(remoteMode ? {} : { basePath }),
+                responseMode: remoteMode ?? "json",
                 baseUrl,
                 cookieHeader: auth.cookieHeader,
                 xsrfToken: auth.xsrfToken,
@@ -1147,7 +1256,45 @@ export function DocumentsPanel() {
           );
           const ct = res.headers.get("content-type") ?? "";
 
-          if (zipMode || ct.includes("application/zip")) {
+          if (remoteMode === "manifest" && parentRoot) {
+            const body = (await res.json().catch(() => ({}))) as {
+              ok?: boolean;
+              tree?: DownloadTree;
+              error?: string;
+              detail?: string;
+            };
+            if (res.ok && body?.ok && body.tree) {
+              const safe = sanitizeLocalFolderName(c.name, c.id);
+              const courseDir = await parentRoot.getDirectoryHandle(safe, {
+                create: true,
+              });
+              setSyncAllMsg(
+                `Curso ${i + 1}/${courses.length}: ${c.name} — guardando archivos en tu carpeta…`,
+              );
+              const out = await downloadManifestToCourseFolder(
+                c.id,
+                c.name,
+                baseUrl,
+                auth.cookieHeader,
+                auth.xsrfToken,
+                body.tree,
+                courseDir,
+                (label, done, total) => {
+                  setSyncAllMsg(
+                    `Curso ${i + 1}/${courses.length}: ${c.name} — ${label} ${done}/${total}…`,
+                  );
+                },
+              );
+              totalFiles += out.importedFiles;
+              totalFolders += out.importedFolders;
+              totalSkipped += out.skippedFiles;
+              coursesOk += 1;
+              refresh();
+              courseDone = true;
+              break;
+            }
+            lastErr = body?.detail ?? body?.error ?? `HTTP ${res.status}`;
+          } else if (remoteMode === "zip" || ct.includes("application/zip")) {
             if (!res.ok) {
               const errBody = (await res.json().catch(() => ({}))) as {
                 detail?: string;
