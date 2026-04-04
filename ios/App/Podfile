@@ -18,6 +18,11 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+
+  # Widget Extension (Live Activity) — sin pods propios, hosted en App
+  target 'StudyWidget' do
+    inherit! :none
+  end
 end
 
 post_install do |installer|
