@@ -36,11 +36,25 @@ export function LiveActivitySync() {
     progressPct,
   } = useStudyArena();
 
+  // ── State refs ─────────────────────────────────────────────────────────
   const activityActiveRef = useRef(false);
   const prevRunIdRef      = useRef<string | null>(null);
   const prevPausedRef     = useRef<boolean>(false);
   const prevFocusRef      = useRef<number>(100);
   const prevDistractRef   = useRef<number>(0);
+
+  /**
+   * true mientras la app está en primer plano.
+   * Se asume true en el arranque porque el componente solo se monta cuando la
+   * app está activa.
+   */
+  const isAppActiveRef  = useRef(true);
+
+  /**
+   * Se activa cuando un start() fue bloqueado porque la app estaba en segundo
+   * plano. Se ejecuta en cuanto la app vuelve al primer plano.
+   */
+  const pendingStartRef = useRef(false);
 
   // Refs para el intervalo periódico (sin generar closures sobre props)
   const activeSessionRef = useRef(activeSession);
@@ -53,7 +67,47 @@ export function LiveActivitySync() {
   useEffect(() => { distractRef.current      = distractionCount; }, [distractionCount]);
   useEffect(() => { progressRef.current      = progressPct;   }, [progressPct]);
 
-  // ── Arrancar / terminar Live Activity ───────────────────────────────────
+  // ── Helper: ejecutar un start() contra el plugin ────────────────────────
+  const doStart = async (
+    session: NonNullable<typeof activeSession>,
+    fScore: number,
+  ): Promise<boolean> => {
+    try {
+      const { default: LiveActivity } = await import("@/plugins/LiveActivityPlugin");
+      const { supported } = await LiveActivity.isSupported();
+      if (!supported) return false;
+
+      const endTimestampMs = computeEndTimestampMs(session);
+      const res = await LiveActivity.start({
+        sessionTitle:         session.planTitle,
+        subject:              session.focus || session.sessionTitle || "",
+        totalDurationSeconds: Math.round(session.totalDurationMs / 1000),
+        endTimestampMs,
+        focusScore: fScore,
+      });
+
+      if (res.activityId) {
+        activityActiveRef.current = true;
+        pendingStartRef.current   = false;
+        prevPausedRef.current     = false;
+        prevFocusRef.current      = fScore;
+        prevDistractRef.current   = 0;
+        console.log(`[LiveActivitySync] ✅ actividad iniciada id=${res.activityId}`);
+        return true;
+      }
+
+      // activityId vacío = app en background; reintentaremos en primer plano
+      console.warn("[LiveActivitySync] start() devolvió activityId vacío — marcando como pendiente");
+      pendingStartRef.current = true;
+      return false;
+    } catch (e) {
+      console.error("[LiveActivitySync] start() error:", e);
+      pendingStartRef.current = true;
+      return false;
+    }
+  };
+
+  // ── Arrancar / terminar Live Activity cuando cambia el arenaRunId ────────
   useEffect(() => {
     if (!isCapacitorIOS()) return;
 
@@ -64,20 +118,10 @@ export function LiveActivitySync() {
     prevRunIdRef.current = runId;
 
     void (async () => {
-      let LiveActivity: Awaited<typeof import("@/plugins/LiveActivityPlugin")>["default"] | null = null;
-      try {
-        LiveActivity = (await import("@/plugins/LiveActivityPlugin")).default;
-      } catch (e) {
-        console.error("[LiveActivitySync] error importando plugin:", e);
-        return;
-      }
-
-      let supported = false;
-      try {
-        supported = (await LiveActivity.isSupported()).supported;
-      } catch (e) {
-        console.error("[LiveActivitySync] isSupported error:", e);
-      }
+      const { default: LiveActivity } = await import("@/plugins/LiveActivityPlugin").catch(() => ({
+        default: null,
+      }));
+      if (!LiveActivity) return;
 
       // Terminar actividad anterior si existía
       if (activityActiveRef.current) {
@@ -87,32 +131,19 @@ export function LiveActivitySync() {
         activityActiveRef.current = false;
       }
 
-      // Arrancar nueva actividad
-      if (runId !== null && activeSession && supported) {
-        const totalSec       = Math.round(activeSession.totalDurationMs / 1000);
-        const endTimestampMs = computeEndTimestampMs(activeSession);
-
-        try {
-          const res = await LiveActivity.start({
-            sessionTitle:         activeSession.planTitle,
-            subject:              activeSession.focus || activeSession.sessionTitle || "",
-            totalDurationSeconds: totalSec,
-            endTimestampMs,
-            focusScore,
-          });
-          if (res.activityId) {
-            activityActiveRef.current = true;
-            prevPausedRef.current     = false;
-            prevFocusRef.current      = focusScore;
-            prevDistractRef.current   = 0;
-            console.log(`[LiveActivitySync] ✅ actividad iniciada id=${res.activityId}`);
-          } else {
-            console.warn("[LiveActivitySync] start() devolvió activityId vacío — Live Activities puede estar deshabilitado en Ajustes");
-          }
-        } catch (e) {
-          console.error("[LiveActivitySync] start() error:", e);
-        }
+      if (runId === null || !activeSession) {
+        pendingStartRef.current = false;
+        return;
       }
+
+      // Si la app está en segundo plano, diferir el start
+      if (!isAppActiveRef.current) {
+        console.log("[LiveActivitySync] app en segundo plano — start aplazado");
+        pendingStartRef.current = true;
+        return;
+      }
+
+      await doStart(activeSession, focusScore);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSession?.arenaRunId]);
@@ -151,7 +182,6 @@ export function LiveActivitySync() {
   }, [paused, focusScore, distractionCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Recalibración periódica del contador (cada 60 s) ─────────────────────
-  // Evita deriva acumulada entre el ring de React y el Text(timerInterval) nativo.
   useEffect(() => {
     if (!isCapacitorIOS()) return;
 
@@ -180,9 +210,7 @@ export function LiveActivitySync() {
     return () => window.clearInterval(id);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Detección de vuelta al primer plano (cross-device sync) ──────────────
-  // Cuando el usuario trae la app al frente, forzamos un pull de la nube para
-  // detectar sesiones iniciadas en otro dispositivo mientras estaba en segundo plano.
+  // ── Gestión del estado de primer/segundo plano ───────────────────────────
   useEffect(() => {
     if (!isCapacitorIOS()) return;
 
@@ -190,11 +218,23 @@ export function LiveActivitySync() {
 
     void import("@capacitor/app").then(({ App }) => {
       const listenerPromise = App.addListener("appStateChange", ({ isActive }) => {
+        isAppActiveRef.current = isActive;
+
         if (!isActive) return;
-        // Dispara un pull inmediato; si hay una sesión nueva en la nube,
-        // CloudSyncProvider → applyCloudEntries → STUDY_ARENA_CHANGED_EVENT
-        // → StudyArenaProvider recarga → este componente arranca la actividad.
+
+        // App vuelve al primer plano: pull inmediato para detectar sesiones
+        // iniciadas en otro dispositivo mientras estábamos en segundo plano.
         requestCloudSyncPull();
+
+        // Si había un start() pendiente (bloqueado por background), ejecutarlo ahora.
+        if (pendingStartRef.current && !activityActiveRef.current) {
+          const session = activeSessionRef.current;
+          if (session) {
+            pendingStartRef.current = false;
+            console.log("[LiveActivitySync] ejecutando start() pendiente tras volver al primer plano");
+            void doStart(session, focusScoreRef.current);
+          }
+        }
       });
 
       cleanup = () => {

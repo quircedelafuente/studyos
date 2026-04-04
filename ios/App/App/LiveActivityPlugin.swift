@@ -1,6 +1,7 @@
 import ActivityKit
 import Capacitor
 import Foundation
+import UIKit
 
 @objc(LiveActivityPlugin)
 public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -53,6 +54,21 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
 
         guard authInfo.areActivitiesEnabled else {
             print("[LiveActivity] Live Activities deshabilitadas — ve a Ajustes › \(Bundle.main.bundleIdentifier ?? "app") › Actividades en vivo")
+            call.resolve(["activityId": ""])
+            return
+        }
+
+        // ActivityKit sólo permite request() cuando la app está en primer plano.
+        var appIsActive = false
+        if Thread.isMainThread {
+            appIsActive = UIApplication.shared.applicationState == .active
+        } else {
+            DispatchQueue.main.sync {
+                appIsActive = UIApplication.shared.applicationState == .active
+            }
+        }
+        guard appIsActive else {
+            print("[LiveActivity] app en segundo plano — start() aplazado (devuelve vacío para que JS lo reintente en primer plano)")
             call.resolve(["activityId": ""])
             return
         }
