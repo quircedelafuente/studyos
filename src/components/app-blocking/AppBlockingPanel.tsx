@@ -8,6 +8,11 @@ async function getPlugin() {
   return ScreenTime;
 }
 
+/** Races a promise against a timeout; returns the fallback value if it wins. */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([p, new Promise<T>((res) => setTimeout(() => res(fallback), ms))]);
+}
+
 export function AppBlockingPanel() {
   const [status, setStatus] = useState<ScreenTimeStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -16,10 +21,15 @@ export function AppBlockingPanel() {
   const refresh = useCallback(async () => {
     try {
       const plugin = await getPlugin();
-      const s = await plugin.getStatus();
+      const notAvailable: import("@/plugins/ScreenTimePlugin").ScreenTimeStatus = {
+        supported: false, authorized: false, selectionCount: 0, isBlocking: false,
+      };
+      // If the native class is missing, Capacitor silently drops the call and the
+      // promise never settles. Race with a 5 s timeout so we don't hang forever.
+      const s = await withTimeout(plugin.getStatus(), 5000, notAvailable);
       setStatus(s);
     } catch {
-      setStatus(null);
+      setStatus({ supported: false, authorized: false, selectionCount: 0, isBlocking: false });
     } finally {
       setLoading(false);
     }
@@ -33,8 +43,9 @@ export function AppBlockingPanel() {
     setActionLoading(true);
     try {
       const plugin = await getPlugin();
-      const res = await plugin.requestAuthorization();
-      if (!res.authorized && res.error) {
+      const fallback = { authorized: false, error: "timeout" };
+      const res = await withTimeout(plugin.requestAuthorization(), 30000, fallback);
+      if (!res.authorized && res.error && res.error !== "timeout") {
         alert(`No se pudo autorizar: ${res.error}`);
       }
       await refresh();
@@ -47,7 +58,7 @@ export function AppBlockingPanel() {
     setActionLoading(true);
     try {
       const plugin = await getPlugin();
-      await plugin.presentAppPicker();
+      await withTimeout(plugin.presentAppPicker(), 120000, { count: 0 });
       await refresh();
     } finally {
       setActionLoading(false);
@@ -64,16 +75,34 @@ export function AppBlockingPanel() {
 
   if (!status?.supported) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-        <div className="rounded-2xl bg-[var(--surface-muted)] p-4">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+        <div className="rounded-2xl bg-[var(--surface-muted)] p-5">
           <svg className="mx-auto h-10 w-10 text-[var(--ink-faint)]" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path d="M12 2C8.13 2 5 5.13 5 9v2H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2v-9a2 2 0 00-2-2h-1V9c0-3.87-3.13-7-7-7zm0 2c2.76 0 5 2.24 5 5v2H7V9c0-2.76 2.24-5 5-5zm0 9a2 2 0 110 4 2 2 0 010-4z" fill="currentColor" />
+            <path d="M12 2L4 6v6c0 4.97 3.37 9.63 8 10.93C17.63 21.63 21 16.97 21 12V6l-9-4z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
           </svg>
         </div>
-        <p className="text-sm font-medium text-[var(--ink)]">Requiere iOS 16 o superior</p>
-        <p className="text-xs text-[var(--ink-muted)]">
-          El bloqueo de apps usa la API de Screen Time de Apple, disponible desde iOS 16.
-        </p>
+        <div>
+          <p className="text-sm font-semibold text-[var(--ink)]">Configuración pendiente</p>
+          <p className="mt-1 text-xs text-[var(--ink-muted)]">
+            El plugin nativo de Screen Time necesita estar compilado en el proyecto Xcode.
+          </p>
+        </div>
+        <div className="w-full rounded-2xl bg-[var(--surface)] p-4 text-left">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-indigo-400">Pasos en Xcode</p>
+          <ol className="space-y-1.5 text-xs text-[var(--ink-muted)]">
+            <li>1. Añade <code className="rounded bg-[var(--surface-muted)] px-1 text-[var(--ink)]">ScreenTimePlugin.swift</code> al target <strong>App</strong></li>
+            <li>2. Enlaza <code className="rounded bg-[var(--surface-muted)] px-1 text-[var(--ink)]">FamilyControls.framework</code> y <code className="rounded bg-[var(--surface-muted)] px-1 text-[var(--ink)]">ManagedSettings.framework</code></li>
+            <li>3. Build Settings → Code Signing Entitlements → <code className="rounded bg-[var(--surface-muted)] px-1 text-[var(--ink)]">App/App.entitlements</code></li>
+            <li>4. Ejecuta <code className="rounded bg-[var(--surface-muted)] px-1 text-[var(--ink)]">ruby ios/App/setup_screen_time.rb</code> para hacerlo automáticamente</li>
+          </ol>
+        </div>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--ink)] transition active:opacity-70"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }

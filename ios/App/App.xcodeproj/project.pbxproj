@@ -17,9 +17,12 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		592FA68D76A206A7B2A1D766 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8696BAC1F523499E411269A1 /* ActivityKit.framework */; };
+		609F91D4499EB165C6EE8998 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1EC6900D695F1C0BD6E8C1FE /* ManagedSettings.framework */; };
 		796276FC484176E20E262447 /* StudyWidget in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 309AEAB4F13A95EF6CD5124D /* StudyWidget */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		82D562DB4B2367D7560D044A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C28FFAC998FF4434FC648C66 /* WidgetKit.framework */; };
+		85FF8228413223D06EEE460E /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 218579063AC4932522565271 /* FamilyControls.framework */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
+		C71C08E3FE11E94E7654B72C /* ScreenTimePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47634CDE2B2654664E7D864 /* ScreenTimePlugin.swift */; };
 		CD67765CA9074F09DE019EF6 /* StudyWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15C0ECD96D2720BF2409CD36 /* StudyWidgetBundle.swift */; };
 		D214C2E9FE9125098E32025F /* StudySessionAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1319492CB6CCC86B0FE4B0A7 /* StudySessionAttributes.swift */; };
 		EA7792830F2A1B2AEA7742A5 /* LiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AA4BD0AC83765E632DA631 /* LiveActivityPlugin.swift */; };
@@ -53,6 +56,8 @@
 /* Begin PBXFileReference section */
 		1319492CB6CCC86B0FE4B0A7 /* StudySessionAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StudySessionAttributes.swift; sourceTree = "<group>"; };
 		15C0ECD96D2720BF2409CD36 /* StudyWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StudyWidgetBundle.swift; sourceTree = "<group>"; };
+		1EC6900D695F1C0BD6E8C1FE /* ManagedSettings.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettings.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/ManagedSettings.framework; sourceTree = DEVELOPER_DIR; };
+		218579063AC4932522565271 /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/FamilyControls.framework; sourceTree = DEVELOPER_DIR; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		309AEAB4F13A95EF6CD5124D /* StudyWidget */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = StudyWidget; path = StudyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		48C7EB64B87F41F229998B31 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -71,6 +76,7 @@
 		C28FFAC998FF4434FC648C66 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/WidgetKit.framework; sourceTree = DEVELOPER_DIR; };
 		E0AA4BD0AC83765E632DA631 /* LiveActivityPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityPlugin.swift; sourceTree = "<group>"; };
 		E870D315C3F550EA363D9A96 /* StudyWidgetLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StudyWidgetLiveActivity.swift; sourceTree = "<group>"; };
+		F47634CDE2B2654664E7D864 /* ScreenTimePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenTimePlugin.swift; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -80,6 +86,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */,
+				85FF8228413223D06EEE460E /* FamilyControls.framework in Frameworks */,
+				609F91D4499EB165C6EE8998 /* ManagedSettings.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,6 +131,8 @@
 				AC268E940A6FE17392394EB9 /* Foundation.framework */,
 				C28FFAC998FF4434FC648C66 /* WidgetKit.framework */,
 				8696BAC1F523499E411269A1 /* ActivityKit.framework */,
+				218579063AC4932522565271 /* FamilyControls.framework */,
+				1EC6900D695F1C0BD6E8C1FE /* ManagedSettings.framework */,
 			);
 			name = iOS;
 			sourceTree = "<group>";
@@ -159,6 +169,7 @@
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				E0AA4BD0AC83765E632DA631 /* LiveActivityPlugin.swift */,
+				F47634CDE2B2654664E7D864 /* ScreenTimePlugin.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -319,6 +330,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				10162636718C010A5144804D /* StudySessionAttributes.swift in Sources */,
 				EA7792830F2A1B2AEA7742A5 /* LiveActivityPlugin.swift in Sources */,
+				C71C08E3FE11E94E7654B72C /* ScreenTimePlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -475,6 +487,7 @@
 			baseConfigurationReference = FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = QCQL2JX4UQ;
@@ -496,6 +509,7 @@
 			baseConfigurationReference = AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = QCQL2JX4UQ;
