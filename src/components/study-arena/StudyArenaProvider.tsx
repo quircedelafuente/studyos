@@ -9,6 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  loadStudyArenaState,
+  saveStudyArenaState,
+  STUDY_ARENA_CHANGED_EVENT,
+  STUDY_ARENA_STORAGE_KEY,
+} from "@/lib/study-arena-storage";
 
 export type StudyArenaSessionOption = {
   key: string;
@@ -81,6 +87,62 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
+function toActiveSession(raw: unknown): StudyArenaActiveSession | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (
+    typeof o.key !== "string" ||
+    typeof o.planId !== "string" ||
+    typeof o.planTitle !== "string" ||
+    typeof o.date !== "string" ||
+    typeof o.studyHours !== "number" ||
+    typeof o.focus !== "string" ||
+    typeof o.arenaRunId !== "string" ||
+    typeof o.totalDurationMs !== "number" ||
+    typeof o.startedAtMs !== "number" ||
+    typeof o.elapsedActiveMs !== "number" ||
+    (o.segmentStartMs !== null && typeof o.segmentStartMs !== "number") ||
+    typeof o.paused !== "boolean" ||
+    typeof o.distractionCount !== "number" ||
+    typeof o.focusScore !== "number" ||
+    typeof o.lastInteractionMs !== "number"
+  ) {
+    return null;
+  }
+  return {
+    key: o.key,
+    planId: o.planId,
+    planTitle: o.planTitle,
+    date: o.date,
+    studyHours: o.studyHours,
+    focus: o.focus,
+    sessionTitle: typeof o.sessionTitle === "string" ? o.sessionTitle : undefined,
+    arenaRunId: o.arenaRunId,
+    totalDurationMs: o.totalDurationMs,
+    startedAtMs: o.startedAtMs,
+    elapsedActiveMs: o.elapsedActiveMs,
+    segmentStartMs: o.segmentStartMs,
+    paused: o.paused,
+    distractionCount: o.distractionCount,
+    focusScore: o.focusScore,
+    lastInteractionMs: o.lastInteractionMs,
+  };
+}
+
+function toFalsePrompt(raw: unknown): FalseSessionPrompt | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const reason = o.reason;
+  const mode = o.mode;
+  if (
+    (reason !== "too_short" && reason !== "too_long") ||
+    (mode !== "active" && mode !== "ended")
+  ) {
+    return null;
+  }
+  return { reason, mode };
+}
+
 function computeElapsedActiveMs(s: StudyArenaActiveSession, nowMs: number): number {
   if (s.paused || s.segmentStartMs == null) return s.elapsedActiveMs;
   return s.elapsedActiveMs + (nowMs - s.segmentStartMs);
@@ -133,9 +195,18 @@ function restartSessionState(s: StudyArenaActiveSession, nowMs: number) {
 }
 
 export function StudyArenaProvider({ children }: { children: React.ReactNode }) {
-  const [activeSession, setActiveSession] = useState<StudyArenaActiveSession | null>(null);
-  const [falseSessionPrompt, setFalseSessionPrompt] = useState<FalseSessionPrompt | null>(null);
-  const [suppressFloatingWidget, setSuppressFloatingWidget] = useState(false);
+  const [activeSession, setActiveSession] = useState<StudyArenaActiveSession | null>(() => {
+    const saved = loadStudyArenaState();
+    return toActiveSession(saved?.activeSession ?? null);
+  });
+  const [falseSessionPrompt, setFalseSessionPrompt] = useState<FalseSessionPrompt | null>(() => {
+    const saved = loadStudyArenaState();
+    return toFalsePrompt(saved?.falseSessionPrompt ?? null);
+  });
+  const [suppressFloatingWidget, setSuppressFloatingWidget] = useState(() => {
+    const saved = loadStudyArenaState();
+    return Boolean(saved?.suppressFloatingWidget);
+  });
   const [tickNowMs, setTickNowMs] = useState(() => Date.now());
 
   const activeSessionRef = useRef<StudyArenaActiveSession | null>(null);
@@ -150,6 +221,40 @@ export function StudyArenaProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     promptRef.current = falseSessionPrompt;
   }, [falseSessionPrompt]);
+
+  useEffect(() => {
+    saveStudyArenaState({
+      activeSession,
+      falseSessionPrompt,
+      suppressFloatingWidget,
+    });
+  }, [activeSession, falseSessionPrompt, suppressFloatingWidget]);
+
+  useEffect(() => {
+    const reloadFromStorage = () => {
+      const saved = loadStudyArenaState();
+      if (!saved) {
+        setActiveSession(null);
+        setFalseSessionPrompt(null);
+        setSuppressFloatingWidget(false);
+        return;
+      }
+      setActiveSession(toActiveSession(saved.activeSession));
+      setFalseSessionPrompt(toFalsePrompt(saved.falseSessionPrompt));
+      setSuppressFloatingWidget(Boolean(saved.suppressFloatingWidget));
+    };
+    const onStorage = (ev: StorageEvent) => {
+      if (ev.key === null || ev.key === STUDY_ARENA_STORAGE_KEY) {
+        reloadFromStorage();
+      }
+    };
+    window.addEventListener(STUDY_ARENA_CHANGED_EVENT, reloadFromStorage);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(STUDY_ARENA_CHANGED_EVENT, reloadFromStorage);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   const derived = useMemo(() => {
     if (!activeSession) {

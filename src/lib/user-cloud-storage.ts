@@ -12,6 +12,7 @@ import {
 import { BB_COURSE_FILTER_CHANGED } from "@/lib/bb-course-filter-prefs";
 import { BB_COURSE_CURATION_CHANGED } from "@/lib/bb-course-curation";
 import { BB_CONFIG_CHANGED } from "@/lib/blackboard-config";
+import { STUDY_ARENA_CHANGED_EVENT } from "@/lib/study-arena-storage";
 
 const SYNC_PREFIX = "iestudio-";
 
@@ -106,4 +107,5 @@ export function dispatchCloudRefreshEvents(): void {
   window.dispatchEvent(new Event(BB_COURSE_FILTER_CHANGED));
   window.dispatchEvent(new Event(BB_COURSE_CURATION_CHANGED));
   window.dispatchEvent(new Event(BB_CONFIG_CHANGED));
+  window.dispatchEvent(new Event(STUDY_ARENA_CHANGED_EVENT));
 }

@@ -1,0 +1,280 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useSession } from "next-auth/react";
+import {
+  applyCloudEntries,
+  collectSyncableEntries,
+  syncSnapshotSignature,
+} from "@/lib/user-cloud-storage";
+
+const PUSH_INTERVAL_MS = 12_000;
+const PULL_INTERVAL_MS = 12_000;
+
+export type CloudSyncStatus = {
+  /** null = aún no sabemos; false = Neon/API desactivada (503). */
+  cloudEnabled: boolean | null;
+  lastUploadOkAt: number | null;
+  lastUploadError: string | null;
+  lastReceiveOkAt: number | null;
+  lastReceiveError: string | null;
+  isUploading: boolean;
+  isReceiving: boolean;
+};
+
+const initialStatus: CloudSyncStatus = {
+  cloudEnabled: null,
+  lastUploadOkAt: null,
+  lastUploadError: null,
+  lastReceiveOkAt: null,
+  lastReceiveError: null,
+  isUploading: false,
+  isReceiving: false,
+};
+
+const CloudSyncContext = createContext<CloudSyncStatus | null>(null);
+
+export function useCloudSyncStatus(): CloudSyncStatus | null {
+  return useContext(CloudSyncContext);
+}
+
+export function CloudSyncProvider({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id;
+  const lastPushedSig = useRef<string>("");
+  const pullInFlight = useRef(false);
+  const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>(initialStatus);
+
+  const patch = useCallback((partial: Partial<CloudSyncStatus>) => {
+    setSyncStatus((prev) => ({ ...prev, ...partial }));
+  }, []);
+
+  const push = useCallback(async () => {
+    if (!userId) return;
+    const entries = collectSyncableEntries();
+    const sig = syncSnapshotSignature(entries);
+    if (sig === lastPushedSig.current) return;
+    patch({ isUploading: true, lastUploadError: null });
+    try {
+      const res = await fetch("/api/user-sync", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries }),
+        credentials: "same-origin",
+      });
+      if (res.status === 503) {
+        const data = (await res.json().catch(() => ({}))) as {
+          disabled?: boolean;
+        };
+        if (data.disabled) {
+          patch({ cloudEnabled: false, lastUploadError: null });
+          return;
+        }
+      }
+      if (res.ok) {
+        lastPushedSig.current = sig;
+        patch({
+          lastUploadOkAt: Date.now(),
+          lastUploadError: null,
+          cloudEnabled: true,
+        });
+      } else {
+        const text = await res.text().catch(() => "");
+        patch({
+          lastUploadError: text.slice(0, 120) || `HTTP ${res.status}`,
+        });
+      }
+    } catch (e) {
+      patch({
+        lastUploadError:
+          e instanceof Error ? e.message.slice(0, 120) : "Error de red",
+      });
+    } finally {
+      patch({ isUploading: false });
+    }
+  }, [userId, patch]);
+
+  const pull = useCallback(async () => {
+    if (!userId || pullInFlight.current) return;
+    pullInFlight.current = true;
+    patch({ isReceiving: true, lastReceiveError: null });
+    try {
+      const res = await fetch("/api/user-sync", { credentials: "same-origin" });
+      if (res.status === 503) {
+        const data = (await res.json().catch(() => ({}))) as {
+          disabled?: boolean;
+        };
+        if (data.disabled) {
+          patch({
+            cloudEnabled: false,
+            lastReceiveOkAt: null,
+            lastReceiveError: null,
+          });
+          return;
+        }
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        patch({
+          lastReceiveError: text.slice(0, 120) || `HTTP ${res.status}`,
+        });
+        return;
+      }
+      const data = (await res.json()) as {
+        disabled?: boolean;
+        entries?: Record<string, string>;
+      };
+      if (data.disabled) {
+        patch({ cloudEnabled: false });
+        return;
+      }
+      patch({
+        cloudEnabled: true,
+        lastReceiveOkAt: Date.now(),
+        lastReceiveError: null,
+      });
+
+      const serverEntries = data.entries ?? {};
+      const serverSig = syncSnapshotSignature(serverEntries);
+      const localEntries = collectSyncableEntries();
+      const localSig = syncSnapshotSignature(localEntries);
+
+      if (serverSig === localSig) {
+        lastPushedSig.current = localSig;
+        return;
+      }
+      if (localSig === lastPushedSig.current) {
+        applyCloudEntries(serverEntries);
+        lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
+      }
+    } catch (e) {
+      patch({
+        lastReceiveError:
+          e instanceof Error ? e.message.slice(0, 120) : "Sin conexión",
+      });
+    } finally {
+      pullInFlight.current = false;
+      patch({ isReceiving: false });
+    }
+  }, [userId, patch]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !userId) {
+      lastPushedSig.current = "";
+      setSyncStatus(initialStatus);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      patch({ isReceiving: true, lastReceiveError: null });
+      try {
+        const res = await fetch("/api/user-sync", { credentials: "same-origin" });
+        if (cancelled) return;
+        if (res.status === 503) {
+          const data = (await res.json().catch(() => ({}))) as {
+            disabled?: boolean;
+          };
+          if (data.disabled) {
+            patch({ cloudEnabled: false, isReceiving: false });
+            return;
+          }
+        }
+        if (!res.ok) {
+          patch({
+            lastReceiveError: `HTTP ${res.status}`,
+            isReceiving: false,
+          });
+          return;
+        }
+        const data = (await res.json()) as {
+          disabled?: boolean;
+          entries?: Record<string, string>;
+        };
+        if (data.disabled) {
+          patch({ cloudEnabled: false, isReceiving: false });
+          return;
+        }
+        patch({
+          cloudEnabled: true,
+          lastReceiveOkAt: Date.now(),
+          lastReceiveError: null,
+        });
+        const server = data.entries ?? {};
+        if (Object.keys(server).length === 0) {
+          await push();
+        } else {
+          applyCloudEntries(server);
+          lastPushedSig.current = syncSnapshotSignature(
+            collectSyncableEntries(),
+          );
+        }
+      } catch (e) {
+        if (!cancelled) {
+          patch({
+            lastReceiveError:
+              e instanceof Error ? e.message.slice(0, 120) : "Sin conexión",
+          });
+        }
+      } finally {
+        if (!cancelled) patch({ isReceiving: false });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, userId, push, patch]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !userId) return;
+    const pushId = window.setInterval(() => {
+      void push();
+    }, PUSH_INTERVAL_MS);
+    const pullId = window.setInterval(() => {
+      void pull();
+    }, PULL_INTERVAL_MS);
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        void push();
+      } else {
+        void pull();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearInterval(pushId);
+      window.clearInterval(pullId);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [status, userId, pull, push]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !userId) return;
+    const flush = () => {
+      const entries = collectSyncableEntries();
+      void fetch("/api/user-sync", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries }),
+        keepalive: true,
+        credentials: "same-origin",
+      });
+    };
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, [status, userId]);
+
+  const value = useMemo(() => syncStatus, [syncStatus]);
+
+  return (
+    <CloudSyncContext.Provider value={value}>{children}</CloudSyncContext.Provider>
+  );
+}
