@@ -1,5 +1,6 @@
 import type { ImportantDeadline } from "@/types/dashboard";
 import { normalizeGoogleEventColorId } from "@/lib/google-calendar-event-colors";
+import { requestCloudSyncPush } from "@/lib/cloud-sync-push";
 
 export const DEADLINES_STORAGE_KEY = "iestudio-important-deadlines";
 
@@ -85,6 +86,7 @@ export function saveImportantDeadlines(deadlines: ImportantDeadline[]): void {
   try {
     window.localStorage.setItem(DEADLINES_STORAGE_KEY, JSON.stringify(deadlines));
     window.dispatchEvent(new CustomEvent(DEADLINES_CHANGED_EVENT));
+    requestCloudSyncPush();
   } catch {
     // quota / private mode
   }

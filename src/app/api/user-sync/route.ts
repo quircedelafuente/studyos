@@ -4,6 +4,7 @@ import { MANUAL_COURSES_STORAGE_KEY } from "@/lib/manual-courses-storage";
 import {
   normalizeCloudPayload,
   sanitizeEntriesForUpload,
+  sanitizeJsonTextForPostgresJsonb,
 } from "@/lib/user-cloud-storage";
 import { NextResponse } from "next/server";
 
@@ -44,7 +45,8 @@ async function tryReadPayload(
     );
     const parsed = JSON.parse(cleaned) as Record<string, unknown>;
     const entries = normalizeCloudPayload(parsed);
-    await sql`UPDATE user_app_kv SET payload = ${cleaned}::jsonb, updated_at = NOW() WHERE user_id = ${userId}`;
+    const fixedText = sanitizeJsonTextForPostgresJsonb(JSON.stringify(entries));
+    await sql`UPDATE user_app_kv SET payload = ${fixedText}::jsonb, updated_at = NOW() WHERE user_id = ${userId}`;
     return entries;
   }
 }
@@ -72,7 +74,7 @@ export async function GET() {
         const legacyCount = Object.keys(legacy).length;
         if (legacyCount > emailCount) {
           console.log("[user-sync GET] Migrando datos de", legacyId, "→", emailKey, `(${legacyCount} > ${emailCount} keys)`);
-          const payloadText = JSON.stringify(legacy);
+          const payloadText = sanitizeJsonTextForPostgresJsonb(JSON.stringify(legacy));
           await sql`
             INSERT INTO user_app_kv (user_id, payload, updated_at)
             VALUES (${emailKey}, ${payloadText}::jsonb, NOW())
@@ -130,6 +132,7 @@ export async function PUT(request: Request) {
       /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
       "",
     );
+    payloadText = sanitizeJsonTextForPostgresJsonb(payloadText);
   } catch {
     return NextResponse.json(
       { error: "No se pudo serializar el payload" },

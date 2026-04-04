@@ -1,5 +1,7 @@
 "use client";
 
+import { requestCloudSyncPush } from "@/lib/cloud-sync-push";
+
 export const STUDY_ARENA_STORAGE_KEY = "iestudio-study-arena-state";
 export const STUDY_ARENA_CHANGED_EVENT = "iestudio-study-arena-changed";
 
@@ -25,6 +27,8 @@ export function loadStudyArenaState(): StudyArenaStoredState | null {
   }
 }
 
+let arenaPushDebounce: ReturnType<typeof setTimeout> | null = null;
+
 export function saveStudyArenaState(state: StudyArenaStoredState): void {
   if (typeof window === "undefined") return;
   try {
@@ -33,4 +37,9 @@ export function saveStudyArenaState(state: StudyArenaStoredState): void {
     // Ignore quota failures; arena continues in-memory.
   }
   window.dispatchEvent(new Event(STUDY_ARENA_CHANGED_EVENT));
+  if (arenaPushDebounce) clearTimeout(arenaPushDebounce);
+  arenaPushDebounce = setTimeout(() => {
+    arenaPushDebounce = null;
+    requestCloudSyncPush();
+  }, 2500);
 }

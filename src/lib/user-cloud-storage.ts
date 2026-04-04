@@ -25,6 +25,56 @@ export function sanitizeStringForPostgresJson(s: string): string {
   return s.replace(/[\u0000]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
 }
 
+/**
+ * Contenido de cadena JSON sin reintroducir escapes \\uD800-\\uDFFF (PostgreSQL los rechaza en jsonb).
+ */
+function escapeJsonStringContentRaw(str: string): string {
+  let out = "";
+  for (const ch of str) {
+    const code = ch.codePointAt(0)!;
+    if (code < 0x20) {
+      if (code === 0x08) out += "\\b";
+      else if (code === 0x09) out += "\\t";
+      else if (code === 0x0a) out += "\\n";
+      else if (code === 0x0c) out += "\\f";
+      else if (code === 0x0d) out += "\\r";
+      else out += `\\u${code.toString(16).padStart(4, "0")}`;
+    } else if (code === 0x22) out += '\\"';
+    else if (code === 0x5c) out += "\\\\";
+    else out += ch;
+  }
+  return out;
+}
+
+/**
+ * Tras JSON.stringify, PostgreSQL puede rechazar el texto por escapes \\uXXXX ilegales:
+ * - \\u0000 (NULL en JSON)
+ * - pares sustitutos UTF-16 (emoji) que JS serializa como \\uD83D\\uDE00
+ * Convierte escapes problemáticos a caracteres UTF-8 literales en la cadena JSON.
+ */
+export function sanitizeJsonTextForPostgresJsonb(jsonText: string): string {
+  let s = jsonText;
+  s = s.replace(/\\u0000/gi, "");
+  s = s.replace(
+    /\\u([dD][89abAB][0-9a-fA-F]{2})\\u([dD][cdefCDEF][0-9a-fA-F]{2})/g,
+    (_m, hi: string, lo: string) => {
+      const h = parseInt(hi, 16);
+      const l = parseInt(lo, 16);
+      const cp = 0x10_000 + ((h - 0xd800) << 10) + (l - 0xdc00);
+      return escapeJsonStringContentRaw(String.fromCodePoint(cp));
+    },
+  );
+  s = s.replace(/\\u([0-9a-fA-F]{4})/gi, (_m, hex: string) => {
+    const code = parseInt(hex, 16);
+    if (code === 0) return "";
+    if (code >= 0xd800 && code <= 0xdfff) {
+      return escapeJsonStringContentRaw("\uFFFD");
+    }
+    return escapeJsonStringContentRaw(String.fromCharCode(code));
+  });
+  return s;
+}
+
 /** Claves que nunca se suben a la nube (documentos / archivos de cursos en este navegador). */
 const CLOUD_EXCLUDE = new Set<string>([MANUAL_COURSES_STORAGE_KEY]);
 

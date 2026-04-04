@@ -3,6 +3,7 @@ import type {
   StudyPlanAISchedule,
   StudyPlanChatTurn,
 } from "@/types/dashboard";
+import { requestCloudSyncPush } from "@/lib/cloud-sync-push";
 
 export const STUDY_PLANS_STORAGE_KEY = "iestudio-study-plans";
 
@@ -124,6 +125,7 @@ export function saveStudyPlans(plans: StudyPlan[]): void {
   try {
     window.localStorage.setItem(STUDY_PLANS_STORAGE_KEY, JSON.stringify(plans));
     window.dispatchEvent(new CustomEvent(STUDY_PLANS_CHANGED_EVENT));
+    requestCloudSyncPush();
   } catch {
     // quota
   }
