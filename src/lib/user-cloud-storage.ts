@@ -53,6 +53,31 @@ export function setCloudServerAppliedAt(iso: string): void {
   }
 }
 
+/** Misma clave que `blackboard-storage` (COURSES_KEY); solo para heurísticas de sync. */
+const BB_COURSES_LOCAL_KEY = "iestudio-bb-courses";
+
+export function clearCloudServerAppliedAt(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(CLOUD_SERVER_APPLIED_AT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** True si hay al menos un curso BB en caché local (evita saltar pull cuando `applied` ya coincide con el servidor). */
+export function localStorageHasBbCoursesCache(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(BB_COURSES_LOCAL_KEY);
+    if (!raw) return false;
+    const p = JSON.parse(raw) as { courses?: unknown };
+    return Array.isArray(p.courses) && p.courses.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function requestCloudSyncPush(): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(IESTUDIO_CLOUD_PUSH_REQUEST));

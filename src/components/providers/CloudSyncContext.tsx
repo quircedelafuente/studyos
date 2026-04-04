@@ -14,11 +14,14 @@ import {
 import { useDeviceMode } from "@/components/providers/DeviceModeContext";
 import {
   applyCloudEntriesSmartMerge,
+  BLACKBOARD_CLOUD_KEY_PREFIX,
+  clearCloudServerAppliedAt,
   collectSyncableEntries,
   collectSyncableEntriesForUpload,
   computeCloudEntryStats,
   getCloudServerAppliedAt,
   IESTUDIO_CLOUD_PUSH_REQUEST,
+  localStorageHasBbCoursesCache,
   normalizeCloudPayload,
   setCloudServerAppliedAt,
   syncSnapshotSignature,
@@ -30,6 +33,17 @@ const FETCH_OPTS: RequestInit = {
   credentials: "same-origin",
   cache: "no-store",
 };
+
+/** Evita comparar ISO como string (`.000Z` vs `Z`) y equivocarse al decidir si el servidor es “nuevo”. */
+function isServerTimestampNotNewerThanApplied(
+  serverIso: string,
+  appliedIso: string,
+): boolean {
+  const s = Date.parse(serverIso);
+  const a = Date.parse(appliedIso);
+  if (!Number.isNaN(s) && !Number.isNaN(a)) return s <= a;
+  return serverIso <= appliedIso;
+}
 
 export type CloudSyncPhase =
   | "unauthenticated"
@@ -99,18 +113,57 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     if (data.disabled) return;
     if (data.stats) setServerStats(data.stats);
     if (typeof data.updatedAt === "string") setServerUpdatedAt(data.updatedAt);
-    const serverEntries = normalizeCloudPayload(data.entries ?? {});
-    const hasPayload = Object.keys(serverEntries).length > 0;
+    let serverEntries = normalizeCloudPayload(data.entries ?? {});
+    let hasPayload = Object.keys(serverEntries).length > 0;
+    const serverBbKeysFromEntries = Object.keys(serverEntries).filter((k) =>
+      k.startsWith(BLACKBOARD_CLOUD_KEY_PREFIX),
+    ).length;
+    const serverBbKeys =
+      data.stats?.bbKeys ?? serverBbKeysFromEntries;
+    const needsLocalBb =
+      typeof serverBbKeys === "number" &&
+      serverBbKeys > 0 &&
+      !localStorageHasBbCoursesCache();
     if (!hasPayload && !data.updatedAt) return;
     if (data.updatedAt) {
       const applied = getCloudServerAppliedAt();
-      if (applied !== null && data.updatedAt <= applied) return;
+      if (
+        applied !== null &&
+        isServerTimestampNotNewerThanApplied(data.updatedAt, applied) &&
+        !needsLocalBb
+      ) {
+        return;
+      }
+      if (needsLocalBb && applied !== null) {
+        clearCloudServerAppliedAt();
+      }
+    }
+    let updatedAtForApplied = data.updatedAt;
+    if (needsLocalBb && !hasPayload && (data.stats?.bbKeys ?? 0) > 0) {
+      clearCloudServerAppliedAt();
+      const res2 = await fetch("/api/user-sync", FETCH_OPTS);
+      if (res2.ok) {
+        const data2 = (await res2.json()) as {
+          disabled?: boolean;
+          entries?: Record<string, unknown>;
+          updatedAt?: string | null;
+          stats?: { totalKeys: number; bbKeys: number; approxBytes: number } | null;
+        };
+        if (data2.disabled) return;
+        if (data2.stats) setServerStats(data2.stats);
+        if (typeof data2.updatedAt === "string") {
+          setServerUpdatedAt(data2.updatedAt);
+          updatedAtForApplied = data2.updatedAt;
+        }
+        serverEntries = normalizeCloudPayload(data2.entries ?? {});
+        hasPayload = Object.keys(serverEntries).length > 0;
+      }
     }
     if (hasPayload) {
       applyCloudEntriesSmartMerge(serverEntries);
       bumpLocalStats();
     }
-    if (data.updatedAt) setCloudServerAppliedAt(data.updatedAt);
+    if (updatedAtForApplied) setCloudServerAppliedAt(updatedAtForApplied);
     lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
     setLastPullAt(Date.now());
   }, [bumpLocalStats]);
@@ -172,12 +225,32 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       if (data.stats) setServerStats(data.stats);
       if (typeof data.updatedAt === "string") setServerUpdatedAt(data.updatedAt);
 
-      const server = normalizeCloudPayload(data.entries ?? {});
+      let appliedTimestamp: string | null =
+        typeof data.updatedAt === "string" ? data.updatedAt : null;
+      let server = normalizeCloudPayload(data.entries ?? {});
+      const serverBbKeysStat = data.stats?.bbKeys ?? 0;
+      if (Object.keys(server).length === 0 && serverBbKeysStat > 0) {
+        clearCloudServerAppliedAt();
+        const res2 = await fetch("/api/user-sync", FETCH_OPTS);
+        if (res2.ok) {
+          const data2 = (await res2.json()) as {
+            entries?: Record<string, unknown>;
+            updatedAt?: string | null;
+            stats?: { totalKeys: number; bbKeys: number; approxBytes: number } | null;
+          };
+          if (data2.stats) setServerStats(data2.stats);
+          if (typeof data2.updatedAt === "string") {
+            setServerUpdatedAt(data2.updatedAt);
+            appliedTimestamp = data2.updatedAt;
+          }
+          server = normalizeCloudPayload(data2.entries ?? {});
+        }
+      }
       if (Object.keys(server).length === 0) {
         await push();
       } else {
         applyCloudEntriesSmartMerge(server);
-        if (data.updatedAt) setCloudServerAppliedAt(data.updatedAt);
+        if (appliedTimestamp) setCloudServerAppliedAt(appliedTimestamp);
         lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
         bumpLocalStats();
         await push();
@@ -193,6 +266,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   }, [userId, push, bumpLocalStats]);
 
   const refresh = useCallback(async () => {
+    clearCloudServerAppliedAt();
+    lastPushedSig.current = "";
     await runBootstrap();
     await push();
   }, [runBootstrap, push]);
