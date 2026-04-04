@@ -51,14 +51,14 @@ function WidgetShell({ title, subtitle, right, tone = "default", children }: Wid
 
   return (
     <section
-      className={`relative overflow-hidden rounded-2xl border ${toneStyles} ${accentRing}`}
+      className={`relative overflow-hidden rounded-2xl border ${toneStyles} ${accentRing} transition-all duration-200 active:scale-[0.98] sm:active:scale-100`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(0,0,0,0.05),transparent_45%)]" />
-      <div className="relative p-4">
+      <div className="relative p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-semibold">{title}</h3>
-            {subtitle ? <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{subtitle}</p> : null}
+            <h3 className="truncate text-xs sm:text-sm font-bold sm:font-semibold tracking-tight">{title}</h3>
+            {subtitle ? <p className="mt-0.5 line-clamp-1 text-[10px] sm:text-xs text-[var(--ink-muted)] leading-tight">{subtitle}</p> : null}
           </div>
           {right ? <div className="shrink-0">{right}</div> : null}
         </div>
@@ -403,31 +403,31 @@ function UpcomingDeliveriesModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4">
       <button
         type="button"
         className="absolute inset-0"
         aria-label="Cerrar"
         onClick={onClose}
       />
-      <div className="relative max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+      <div className="relative h-[92vh] sm:h-auto sm:max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-3xl sm:rounded-2xl border border-[var(--border)] bg-white shadow-2xl pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
           <div className="min-w-0">
-            <h2 className="truncate text-base font-extrabold">{title}</h2>
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">{subtitle}</p>
+            <h2 className="truncate text-sm sm:text-base font-extrabold">{title}</h2>
+            <p className="mt-0.5 text-[10px] sm:text-xs text-[var(--ink-muted)] line-clamp-1">{subtitle}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)]"
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] sm:text-xs font-bold text-[var(--ink)]"
           >
             Cerrar
           </button>
         </div>
-        <div className="min-h-0 overflow-y-auto p-4">
+        <div className="min-h-0 overflow-y-auto p-3 sm:p-4">
           {items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-8 text-center text-sm text-[var(--ink-muted)]">
-              No hay entregas pendientes con fecha límite.
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-8 text-center text-xs sm:text-sm text-[var(--ink-muted)]">
+              No hay entregas pendientes.
             </div>
           ) : (
             <ul className="space-y-2">
@@ -436,13 +436,13 @@ function UpcomingDeliveriesModal({
                 return (
                   <li
                     key={it.key}
-                    className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3"
+                    className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5 sm:p-3"
                   >
                     <div className="flex items-start gap-3">
                       <SubmissionPip light={it.light} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-[var(--surface-muted)] px-2 py-1 text-[11px] font-bold text-[var(--ink-muted)]">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          <span className="rounded-full bg-[var(--surface-muted)] px-1.5 py-0.5 text-[9px] sm:text-[11px] font-bold text-[var(--ink-muted)]">
                             {it.courseName}
                           </span>
                           {it.dueIso ? (
@@ -456,36 +456,24 @@ function UpcomingDeliveriesModal({
                                       : "default"
                                 }
                               >
-                                {rel?.label ?? "—"}
+                                <span className="text-[9px] sm:text-[11px]">{rel?.label ?? "—"}</span>
                               </Pill>
-                              <span className="text-[11px] text-[var(--ink-faint)]">
+                              <span className="text-[9px] sm:text-[11px] text-[var(--ink-faint)]">
                                 {formatDue(it.dueIso)}
                               </span>
                             </>
-                          ) : it.creationMs ? (
-                            <>
-                              <Pill>Sin fecha límite</Pill>
-                              <span className="text-[11px] text-[var(--ink-faint)]">
-                                {relativeCreationMs(it.creationMs)} · {formatCreationMs(it.creationMs)}
-                              </span>
-                            </>
                           ) : (
-                            <>
-                              <Pill>Sin fecha límite</Pill>
-                              <span className="text-[11px] text-[var(--ink-faint)]">
-                                (cargando fecha…)
-                              </span>
-                            </>
+                            <Pill tone="default"><span className="text-[9px] sm:text-[11px]">Sin fecha</span></Pill>
                           )}
                         </div>
-                        <div className="mt-1 truncate text-sm font-extrabold">{it.title}</div>
+                        <div className="mt-1 truncate text-xs sm:text-sm font-extrabold">{it.title}</div>
                       </div>
                       {it.url ? (
                         <a
                           href={it.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] hover:bg-white"
+                          className="shrink-0 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-[10px] sm:text-xs font-bold text-[var(--ink)] min-h-[36px]"
                         >
                           Abrir
                         </a>
@@ -531,41 +519,41 @@ function StudySessionsModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4">
       <button type="button" className="absolute inset-0" aria-label="Cerrar" onClick={onClose} />
-      <div className="relative max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+      <div className="relative h-[92vh] sm:h-auto sm:max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-3xl sm:rounded-2xl border border-[var(--border)] bg-white shadow-2xl pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
           <div className="min-w-0">
-            <h2 className="truncate text-base font-extrabold">Próximas sesiones de estudio</h2>
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">
-              Sesiones extraídas de todos los planes de estudio guardados.
+            <h2 className="truncate text-sm sm:text-base font-extrabold">Sesiones de estudio</h2>
+            <p className="mt-0.5 text-[10px] sm:text-xs text-[var(--ink-muted)] line-clamp-1">
+              Sesiones extraídas de todos los planes de estudio.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)]"
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] sm:text-xs font-bold text-[var(--ink)]"
           >
             Cerrar
           </button>
         </div>
-        <div className="min-h-0 overflow-y-auto p-4">
+        <div className="min-h-0 overflow-y-auto p-3 sm:p-4">
           {items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-8 text-center text-sm text-[var(--ink-muted)]">
-              No hay sesiones próximas en tus planes.
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-8 text-center text-xs sm:text-sm text-[var(--ink-muted)]">
+              No hay sesiones próximas.
             </div>
           ) : (
             <ul className="space-y-2">
               {items.map((s) => (
                 <li
                   key={s.key}
-                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3"
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5 sm:p-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <span
-                          className="rounded-full border px-2 py-1 text-[11px] font-bold"
+                          className="rounded-full border px-1.5 py-0.5 text-[9px] sm:text-[11px] font-bold"
                           style={{
                             color: s.sessionTextColor,
                             borderColor: s.sessionTextColor,
@@ -574,16 +562,16 @@ function StudySessionsModal({
                         >
                           {s.planTitle}
                         </span>
-                        <Pill>{s.date}</Pill>
-                        <span className="text-[11px] text-[var(--ink-faint)]">
+                        <Pill><span className="text-[9px] sm:text-[11px]">{s.date}</span></Pill>
+                        <span className="text-[9px] sm:text-[11px] text-[var(--ink-faint)] font-bold">
                           {Math.round(s.hours * 10) / 10}h
                         </span>
                       </div>
-                      <div className="mt-1 truncate text-sm font-extrabold text-[var(--ink)]">
+                      <div className="mt-1 truncate text-xs sm:text-sm font-extrabold text-[var(--ink)]">
                         {s.sessionTitle?.trim() ? s.sessionTitle : "Sesión de estudio"}
                       </div>
                       {s.focus?.trim() ? (
-                        <div className="mt-1 line-clamp-2 text-xs text-[var(--ink-muted)]">
+                        <div className="mt-1 line-clamp-2 text-[10px] sm:text-xs text-[var(--ink-muted)]">
                           {s.focus}
                         </div>
                       ) : null}
@@ -1098,105 +1086,88 @@ export function DashboardOverviewPanel() {
   }, [upcomingDeliveries, criticalAlerts, upcomingModalOpen]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 px-3 py-4 md:px-6 md:py-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 py-3 sm:gap-4 sm:px-6 sm:py-6">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl">Dashboard</h1>
-          <p className="mt-1 text-sm text-[var(--ink-muted)]">
-            Widgets y métricas para decidir, priorizar y prevenir burnout (mock visual).
+          <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl">Panel de Control</h1>
+          <p className="mt-0.5 text-[11px] sm:text-sm text-[var(--ink-muted)]">
+            Widgets y métricas optimizadas para tu móvil (iOS).
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
           <Pill>Actualizado: hoy</Pill>
           <Pill tone="amber">Modo: demo</Pill>
         </div>
       </header>
 
-      <div className="grid min-h-0 gap-4 lg:grid-cols-12">
+      <div className="grid min-h-0 gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-12">
         <div className="lg:col-span-4 xl:col-span-4">
           <WidgetShell
             title="Próximas entregas"
-            subtitle="Top 4 no entregadas: (1) con due futura (asc) (2) sin due por creación (desc)"
+            subtitle="Top 4 no entregadas"
             right={
               <div className="flex items-center gap-2">
                 {contentFetchBusy ? (
-                  <span className="rounded-full border border-[var(--border)] bg-white/70 px-2 py-1 text-[10px] font-bold text-[var(--ink-muted)]">
-                    Sincronizando fechas…
+                  <span className="animate-pulse rounded-full border border-[var(--border)] bg-white/70 px-2 py-0.5 text-[9px] font-bold text-[var(--ink-muted)]">
+                    Sinc…
                   </span>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => setUpcomingModalOpen(true)}
-                  className={modalBtnClass}
+                  className={`${modalBtnClass} text-[10px] py-1 px-2.5 min-h-[32px] sm:min-h-0`}
                 >
                   Ver más
                 </button>
               </div>
             }
           >
-            <div className="h-[19rem] min-h-[19rem] flex flex-col">
+            <div className="min-h-0 flex flex-col max-h-[16rem] sm:max-h-[19rem]">
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                 {top4.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] px-4 py-6 text-sm text-[var(--ink-muted)]">
-                    No hay entregas pendientes con fecha límite (o no hay caché de gradebooks).
+                  <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] px-3 py-5 text-xs text-[var(--ink-muted)]">
+                    No hay entregas pendientes.
                   </div>
                 ) : (
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {top4.map((it) => {
                       const rel = it.dueIso ? relativeDue(it.dueIso) : null;
                       return (
                         <li
                           key={it.key}
-                          className="group rounded-2xl border border-[var(--border)] bg-white/60 p-3 shadow-sm transition hover:bg-white"
+                          className="group rounded-xl border border-[var(--border)] bg-white/60 p-2.5 shadow-sm active:bg-white transition hover:bg-white"
                         >
-                          <div className="flex items-start gap-3">
+                          <div className="flex items-start gap-2.5">
                             <SubmissionPip light={it.light} />
                             <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-full bg-[var(--surface-muted)] px-2 py-1 text-[11px] font-bold text-[var(--ink-muted)]">
+                              <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                                <span className="rounded-full bg-[var(--surface-muted)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--ink-muted)] max-w-[80px] truncate">
                                   {it.courseName}
                                 </span>
                                 {it.dueIso ? (
-                                  <>
-                                    <Pill
-                                      tone={
-                                        rel?.tone === "red"
-                                          ? "red"
-                                          : rel?.tone === "amber"
-                                            ? "amber"
-                                            : "default"
-                                      }
-                                    >
-                                      {rel?.label ?? "—"}
-                                    </Pill>
-                                    <span className="text-[11px] text-[var(--ink-faint)]">
-                                      {formatDue(it.dueIso)}
-                                    </span>
-                                  </>
-                                ) : it.creationMs ? (
-                                  <>
-                                    <Pill>Sin fecha límite</Pill>
-                                    <span className="text-[11px] text-[var(--ink-faint)]">
-                                      {relativeCreationMs(it.creationMs)}
-                                    </span>
-                                  </>
+                                  <Pill
+                                    tone={
+                                      rel?.tone === "red"
+                                        ? "red"
+                                        : rel?.tone === "amber"
+                                          ? "amber"
+                                          : "default"
+                                    }
+                                  >
+                                    <span className="text-[9px]">{rel?.label ?? "—"}</span>
+                                  </Pill>
                                 ) : (
-                                  <>
-                                    <Pill>Sin fecha límite</Pill>
-                                    <span className="text-[11px] text-[var(--ink-faint)]">
-                                      (cargando fecha…)
-                                    </span>
-                                  </>
+                                  <Pill><span className="text-[9px]">Sin due</span></Pill>
                                 )}
                               </div>
-                              <div className="mt-1 truncate text-sm font-extrabold">{it.title}</div>
+                              <div className="truncate text-xs font-bold leading-tight">{it.title}</div>
                             </div>
                             {it.url ? (
                               <a
                                 href={it.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] opacity-80 transition hover:bg-white hover:opacity-100"
+                                className="shrink-0 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2.5 py-1 text-[10px] font-bold text-[var(--ink)] min-h-[32px]"
                               >
                                 Abrir
                               </a>
@@ -1214,79 +1185,43 @@ export function DashboardOverviewPanel() {
 
         <div className="lg:col-span-4 xl:col-span-4">
           <WidgetShell
-            title="Cosas no entregadas · Alertas Críticas"
+            title="Alertas Críticas"
             tone="danger"
             right={
               <button
                 type="button"
                 onClick={() => setCriticalModalOpen(true)}
-                className={modalBtnClass}
+                className={`${modalBtnClass} text-[10px] py-1 px-2.5 min-h-[32px] sm:min-h-0`}
               >
                 Ver más
               </button>
             }
           >
-            <div className="h-[19rem] min-h-[19rem] flex flex-col">
+            <div className="min-h-0 flex flex-col max-h-[16rem] sm:max-h-[19rem]">
               {criticalAlerts.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-red-200/70 bg-white/50 px-4 py-6 text-sm text-[var(--ink-muted)]">
-                  No hay entregas críticas (o aún no hay caché de gradebooks).
+                <div className="rounded-2xl border border-dashed border-red-200/70 bg-white/50 px-3 py-5 text-xs text-[var(--ink-muted)]">
+                  Todo al día.
                 </div>
               ) : (
                 <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {criticalAlerts.slice(0, 3).map((it) => {
                     const rel = it.dueIso ? relativeDue(it.dueIso) : null;
-                    const isOverdue = Boolean(it.dueIso && rel?.label === "Vencida");
                     return (
                       <li
                         key={it.key}
-                        className="rounded-2xl border border-red-200/70 bg-white/60 p-2.5"
+                        className="rounded-xl border border-red-200/70 bg-white/60 p-2.5 active:bg-white transition"
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-2.5">
                           <SubmissionPip light={it.light} />
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-red-50/80 px-2 py-1 text-[11px] font-bold text-red-900">
+                            <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                              <span className="rounded-full bg-red-50/80 px-1.5 py-0.5 text-[9px] font-bold text-red-900 max-w-[80px] truncate">
                                 {it.courseName}
                               </span>
-                              {it.dueIso ? (
-                                <>
-                                  <Pill tone="red">Vencida</Pill>
-                                  <span className="text-[11px] text-[var(--ink-faint)]">
-                                    {formatDue(it.dueIso)}
-                                  </span>
-                                </>
-                              ) : it.creationMs ? (
-                                <>
-                                  <Pill tone="amber">Sin due</Pill>
-                                  <span className="text-[11px] text-[var(--ink-faint)]">
-                                    {relativeCreationMs(it.creationMs)}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <Pill tone="amber">Sin due</Pill>
-                                  <span className="text-[11px] text-[var(--ink-faint)]">
-                                    (cargando fecha…)
-                                  </span>
-                                </>
-                              )}
-                              {/* Evitar duplicar "Vencida" (ya la mostramos arriba). */}
-                              {it.dueIso && rel && !isOverdue ? (
-                                <Pill
-                                  tone={
-                                    rel.tone === "red"
-                                      ? "red"
-                                      : rel.tone === "amber"
-                                        ? "amber"
-                                        : "default"
-                                  }
-                                >
-                                  {rel.label}
-                                </Pill>
-                              ) : null}
+                              <Pill tone="red"><span className="text-[9px]">Vencida</span></Pill>
                             </div>
-                            <div className="mt-1 truncate text-sm font-extrabold text-[var(--ink)]">
+                            <div className="truncate text-xs font-bold leading-tight text-[var(--ink)]">
                               {it.title}
                             </div>
                           </div>
@@ -1295,7 +1230,7 @@ export function DashboardOverviewPanel() {
                               href={it.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-800 hover:bg-white"
+                              className="shrink-0 flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-800 min-h-[32px]"
                             >
                               Abrir
                             </a>
@@ -1313,36 +1248,36 @@ export function DashboardOverviewPanel() {
 
         <div className="lg:col-span-4 xl:col-span-4">
           <WidgetShell
-            title="Próximas sesiones de estudio"
-            subtitle="Desde tus planes de estudio (próximas desde hoy)"
+            title="Sesiones de estudio"
+            subtitle="Próximas desde hoy"
             right={
               <button
                 type="button"
                 onClick={() => setStudyModalOpen(true)}
-                className={modalBtnClass}
+                className={`${modalBtnClass} text-[10px] py-1 px-2.5 min-h-[32px] sm:min-h-0`}
               >
                 Ver más
               </button>
             }
           >
-            <div className="h-[19rem] min-h-[19rem] flex flex-col">
+            <div className="min-h-0 flex flex-col max-h-[16rem] sm:max-h-[19rem]">
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                 {topStudy3.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] px-4 py-6 text-sm text-[var(--ink-muted)]">
-                    No hay sesiones próximas en tus planes (o aún no hay plan guardado).
+                  <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] px-3 py-5 text-xs text-[var(--ink-muted)]">
+                    Sin sesiones próximas.
                   </div>
                 ) : (
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {topStudy3.map((s) => (
                       <li
                         key={s.key}
-                        className="rounded-2xl border border-[var(--border)] bg-white/60 p-3 shadow-sm"
+                        className="rounded-xl border border-[var(--border)] bg-white/60 p-2.5 shadow-sm active:bg-white transition"
                       >
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
                               <span
-                                className="rounded-full border px-2 py-1 text-[11px] font-bold"
+                                className="rounded-full border px-1.5 py-0.5 text-[9px] font-bold truncate max-w-[80px]"
                                 style={{
                                   color: s.sessionTextColor,
                                   borderColor: s.sessionTextColor,
@@ -1351,19 +1286,16 @@ export function DashboardOverviewPanel() {
                               >
                                 {s.planTitle}
                               </span>
-                              <Pill>{s.date}</Pill>
-                              <span className="text-[11px] text-[var(--ink-faint)]">
+                              <span className="text-[9px] font-bold text-[var(--ink-muted)] bg-[var(--surface-muted)] px-1.5 py-0.5 rounded-full">
+                                {s.date.split("-").slice(1).join("/")}
+                              </span>
+                              <span className="text-[9px] text-[var(--ink-faint)] font-bold">
                                 {Math.round(s.hours * 10) / 10}h
                               </span>
                             </div>
-                            <div className="mt-1 truncate text-sm font-extrabold text-[var(--ink)]">
+                            <div className="truncate text-xs font-bold text-[var(--ink)] leading-tight">
                               {s.sessionTitle?.trim() ? s.sessionTitle : "Sesión de estudio"}
                             </div>
-                            {s.focus?.trim() ? (
-                              <div className="mt-1 line-clamp-2 text-xs text-[var(--ink-muted)]">
-                                {s.focus}
-                              </div>
-                            ) : null}
                           </div>
                         </div>
                       </li>
@@ -1376,105 +1308,106 @@ export function DashboardOverviewPanel() {
         </div>
 
         <div className="lg:col-span-5 xl:col-span-4">
-          <WidgetShell title="Sesiones de estudio · Enfoque del Día" subtitle="Próxima sesión + botón rápido (visual)">
-            <div className="space-y-3">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3">
-                <div className="text-xs font-semibold text-[var(--ink-muted)]">{MOCK.enfoqueDia.block}</div>
-                <div className="mt-1 text-sm font-extrabold">{MOCK.enfoqueDia.sessionTitle}</div>
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <Pill>Empieza en {MOCK.enfoqueDia.startInMin} min</Pill>
-                  <span className="text-xs text-[var(--ink-muted)]">Pomodoro · mock</span>
+          <WidgetShell title="Enfoque del Día" subtitle="Siguiente bloque">
+            <div className="space-y-2.5">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">{MOCK.enfoqueDia.block}</div>
+                <div className="mt-0.5 text-xs font-bold leading-tight">{MOCK.enfoqueDia.sessionTitle}</div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <Pill><span className="text-[9px]">En {MOCK.enfoqueDia.startInMin} min</span></Pill>
+                  <span className="text-[9px] font-bold text-[var(--ink-faint)]">Mock</span>
                 </div>
               </div>
-              <div className="rounded-xl border border-black/5 bg-white/50 p-3">
-                <div className="text-xs font-semibold text-[var(--ink-muted)]">Focus</div>
-                <p className="mt-2 text-sm font-bold">{MOCK.enfoqueDia.focusPrompt}</p>
+              <div className="rounded-xl border border-black/5 bg-white/50 p-2.5">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Focus</div>
+                <p className="mt-1 text-xs font-bold leading-tight">{MOCK.enfoqueDia.focusPrompt}</p>
               </div>
               <button
                 type="button"
                 disabled
-                className="w-full rounded-xl bg-[var(--ink)] px-4 py-2.5 text-sm font-extrabold text-white opacity-70 disabled:cursor-not-allowed"
-                title="Próximamente: temporizador Pomodoro/cronómetro real"
+                className="w-full min-h-[44px] rounded-xl bg-[var(--ink)] px-4 py-2 text-xs font-extrabold text-white opacity-70"
               >
-                Empezar ahora (mock)
+                Empezar (mock)
               </button>
             </div>
           </WidgetShell>
         </div>
 
         <div className="lg:col-span-7 xl:col-span-8">
-          <div className="grid gap-4 md:grid-cols-2">
-            <WidgetShell title="Fechas de próximos exámenes · Cuenta Regresiva de Impacto" subtitle="Días restantes + sugerencia">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-xs font-semibold text-[var(--ink-muted)]">Materia</div>
-                  <div className="mt-1 text-lg font-extrabold">{MOCK.nextExam.subject}</div>
-                  <div className="mt-3 flex items-end gap-2">
-                    <div className="text-4xl font-extrabold tracking-tight">{MOCK.nextExam.daysLeft}</div>
-                    <div className="pb-1 text-sm font-bold text-[var(--ink-muted)]">días</div>
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
+            <WidgetShell title="Exámenes" subtitle="Cuenta regresiva">
+              <div className="flex items-center justify-between gap-3">
+                <div className="shrink-0">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Materia</div>
+                  <div className="text-sm font-bold truncate max-w-[100px]">{MOCK.nextExam.subject}</div>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <div className="text-3xl font-extrabold tracking-tight">{MOCK.nextExam.daysLeft}</div>
+                    <div className="text-[10px] font-bold text-[var(--ink-muted)]">días</div>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-                  <div className="text-xs font-semibold text-[var(--ink-muted)]">Sugerencia</div>
-                  <div className="mt-2 text-sm font-extrabold">{MOCK.nextExam.suggestion}</div>
+                <div className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Tip</div>
+                  <div className="mt-0.5 text-[11px] font-bold leading-tight line-clamp-2">{MOCK.nextExam.suggestion}</div>
                 </div>
               </div>
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-black/5">
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-black/5">
                 <div className="h-full bg-[var(--ink)]" style={{ width: `${Math.max(10, 100 - MOCK.nextExam.daysLeft * 12)}%` }} />
               </div>
             </WidgetShell>
 
             <WidgetShell
-              title="Optimiza tus métricas actuales · Índice de Adherencia"
-              subtitle="Planificado vs. real (mock)"
-              right={<span className="text-[11px] font-semibold text-[var(--ink-muted)]">Semana</span>}
+              title="Adherencia"
+              subtitle="Semana actual"
+              right={<span className="text-[9px] font-bold text-[var(--ink-faint)] uppercase">Mock</span>}
             >
-              <div className="text-[var(--ink)]">
-                <ProgressRing valuePct={MOCK.adherencia.valuePct} label="Adherencia" />
-                <p className="mt-2 text-xs text-[var(--ink-muted)]">{MOCK.adherencia.suggestion}</p>
+              <div className="flex items-center gap-4">
+                <ProgressRing valuePct={MOCK.adherencia.valuePct} label="Plan" />
+                <p className="text-[11px] font-bold text-[var(--ink-muted)] leading-tight">{MOCK.adherencia.suggestion}</p>
               </div>
             </WidgetShell>
           </div>
         </div>
 
-        <div className="lg:col-span-6 xl:col-span-7">
-          <WidgetShell title="Métricas de carga semanal · Mapa de Calor" subtitle="Carga por día (mock)">
+        <div className="md:col-span-2 lg:col-span-6 xl:col-span-7">
+          <WidgetShell title="Carga Semanal" subtitle="Mapa de calor (mock)">
             <HeatmapWeek values={MOCK.heatmap.values} />
           </WidgetShell>
         </div>
 
-        <div className="lg:col-span-6 xl:col-span-5">
-          <WidgetShell title="El Reloj Biológico del Estudio" subtitle="Eficiencia por franja horaria (mock)">
+        <div className="md:col-span-2 lg:col-span-6 xl:col-span-5">
+          <WidgetShell title="Reloj Biológico" subtitle="Eficiencia (mock)">
             <LineChart points={MOCK.bio.points} labels={MOCK.bio.labels} />
           </WidgetShell>
         </div>
 
-        <div className="lg:col-span-6 xl:col-span-4">
+        <div className="md:col-span-2 lg:col-span-6 xl:col-span-4">
           <WidgetShell
-            title="Distribución de Esfuerzo por Asignatura"
-            subtitle="Tiempo relativo por materia"
+            title="Esfuerzo por Asignatura"
+            subtitle="Distribución horaria"
           >
             {effortByObjective.items.length === 0 ? (
-              <div className="text-xs text-[var(--ink-muted)]">
-                No hay objetivos con horas en tu plan de estudio.
+              <div className="text-xs text-[var(--ink-muted)] py-4 text-center border border-dashed rounded-xl">
+                Sin datos de plan.
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-4">
-                <Doughnut segments={effortByObjective.segments} centerLabel="Mix" />
-                <div className="min-w-0 space-y-2">
-                  {effortByObjective.items.map((it) => (
+              <div className="flex flex-col gap-4">
+                <div className="flex justify-center scale-90 sm:scale-100">
+                  <Doughnut segments={effortByObjective.segments} centerLabel="Mix" />
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {effortByObjective.items.slice(0, 4).map((it) => (
                     <div
                       key={it.label}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2"
+                      className="flex items-center justify-between gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1.5"
                     >
-                      <span className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--ink-muted)]">
+                      <span className="flex items-center gap-1 text-[9px] font-bold text-[var(--ink-muted)] truncate">
                         <span
-                          className="h-2.5 w-2.5 rounded-full"
+                          className="h-2 w-2 shrink-0 rounded-full"
                           style={{ backgroundColor: it.color }}
                         />
-                        {it.label}
+                        <span className="truncate">{it.label}</span>
                       </span>
-                      <span className="font-mono-cli text-xs font-bold">
+                      <span className="font-mono-cli text-[9px] font-bold shrink-0">
                         {Math.round(it.pct)}%
                       </span>
                     </div>
@@ -1485,72 +1418,54 @@ export function DashboardOverviewPanel() {
           </WidgetShell>
         </div>
 
-        <div className="lg:col-span-6 xl:col-span-8">
-          <WidgetShell title="Índice de Fatiga / Alerta de Burnout" subtitle="Señales tempranas y recomendación (mock)">
+        <div className="md:col-span-2 lg:col-span-6 xl:col-span-8">
+          <WidgetShell title="Burnout / Fatiga" subtitle="Señales tempranas">
             <BurnoutGauge valuePct={MOCK.burnout.valuePct} />
-            <p className="mt-3 text-xs text-[var(--ink-muted)]">
-              Tip: si estás en riego alto, prueba 1 día “suave” para consolidar (repaso + ejercicios cortos).
-            </p>
           </WidgetShell>
         </div>
 
-        <div className="lg:col-span-6 xl:col-span-4">
-          <WidgetShell title="Racha de Concentración (Streaks)" subtitle="Gamificación: mantener la inercia (mock)" tone="accent">
-            <div className="flex items-center gap-4">
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-                <div className="text-xs font-semibold text-[var(--ink-muted)]">Racha actual</div>
-                <div className="mt-1 text-3xl font-extrabold">{MOCK.streaks.days}</div>
-                <div className="mt-1 text-xs text-[var(--ink-muted)]">mejor: {MOCK.streaks.bestDays}</div>
+        <div className="md:col-span-2 lg:col-span-6 xl:col-span-4">
+          <WidgetShell title="Racha (Streaks)" subtitle="Gamificación" tone="accent">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5 shrink-0 text-center">
+                <div className="text-[9px] font-bold text-[var(--ink-muted)] uppercase tracking-tight">Racha</div>
+                <div className="text-2xl font-extrabold">{MOCK.streaks.days}</div>
+                <div className="text-[8px] font-bold text-[var(--ink-faint)]">Récord: {MOCK.streaks.bestDays}</div>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="text-lg" aria-hidden>
-                      *
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-2 text-sm font-extrabold">{MOCK.streaks.message}</p>
+                <p className="text-[11px] font-bold leading-tight">{MOCK.streaks.message}</p>
                 <button
                   type="button"
                   disabled
-                  className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-2.5 text-sm font-bold opacity-70 disabled:cursor-not-allowed"
-                  title="Próximamente: completar objetivo de hoy"
+                  className="mt-2 w-full min-h-[36px] rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-[10px] font-bold opacity-70"
                 >
-                  Activar objetivo (mock)
+                  Objetivo hoy (mock)
                 </button>
               </div>
             </div>
           </WidgetShell>
         </div>
 
-        <div className="lg:col-span-6 xl:col-span-8">
-          <WidgetShell title="Tiempo de estudio vs. distracciones" subtitle="Ratio (si usas cronómetro, mock)">
-            <div className="space-y-3">
-              <div className="flex items-start justify-between gap-4">
+        <div className="md:col-span-2 lg:col-span-6 xl:col-span-8">
+          <WidgetShell title="Foco vs. Distracciones" subtitle="Ratio actual (mock)">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-[var(--ink-muted)]">Estado</div>
-                  <div className="mt-1 text-sm font-extrabold">
-                    Estudio: {MOCK.distractionsRatio.studyPct}% · Distracciones: {MOCK.distractionsRatio.distractPct}%
+                  <div className="text-xs font-bold">
+                    Estudio: {MOCK.distractionsRatio.studyPct}% · Dist: {MOCK.distractionsRatio.distractPct}%
                   </div>
-                  <p className="mt-2 text-xs text-[var(--ink-muted)]">
-                    Sugerencia: si hoy te cuesta arrancar, usa una ventana de 15 minutos (solo empezar).
-                  </p>
                 </div>
-                <div className="shrink-0">
-                  <Pill tone="green">Enfoque</Pill>
-                </div>
+                <Pill tone="green"><span className="text-[9px]">Enfocado</span></Pill>
               </div>
-              <div className="h-4 w-full overflow-hidden rounded-full bg-black/5 ring-1 ring-black/5">
+              <div className="h-3 w-full overflow-hidden rounded-full bg-black/5 ring-1 ring-black/5">
                 <div className="flex h-full">
                   <div className="bg-[var(--ink)]" style={{ width: `${MOCK.distractionsRatio.studyPct}%` }} />
                   <div className="bg-amber-400/80" style={{ width: `${MOCK.distractionsRatio.distractPct}%` }} />
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 text-xs text-[var(--ink-muted)]">
-                <Pill tone="green">{MOCK.distractionsRatio.studyPct}% estudio</Pill>
-                <Pill tone="amber">{MOCK.distractionsRatio.distractPct}% distracciones</Pill>
-              </div>
+              <p className="text-[10px] font-bold text-[var(--ink-muted)] leading-tight">
+                Tip: ventana de 15 min si te cuesta empezar.
+              </p>
             </div>
           </WidgetShell>
         </div>

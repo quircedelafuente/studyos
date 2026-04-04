@@ -164,21 +164,24 @@ export function DashboardApp() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:pl-0">
-        <header className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
+        <header className="flex items-center gap-3 border-[var(--border)] bg-[var(--surface)] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden border-b shadow-sm z-30">
           <button
             type="button"
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-[var(--ink)] hover:bg-[var(--surface-muted)]"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-[var(--ink)] active:bg-[var(--surface-muted)] transition-colors"
             aria-label="Abrir menú"
             onClick={() => setSidebarOpen(true)}
           >
             <IconMenu className="h-6 w-6" />
           </button>
-          <span className="min-w-0 truncate text-sm font-semibold">IEStudio</span>
+          <div className="flex flex-col min-w-0">
+            <span className="truncate text-xs font-bold uppercase tracking-widest text-[var(--ink-faint)]">IEStudio</span>
+            <span className="min-w-0 truncate text-sm font-black -mt-0.5">Dashboard</span>
+          </div>
         </header>
 
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
           {mainTab === "dashboard" ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scroll-smooth">
               <DashboardOverviewPanel />
             </div>
           ) : null}
