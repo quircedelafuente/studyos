@@ -2,11 +2,21 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { JWT } from "next-auth/jwt";
 
+/**
+ * Lee env en tiempo de petición (Vercel inyecta aquí). Evita depender del valor
+ * que existiera solo en build con `process.env.AUTH_SECRET` estático.
+ */
+function env(name: string): string | undefined {
+  const v = process.env[name];
+  if (v === undefined || v === null) return undefined;
+  const t = String(v).trim();
+  return t.length > 0 ? t : undefined;
+}
+
 async function refreshGoogleAccessToken(token: JWT): Promise<JWT> {
-  const clientId =
-    process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID ?? "";
+  const clientId = env("AUTH_GOOGLE_ID") ?? env("GOOGLE_CLIENT_ID") ?? "";
   const clientSecret =
-    process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "";
+    env("AUTH_GOOGLE_SECRET") ?? env("GOOGLE_CLIENT_SECRET") ?? "";
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
@@ -36,59 +46,81 @@ async function refreshGoogleAccessToken(token: JWT): Promise<JWT> {
   };
 }
 
-export const { handlers: { GET, POST }, auth } = NextAuth({
-  trustHost: true,
-  /** Obligatorio en producción (Vercel). Sin esto → /api/auth/error?error=Configuration */
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
-  providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID,
-      clientSecret:
-        process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET,
-      authorization: {
-        params: {
-          // Acceso completo al calendario (crear/editar eventos). Más fiable que
-          // calendar.events si la pantalla de consentimiento o tokens antiguos fallan.
-          scope:
-            "openid email profile https://www.googleapis.com/auth/calendar",
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code",
+const nextAuth = NextAuth(() => {
+  const secret = env("AUTH_SECRET") ?? env("NEXTAUTH_SECRET");
+  const clientId = env("AUTH_GOOGLE_ID") ?? env("GOOGLE_CLIENT_ID");
+  const clientSecret =
+    env("AUTH_GOOGLE_SECRET") ?? env("GOOGLE_CLIENT_SECRET");
+
+  if (!secret) {
+    console.error(
+      "[auth] Falta AUTH_SECRET o NEXTAUTH_SECRET en el entorno del servidor (Vercel → Environment Variables → Production).",
+    );
+  }
+  if (!clientId || !clientSecret) {
+    console.error(
+      "[auth] Faltan AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET (o GOOGLE_CLIENT_*) en el entorno del servidor.",
+    );
+  }
+
+  return {
+    trustHost: true,
+    secret,
+    providers: [
+      Google({
+        clientId: clientId ?? "",
+        clientSecret: clientSecret ?? "",
+        authorization: {
+          params: {
+            scope:
+              "openid email profile https://www.googleapis.com/auth/calendar",
+            prompt: "consent",
+            access_type: "offline",
+            response_type: "code",
+          },
         },
+      }),
+    ],
+    callbacks: {
+      async jwt({ token, account }): Promise<JWT> {
+        try {
+          if (account?.access_token) {
+            return {
+              ...token,
+              access_token: account.access_token,
+              expires_at: account.expires_at,
+              refresh_token: account.refresh_token,
+            };
+          }
+          const expMs =
+            typeof token.expires_at === "number"
+              ? token.expires_at * 1000
+              : 0;
+          if (expMs && Date.now() < expMs - 60_000) {
+            return token;
+          }
+          if (token.refresh_token) {
+            return refreshGoogleAccessToken(token);
+          }
+          return token;
+        } catch (e) {
+          console.error("[auth] jwt callback error:", e);
+          return token;
+        }
       },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, account }): Promise<JWT> {
-      if (account?.access_token) {
+      async session({ session, token }) {
         return {
-          ...token,
-          access_token: account.access_token,
-          expires_at: account.expires_at,
-          refresh_token: account.refresh_token,
+          ...session,
+          user: {
+            ...session.user,
+            id: token.sub ?? "",
+          },
+          error: token.error as string | undefined,
         };
-      }
-      const expMs =
-        typeof token.expires_at === "number"
-          ? token.expires_at * 1000
-          : 0;
-      if (expMs && Date.now() < expMs - 60_000) {
-        return token;
-      }
-      if (token.refresh_token) {
-        return refreshGoogleAccessToken(token);
-      }
-      return token;
+      },
     },
-    async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.sub ?? "",
-        },
-        error: token.error as string | undefined,
-      };
-    },
-  },
+  };
 });
+
+export const handlers = nextAuth.handlers;
+export const auth = nextAuth.auth;
