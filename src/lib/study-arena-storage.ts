@@ -36,7 +36,8 @@ export function saveStudyArenaState(state: StudyArenaStoredState): void {
   } catch {
     // Ignore quota failures; arena continues in-memory.
   }
-  window.dispatchEvent(new Event(STUDY_ARENA_CHANGED_EVENT));
+  /** No disparamos STUDY_ARENA_CHANGED aquí: el propio React ya tiene el estado;
+   * volver a leer localStorage en el provider provocaba carreras y sesión a null si el parseo fallaba. */
   if (arenaPushDebounce) clearTimeout(arenaPushDebounce);
   arenaPushDebounce = setTimeout(() => {
     arenaPushDebounce = null;

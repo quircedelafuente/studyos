@@ -90,42 +90,75 @@ function clamp(n: number, min: number, max: number): number {
 function toActiveSession(raw: unknown): StudyArenaActiveSession | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
+  const key = typeof o.key === "string" ? o.key : null;
+  const planId = typeof o.planId === "string" ? o.planId : null;
+  const planTitle = typeof o.planTitle === "string" ? o.planTitle : null;
+  const date = typeof o.date === "string" ? o.date : null;
+  const studyHours =
+    typeof o.studyHours === "number" && Number.isFinite(o.studyHours) ? o.studyHours : null;
+  const focus = typeof o.focus === "string" ? o.focus : "";
+  const arenaRunId = typeof o.arenaRunId === "string" ? o.arenaRunId : null;
+  const totalDurationMs =
+    typeof o.totalDurationMs === "number" && Number.isFinite(o.totalDurationMs)
+      ? o.totalDurationMs
+      : null;
+  const startedAtMs =
+    typeof o.startedAtMs === "number" && Number.isFinite(o.startedAtMs) ? o.startedAtMs : null;
+  const elapsedActiveMs =
+    typeof o.elapsedActiveMs === "number" && Number.isFinite(o.elapsedActiveMs)
+      ? o.elapsedActiveMs
+      : null;
+  const segmentStartMs =
+    o.segmentStartMs === null
+      ? null
+      : typeof o.segmentStartMs === "number" && Number.isFinite(o.segmentStartMs)
+        ? o.segmentStartMs
+        : null;
+  const paused = typeof o.paused === "boolean" ? o.paused : false;
+  const distractionCount =
+    typeof o.distractionCount === "number" && Number.isFinite(o.distractionCount)
+      ? Math.max(0, Math.floor(o.distractionCount))
+      : 0;
+  const focusScore =
+    typeof o.focusScore === "number" && Number.isFinite(o.focusScore)
+      ? clamp(o.focusScore, 0, 100)
+      : SESSION_STORAGE_FOCUS_SCORE_START;
+  const lastInteractionMs =
+    typeof o.lastInteractionMs === "number" && Number.isFinite(o.lastInteractionMs)
+      ? o.lastInteractionMs
+      : Date.now();
+
   if (
-    typeof o.key !== "string" ||
-    typeof o.planId !== "string" ||
-    typeof o.planTitle !== "string" ||
-    typeof o.date !== "string" ||
-    typeof o.studyHours !== "number" ||
-    typeof o.focus !== "string" ||
-    typeof o.arenaRunId !== "string" ||
-    typeof o.totalDurationMs !== "number" ||
-    typeof o.startedAtMs !== "number" ||
-    typeof o.elapsedActiveMs !== "number" ||
-    (o.segmentStartMs !== null && typeof o.segmentStartMs !== "number") ||
-    typeof o.paused !== "boolean" ||
-    typeof o.distractionCount !== "number" ||
-    typeof o.focusScore !== "number" ||
-    typeof o.lastInteractionMs !== "number"
+    key == null ||
+    planId == null ||
+    planTitle == null ||
+    date == null ||
+    studyHours == null ||
+    arenaRunId == null ||
+    totalDurationMs == null ||
+    startedAtMs == null ||
+    elapsedActiveMs == null
   ) {
     return null;
   }
+
   return {
-    key: o.key,
-    planId: o.planId,
-    planTitle: o.planTitle,
-    date: o.date,
-    studyHours: o.studyHours,
-    focus: o.focus,
+    key,
+    planId,
+    planTitle,
+    date,
+    studyHours,
+    focus,
     sessionTitle: typeof o.sessionTitle === "string" ? o.sessionTitle : undefined,
-    arenaRunId: o.arenaRunId,
-    totalDurationMs: o.totalDurationMs,
-    startedAtMs: o.startedAtMs,
-    elapsedActiveMs: o.elapsedActiveMs,
-    segmentStartMs: o.segmentStartMs,
-    paused: o.paused,
-    distractionCount: o.distractionCount,
-    focusScore: o.focusScore,
-    lastInteractionMs: o.lastInteractionMs,
+    arenaRunId,
+    totalDurationMs,
+    startedAtMs,
+    elapsedActiveMs,
+    segmentStartMs,
+    paused,
+    distractionCount,
+    focusScore,
+    lastInteractionMs,
   };
 }
 
@@ -365,17 +398,17 @@ export function StudyArenaProvider({ children }: { children: React.ReactNode }) 
     const nowMs = Date.now();
     setActiveSession((prev) => {
       if (!prev) return prev;
-      if (falseSessionPrompt) return prev;
+      if (promptRef.current) return prev;
       if (prev.paused) return resumeSessionState(prev, nowMs);
       return pauseSessionState(prev, nowMs, true);
     });
-  }, [falseSessionPrompt]);
+  }, []);
 
   const addDistraction = useCallback(() => {
     const nowMs = Date.now();
     setActiveSession((prev) => {
       if (!prev) return prev;
-      if (falseSessionPrompt) return prev;
+      if (promptRef.current) return prev;
       const nextCount = prev.distractionCount + 1;
       const nextFocus = clamp(
         prev.focusScore - SESSION_FOCUS_SCORE_DECREMENT_PER_DISTRACTION,
@@ -389,32 +422,28 @@ export function StudyArenaProvider({ children }: { children: React.ReactNode }) 
         lastInteractionMs: nowMs,
       };
     });
-  }, [falseSessionPrompt]);
+  }, []);
 
   const finalizeSession = useCallback(() => {
     const nowMs = Date.now();
+    if (promptRef.current) return;
+    const cur = activeSessionRef.current;
+    if (!cur) return;
+    const elapsed = computeElapsedActiveMs(cur, nowMs);
+    const shortSession = elapsed < FALSE_SESSION_TOO_SHORT_MS;
     setFalseSessionPrompt(null);
     setActiveSession((prev) => {
       if (!prev) return prev;
-      const elapsed = computeElapsedActiveMs(prev, nowMs);
-      const shouldPrompt = elapsed < FALSE_SESSION_TOO_SHORT_MS;
-      if (!shouldPrompt) return null;
-      // Guardamos estado pausado para permitir reinicio.
+      if (!shortSession) return null;
       const pausedState = pauseSessionState(prev, nowMs, false);
       return {
         ...pausedState,
-        // La sesión está terminada: forzamos tiempo restante a 0 para coherencia visual.
         elapsedActiveMs: prev.totalDurationMs,
       };
     });
-
-    // El prompt depende del estado actual. Para evitar inconsistencias por React batching,
-    // lo calculamos leyendo el snapshot ref del estado actual.
-    const s = activeSessionRef.current;
-    if (!s) return;
-    const elapsed = computeElapsedActiveMs(s, nowMs);
-    if (elapsed >= FALSE_SESSION_TOO_SHORT_MS) return;
-    setFalseSessionPrompt({ reason: "too_short", mode: "ended" });
+    if (shortSession) {
+      setFalseSessionPrompt({ reason: "too_short", mode: "ended" });
+    }
   }, []);
 
   const confirmFalseSession = useCallback(() => {

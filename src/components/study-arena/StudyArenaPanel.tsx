@@ -109,7 +109,7 @@ function OuterProgressRing({
   const dash = (pct / 100) * c;
   const rest = c - dash;
   return (
-    <svg className="absolute inset-0" viewBox="0 0 100 100" aria-hidden>
+    <svg className="pointer-events-none absolute inset-0" viewBox="0 0 100 100" aria-hidden>
       <circle cx={cx} cy={cy} r={r} stroke="rgba(0,0,0,0.08)" strokeWidth="10" fill="none" />
       <circle
         cx={cx}
@@ -505,14 +505,19 @@ export function StudyArenaPanel() {
 
                   <div className="relative mt-5 flex min-h-0 flex-1 flex-col items-center justify-center">
                     <div className="relative mx-auto aspect-square w-full max-w-[min(18rem,calc(100vw-2rem))] shrink-0 text-[var(--ink)]">
-                      <OuterProgressRing progressPct={progressPct} disabled={paused} />
                       <button
                         type="button"
                         onClick={togglePause}
-                        className="absolute left-1/2 top-1/2 z-10 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[var(--ink)] transition hover:bg-black/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ink)] focus-visible:outline-offset-2 sm:h-28 sm:w-28 md:h-32 md:w-32"
+                        className="absolute inset-0 z-10 flex items-center justify-center rounded-full text-[var(--ink)] transition hover:bg-black/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ink)] focus-visible:outline-offset-2"
                         aria-label={paused ? "Reanudar" : "Pausar"}
                       >
-                        <PauseIcon paused={paused} className="h-14 w-14 sm:h-16 sm:w-16 md:h-20 md:w-20" />
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <OuterProgressRing progressPct={progressPct} disabled={paused} />
+                        </span>
+                        <PauseIcon
+                          paused={paused}
+                          className="relative z-[1] h-14 w-14 sm:h-16 sm:h-16 md:h-20 md:w-20"
+                        />
                       </button>
                     </div>
                   </div>
