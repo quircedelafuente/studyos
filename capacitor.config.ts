@@ -15,9 +15,16 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   /**
-   * No usar overrideUserAgent tipo Safari: en iOS puede hacer que Google abra el login
-   * en Safari mientras state/PKCE viven en cookies del WKWebView → callback con error de servidor.
+   * Lista de clases de plugins iOS que Capacitor carga desde el bundle principal.
+   * Capacitor 7 descubre plugins inline sólo a través de este array (lee
+   * capacitor.config.json › packageClassList con NSClassFromString en el bridge).
    */
+  // @ts-ignore — ios.packageClassList no está tipado en CapacitorConfig pero es leído por el bridge
+  packageClassList: [
+    "AppPlugin",
+    "CAPBrowserPlugin",
+    "LiveActivityPlugin",
+  ],
 };
 
 export default config;
