@@ -28,16 +28,42 @@ export function NotebookLMAuthBanner() {
           </>
         ) : (
           <>
-            El backend en Railway necesita credenciales de NotebookLM en disco persistente.
-            Suele requerir un volumen montado y ejecutar{" "}
-            <code className="rounded bg-amber-100 px-1 font-mono text-[11px]">
-              notebooklm login
-            </code>{" "}
-            en el contenedor o copiar los archivos de sesión; consulta la documentación de{" "}
-            <code className="font-mono text-[11px]">notebooklm-py</code>.
+            La librería <code className="font-mono text-[11px]">notebooklm-py</code> admite auth
+            por variable de entorno (sin volumen). Pasos:
           </>
         )}
       </p>
+      {!local ? (
+        <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs text-amber-900">
+          <li>
+            En tu ordenador (con backend local o solo CLI):{" "}
+            <code className="rounded bg-amber-100 px-1 font-mono text-[11px]">
+              npm run notebooklm:login
+            </code>{" "}
+            y completa el login con Google.
+          </li>
+          <li>
+            Abre el archivo{" "}
+            <code className="font-mono text-[11px]">~/.notebooklm/storage_state.json</code> y
+            copia <strong className="font-medium">todo</strong> su contenido (JSON). Opcional: una
+            sola línea con{" "}
+            <code className="font-mono text-[11px]">jq -c . &lt; ~/.notebooklm/storage_state.json</code>
+            .
+          </li>
+          <li>
+            En <strong className="font-medium">Railway</strong> → servicio del backend →{" "}
+            <strong className="font-medium">Variables</strong> → crea{" "}
+            <code className="rounded bg-amber-100 px-1 font-mono text-[11px]">
+              NOTEBOOKLM_AUTH_JSON
+            </code>{" "}
+            y pega el JSON. Trátalo como una contraseña.
+          </li>
+          <li>
+            <strong className="font-medium">Redeploy</strong> el servicio. Cuando las cookies
+            caduquen, repite login local y actualiza la variable.
+          </li>
+        </ol>
+      ) : null}
     </div>
   );
 }
