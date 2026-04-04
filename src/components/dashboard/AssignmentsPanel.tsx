@@ -674,9 +674,336 @@ export function AssignmentsPanel() {
         </p>
       ) : null}
 
-      {/* ─── Config panel ─── */}
+      {/* ─── Gradebook (siempre que haya caché o config; no ocultar aunque Ajustes esté abiertos) ─── */}
+      {(config || allCourses.length > 0) ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-5">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {(coursesLoading || bulkGbLoading) &&
+            (coursesProgress || bulkGbProgress) ? (
+              <span className="mr-auto max-w-[min(100%,28rem)] truncate text-xs text-[var(--ink-muted)]">
+                {coursesProgress || bulkGbProgress}
+              </span>
+            ) : null}
+            {curatedCourses.length > 0 &&
+            displayedCourses.length === 0 &&
+            !coursesLoading ? (
+              <CourseFilterSelect
+                id="bb-course-filter-fallback"
+                value={filterMode}
+                onChange={setFilterMode}
+                catTotals={catTotals}
+                allCoursesLength={curatedCourses.length}
+                className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--canvas)] px-2 py-1.5 text-xs text-[var(--ink)] outline-none sm:min-w-[14rem]"
+              />
+            ) : null}
+          </div>
+
+          {coursesError ? (
+            <div className="whitespace-pre-line rounded-xl border border-red-400/30 bg-red-50/60 px-4 py-3 text-sm leading-relaxed text-red-700">
+              {coursesError}
+            </div>
+          ) : null}
+
+          {bulkGbSummary ? (
+            <div
+              className={`rounded-xl border px-4 py-2.5 text-xs leading-relaxed ${
+                bulkGbSummary.variant === "warning"
+                  ? "border-amber-400/40 bg-amber-50/80 text-amber-950"
+                  : "border-emerald-400/40 bg-emerald-50/80 text-emerald-950"
+              }`}
+            >
+              {bulkGbSummary.text}
+            </div>
+          ) : null}
+
+          {/* Two-column: course list + gradebook */}
+          {displayedCourses.length > 0 ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+              {/* Course sidebar */}
+              <aside className="flex min-h-0 shrink-0 flex-col lg:w-72">
+                <div className="mb-2 flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-muted)]">
+                      Cursos ({displayedCourses.length})
+                    </p>
+                    {gbFetched ? (
+                      <span className="shrink-0 text-[11px] text-[var(--ink-faint)]">
+                        Sync: {relativeTime(gbFetched)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <select
+                    value={gbSortMode}
+                    onChange={(e) =>
+                      setGbSortMode(e.target.value as GradebookSortMode)
+                    }
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--canvas)] px-2 py-1.5 text-xs text-[var(--ink)] outline-none"
+                    aria-label="Ordenar gradebook"
+                    title="Ordenar gradebook"
+                  >
+                    <option value="none">Orden: por defecto</option>
+                    <option value="deadline-asc">Orden: deadline (más próximo)</option>
+                    <option value="deadline-desc">Orden: deadline (más lejano)</option>
+                    <option value="submission-status">
+                      Orden: estado entrega (rojo → amarillo → verde)
+                    </option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => void refreshAllGradebooks()}
+                    disabled={
+                      bulkGbLoading ||
+                      coursesLoading ||
+                      gbLoading ||
+                      readOnlyBbView
+                    }
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)] disabled:opacity-50"
+                    title="Actualizar todos los gradebooks"
+                    aria-label="Actualizar todos los gradebooks"
+                  >
+                    <IconRefresh
+                      className={`h-4 w-4 ${bulkGbLoading ? "animate-spin" : ""}`}
+                    />
+                    Sync gradebooks
+                  </button>
+                  <CourseFilterSelect
+                    id="bb-course-filter"
+                    value={filterMode}
+                    onChange={setFilterMode}
+                    catTotals={catTotals}
+                    allCoursesLength={curatedCourses.length}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--canvas)] px-2 py-1.5 text-xs text-[var(--ink)] outline-none"
+                  />
+                </div>
+                <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-sm">
+                  {displayedCourses.map((c) => {
+                    const active = selectedCourseId === c.learnCourseId;
+                    return (
+                      <button
+                        key={c.learnCourseId}
+                        type="button"
+                        onClick={() =>
+                          handleSelectCourse(c.learnCourseId)
+                        }
+                        className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                          active
+                            ? "bg-[var(--ink)] text-white"
+                            : "text-[var(--ink)] hover:bg-[var(--surface-muted)]"
+                        }`}
+                      >
+                        <span className="min-w-0 flex-1 truncate font-medium">
+                          {c.name}
+                        </span>
+                        {c.category ? (
+                          <span className="shrink-0 rounded-md bg-[var(--surface-muted)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--ink-faint)]">
+                            {c.category}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </aside>
+
+              {/* Gradebook main */}
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+                {selectedCourseId ? (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="min-w-0 truncate text-base font-bold text-[var(--ink)]">
+                        {selectedCourseName ?? selectedCourseId}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {gradesLoadFailed ? (
+                          <span className="text-[11px] font-medium text-amber-800">
+                            Notas no cargadas
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void fetchGradebookForCourse(selectedCourseId)
+                          }
+                          disabled={gbLoading || readOnlyBbView}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ink)] transition hover:bg-[var(--surface)] disabled:opacity-50"
+                        >
+                          <IconRefresh
+                            className={`h-3.5 w-3.5 ${gbLoading ? "animate-spin" : ""}`}
+                          />
+                          {readOnlyBbView ? "Solo caché" : "Actualizar"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {gbLoading ? (
+                      <p className="text-xs text-[var(--ink-muted)]">{gbProgress}</p>
+                    ) : null}
+
+                    {gbError ? (
+                      <div className="rounded-xl border border-red-400/30 bg-red-50/60 px-3 py-2 text-xs text-red-700">
+                        {gbError}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void fetchGradebookForCourse(selectedCourseId)
+                          }
+                          className="ml-3 underline"
+                        >
+                          Reintentar
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {gradebook.length === 0 && !gbLoading && gbFetched ? (
+                      <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-10 text-center text-sm text-[var(--ink-muted)]">
+                        Este curso no tiene columnas en el gradebook.
+                      </div>
+                    ) : null}
+
+                    {gradebook.length === 0 && !gbLoading && !gbFetched ? (
+                      <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-10 text-center text-sm text-[var(--ink-muted)]">
+                        Pulsa &quot;Cargar gradebook&quot; para obtener las
+                        columnas de este curso.
+                      </div>
+                    ) : null}
+
+                    {gradebook.length > 0 ? (
+                      <div className="min-h-0 flex-1 overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_16px_40px_-18px_rgba(2,6,23,0.35)] ring-1 ring-black/[0.02]">
+                        <div className="min-h-0 h-full w-full overflow-y-auto overflow-x-hidden">
+                          <table className="table-fixed w-full min-w-0 text-[13px]">
+                            <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[color:color-mix(in_srgb,var(--surface-muted)_84%,white)]/95 backdrop-blur">
+                              <tr>
+                                <th className="w-[46%] px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">
+                                  Nombre
+                                </th>
+                                <th className="w-[18%] px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">
+                                  Fecha límite
+                                </th>
+                                <th className="w-[17%] px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">
+                                  Nota / máx.
+                                </th>
+                                <th
+                                  className="w-[11%] px-3 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]"
+                                  title="Rojo: no abierto · Amarillo: no entregado (borrador) · Verde: entregado"
+                                >
+                                  Entrega
+                                </th>
+                                <th className="w-[8%] px-3 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">
+                                  Abrir
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--border)]/80">
+                              {sortedGradebook.map((col) => {
+                                const due = col.grading?.due;
+                                const colName =
+                                  col.displayName ??
+                                  col.name ??
+                                  col.id;
+                                const link = resolveGradebookColumnUltraUrl(
+                                  selectedCourseId,
+                                  col,
+                                  {
+                                    gradebookCategoryTitles:
+                                      gradebookCategoryTitlesForLinks,
+                                  },
+                                );
+                                return (
+                                  <tr
+                                    key={col.id}
+                                    className="transition-colors hover:bg-[color:color-mix(in_srgb,var(--surface-muted)_62%,white)]"
+                                  >
+                                    <td className="px-3 py-3 align-middle overflow-hidden">
+                                      <div className="w-full truncate text-[13px] font-semibold text-[var(--ink)]" title={colName}>
+                                        {colName}
+                                      </div>
+                                    </td>
+                                    <td className="w-full whitespace-nowrap px-3 py-3 align-middle text-[var(--ink-muted)] overflow-hidden">
+                                      <div className="w-full overflow-hidden">
+                                        <span
+                                          className="inline-flex max-w-full items-center truncate rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-medium"
+                                          title={formatDueDate(due)}
+                                        >
+                                          {formatDueDate(due)}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="whitespace-nowrap px-3 py-3 text-right align-middle tabular-nums text-[var(--ink)] overflow-hidden">
+                                      <div className="truncate">{formatGradePointsCell(col)}</div>
+                                    </td>
+                                    <td className="px-3 py-3 text-center align-middle">
+                                      <div className="flex justify-center">
+                                        <SubmissionStatusIndicator
+                                          reason={col.submissionReason}
+                                          submitted={col.submissionSubmitted}
+                                          labelEs={col.submissionLabelEs ?? undefined}
+                                        />
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-3 text-center align-middle">
+                                      <a
+                                        href={link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--ink)] transition hover:bg-white"
+                                        title="Abrir en Blackboard"
+                                      >
+                                        <IconExternal className="h-3.5 w-3.5" />
+                                        <span className="sr-only">Abrir en Blackboard</span>
+                                      </a>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)]">
+                    <p className="text-sm text-[var(--ink-muted)]">
+                      Selecciona un curso de la lista para ver su gradebook.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : allCourses.length === 0 && !coursesLoading ? (
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-14 text-center text-sm text-[var(--ink-muted)]">
+              {coursesFetched
+                ? "Ningún curso coincide con el filtro. Prueba «Todos los cursos» en el desplegable."
+                : "Pulsa «Cargar cursos» (con Blackboard abierto en otra pestaña)."}
+            </div>
+          ) : displayedCourses.length === 0 &&
+            curatedCourses.length > 0 &&
+            !coursesLoading ? (
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-10 text-center text-sm text-[var(--ink-muted)]">
+              Ningún curso clasificado como Q1 o Q2 (puede que los términos no contengan «FIRST Q1» / «FIRST Q2»).
+              Cambia a «Todos los cursos» en el desplegable para ver el listado completo.
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* ─── Config panel (debajo del gradebook si hay datos; ya no bloquea la vista) ─── */}
       {(!config && allCourses.length === 0) || showConfig ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
+          {(config || allCourses.length > 0) && showConfig ? (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+              <p className="text-xs text-[var(--ink-muted)]">
+                Ajustes de conexión Blackboard. Los cursos y gradebooks sincronizados siguen arriba.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowConfig(false)}
+                className="rounded-xl bg-[var(--ink)] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
+              >
+                Cerrar ajustes
+              </button>
+            </div>
+          ) : null}
           <h2 className="text-sm font-bold text-[var(--ink)]">
             {config ? "Configuración de Blackboard" : "Conectar con Blackboard Learn"}
           </h2>
@@ -904,319 +1231,6 @@ export function AssignmentsPanel() {
         </section>
       ) : null}
 
-      {/* ─── Connected state ─── */}
-      {(config || allCourses.length > 0) && !showConfig ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-5">
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            {(coursesLoading || bulkGbLoading) &&
-            (coursesProgress || bulkGbProgress) ? (
-              <span className="mr-auto max-w-[min(100%,28rem)] truncate text-xs text-[var(--ink-muted)]">
-                {coursesProgress || bulkGbProgress}
-              </span>
-            ) : null}
-            {curatedCourses.length > 0 &&
-            displayedCourses.length === 0 &&
-            !coursesLoading ? (
-              <CourseFilterSelect
-                id="bb-course-filter-fallback"
-                value={filterMode}
-                onChange={setFilterMode}
-                catTotals={catTotals}
-                allCoursesLength={curatedCourses.length}
-                className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--canvas)] px-2 py-1.5 text-xs text-[var(--ink)] outline-none sm:min-w-[14rem]"
-              />
-            ) : null}
-          </div>
-
-          {coursesError ? (
-            <div className="whitespace-pre-line rounded-xl border border-red-400/30 bg-red-50/60 px-4 py-3 text-sm leading-relaxed text-red-700">
-              {coursesError}
-            </div>
-          ) : null}
-
-          {bulkGbSummary ? (
-            <div
-              className={`rounded-xl border px-4 py-2.5 text-xs leading-relaxed ${
-                bulkGbSummary.variant === "warning"
-                  ? "border-amber-400/40 bg-amber-50/80 text-amber-950"
-                  : "border-emerald-400/40 bg-emerald-50/80 text-emerald-950"
-              }`}
-            >
-              {bulkGbSummary.text}
-            </div>
-          ) : null}
-
-          {/* Two-column: course list + gradebook */}
-          {displayedCourses.length > 0 ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-              {/* Course sidebar */}
-              <aside className="flex min-h-0 shrink-0 flex-col lg:w-72">
-                <div className="mb-2 flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-muted)]">
-                      Cursos ({displayedCourses.length})
-                    </p>
-                    {gbFetched ? (
-                      <span className="shrink-0 text-[11px] text-[var(--ink-faint)]">
-                        Sync: {relativeTime(gbFetched)}
-                      </span>
-                    ) : null}
-                  </div>
-                  <select
-                    value={gbSortMode}
-                    onChange={(e) =>
-                      setGbSortMode(e.target.value as GradebookSortMode)
-                    }
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--canvas)] px-2 py-1.5 text-xs text-[var(--ink)] outline-none"
-                    aria-label="Ordenar gradebook"
-                    title="Ordenar gradebook"
-                  >
-                    <option value="none">Orden: por defecto</option>
-                    <option value="deadline-asc">Orden: deadline (más próximo)</option>
-                    <option value="deadline-desc">Orden: deadline (más lejano)</option>
-                    <option value="submission-status">
-                      Orden: estado entrega (rojo → amarillo → verde)
-                    </option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => void refreshAllGradebooks()}
-                    disabled={
-                      bulkGbLoading ||
-                      coursesLoading ||
-                      gbLoading ||
-                      readOnlyBbView
-                    }
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)] disabled:opacity-50"
-                    title="Actualizar todos los gradebooks"
-                    aria-label="Actualizar todos los gradebooks"
-                  >
-                    <IconRefresh
-                      className={`h-4 w-4 ${bulkGbLoading ? "animate-spin" : ""}`}
-                    />
-                    Sync gradebooks
-                  </button>
-                  <CourseFilterSelect
-                    id="bb-course-filter"
-                    value={filterMode}
-                    onChange={setFilterMode}
-                    catTotals={catTotals}
-                    allCoursesLength={curatedCourses.length}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--canvas)] px-2 py-1.5 text-xs text-[var(--ink)] outline-none"
-                  />
-                </div>
-                <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-sm">
-                  {displayedCourses.map((c) => {
-                    const active = selectedCourseId === c.learnCourseId;
-                    return (
-                      <button
-                        key={c.learnCourseId}
-                        type="button"
-                        onClick={() =>
-                          handleSelectCourse(c.learnCourseId)
-                        }
-                        className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                          active
-                            ? "bg-[var(--ink)] text-white"
-                            : "text-[var(--ink)] hover:bg-[var(--surface-muted)]"
-                        }`}
-                      >
-                        <span className="min-w-0 flex-1 truncate font-medium">
-                          {c.name}
-                        </span>
-                        {c.category ? (
-                          <span
-                            className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                              active
-                                ? "bg-white/20 text-white/80"
-                                : "bg-[var(--surface-muted)] text-[var(--ink-faint)]"
-                            }`}
-                          >
-                            {c.category}
-                          </span>
-                        ) : null}
-                        <IconChevron
-                          className={`h-4 w-4 shrink-0 transition ${
-                            active
-                              ? "-rotate-90 text-white/70"
-                              : "text-[var(--ink-faint)]"
-                          }`}
-                        />
-                      </button>
-                    );
-                  })}
-                </nav>
-              </aside>
-
-              {/* Gradebook area */}
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                {selectedCourseId ? (
-                  <>
-                    <div className="mb-3 flex flex-wrap items-center gap-3">
-                      <div className="ml-auto flex items-center gap-2">
-                        {gbProgress ? (
-                          <span className="text-[11px] text-[var(--ink-muted)]">
-                            {gbProgress}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {gradesLoadFailed ? (
-                      <div className="mb-3 rounded-xl border border-amber-400/40 bg-amber-50/70 px-4 py-2.5 text-xs leading-relaxed text-amber-900">
-                        No se pudieron cargar tus calificaciones desde la API interna
-                        (<code className="font-mono-cli text-[10px]">/gradebook/grades</code>
-                        ). Solo ves el máximo por ítem. Recarga Blackboard e inténtalo de nuevo.
-                      </div>
-                    ) : null}
-
-                    {gbError ? (
-                      <div className="mb-3 whitespace-pre-line rounded-xl border border-red-400/30 bg-red-50/60 px-4 py-3 text-sm leading-relaxed text-red-700">
-                        {gbError}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            fetchGradebookForCourse(selectedCourseId)
-                          }
-                          className="ml-3 underline"
-                        >
-                          Reintentar
-                        </button>
-                      </div>
-                    ) : null}
-
-                    {gradebook.length === 0 && !gbLoading && gbFetched ? (
-                      <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-10 text-center text-sm text-[var(--ink-muted)]">
-                        Este curso no tiene columnas en el gradebook.
-                      </div>
-                    ) : null}
-
-                    {gradebook.length === 0 && !gbLoading && !gbFetched ? (
-                      <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-10 text-center text-sm text-[var(--ink-muted)]">
-                        Pulsa &quot;Cargar gradebook&quot; para obtener las
-                        columnas de este curso.
-                      </div>
-                    ) : null}
-
-                    {gradebook.length > 0 ? (
-                      <div className="min-h-0 flex-1 overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_16px_40px_-18px_rgba(2,6,23,0.35)] ring-1 ring-black/[0.02]">
-                        <div className="min-h-0 h-full w-full overflow-y-auto overflow-x-hidden">
-                          <table className="table-fixed w-full min-w-0 text-[13px]">
-                            <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[color:color-mix(in_srgb,var(--surface-muted)_84%,white)]/95 backdrop-blur">
-                              <tr>
-                                <th className="w-[46%] px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">
-                                  Nombre
-                                </th>
-                                <th className="w-[18%] px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">
-                                  Fecha límite
-                                </th>
-                                <th className="w-[17%] px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">
-                                  Nota / máx.
-                                </th>
-                                <th
-                                  className="w-[11%] px-3 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]"
-                                  title="Rojo: no abierto · Amarillo: no entregado (borrador) · Verde: entregado"
-                                >
-                                  Entrega
-                                </th>
-                                <th className="w-[8%] px-3 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">
-                                  Abrir
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--border)]/80">
-                              {sortedGradebook.map((col) => {
-                                const due = col.grading?.due;
-                                const colName =
-                                  col.displayName ??
-                                  col.name ??
-                                  col.id;
-                                const link = resolveGradebookColumnUltraUrl(
-                                  selectedCourseId,
-                                  col,
-                                  {
-                                    gradebookCategoryTitles:
-                                      gradebookCategoryTitlesForLinks,
-                                  },
-                                );
-                                return (
-                                  <tr
-                                    key={col.id}
-                                    className="transition-colors hover:bg-[color:color-mix(in_srgb,var(--surface-muted)_62%,white)]"
-                                  >
-                                    <td className="px-3 py-3 align-middle overflow-hidden">
-                                      <div className="w-full truncate text-[13px] font-semibold text-[var(--ink)]" title={colName}>
-                                        {colName}
-                                      </div>
-                                    </td>
-                                    <td className="w-full whitespace-nowrap px-3 py-3 align-middle text-[var(--ink-muted)] overflow-hidden">
-                                      <div className="w-full overflow-hidden">
-                                        <span
-                                          className="inline-flex max-w-full items-center truncate rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-medium"
-                                          title={formatDueDate(due)}
-                                        >
-                                          {formatDueDate(due)}
-                                        </span>
-                                      </div>
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-3 text-right align-middle tabular-nums text-[var(--ink)] overflow-hidden">
-                                      <div className="truncate">{formatGradePointsCell(col)}</div>
-                                    </td>
-                                    <td className="px-3 py-3 text-center align-middle">
-                                      <div className="flex justify-center">
-                                        <SubmissionStatusIndicator
-                                          reason={col.submissionReason}
-                                          submitted={col.submissionSubmitted}
-                                          labelEs={col.submissionLabelEs ?? undefined}
-                                        />
-                                      </div>
-                                    </td>
-                                    <td className="px-3 py-3 text-center align-middle">
-                                      <a
-                                        href={link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--ink)] transition hover:bg-white"
-                                        title="Abrir en Blackboard"
-                                      >
-                                        <IconExternal className="h-3.5 w-3.5" />
-                                        <span className="sr-only">Abrir en Blackboard</span>
-                                      </a>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)]">
-                    <p className="text-sm text-[var(--ink-muted)]">
-                      Selecciona un curso de la lista para ver su gradebook.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : allCourses.length === 0 && !coursesLoading ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-14 text-center text-sm text-[var(--ink-muted)]">
-              {coursesFetched
-                ? "Ningún curso coincide con el filtro. Prueba «Todos los cursos» en el desplegable."
-                : "Pulsa «Cargar cursos» (con Blackboard abierto en otra pestaña)."}
-            </div>
-          ) : displayedCourses.length === 0 &&
-            curatedCourses.length > 0 &&
-            !coursesLoading ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-10 text-center text-sm text-[var(--ink-muted)]">
-              Ningún curso clasificado como Q1 o Q2 (puede que los términos no contengan «FIRST Q1» / «FIRST Q2»).
-              Cambia a «Todos los cursos» en el desplegable para ver el listado completo.
-            </div>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }
