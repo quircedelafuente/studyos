@@ -1,0 +1,427 @@
+"use client";
+
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { GoogleCalendarEventItem } from "@/lib/google-calendar-types";
+import { getGoogleEventColorStyle } from "@/lib/google-calendar-event-colors";
+import {
+  GRID_HEIGHT_PX,
+  HOURS_IN_GRID,
+  PX_PER_HOUR,
+  buildAllDayChipsByColumn,
+  buildTimedSegmentsForWeek,
+} from "@/lib/week-time-grid-layout";
+import { DEADLINE_CALENDAR_EVENT_ID_PREFIX } from "@/lib/deadlines-to-calendar-events";
+
+const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+type WeekGoogleStyleGridProps = {
+  weekDates: Date[];
+  events: GoogleCalendarEventItem[];
+  isTodayDate: (d: Date) => boolean;
+  /** Si se omite, no se muestra borrar (solo lectura). */
+  onDeleteEvent?: (p: { eventId: string; calendarId: string }) => void;
+  deletingKey?: string | null;
+  /** Callback para mover un evento local a una nueva hora (HH:mm). */
+  onMoveEvent?: (p: { eventId: string; newTime: string }) => void;
+};
+
+export function WeekGoogleStyleGrid({
+  weekDates,
+  events,
+  isTodayDate,
+  onDeleteEvent,
+  deletingKey,
+  onMoveEvent,
+}: WeekGoogleStyleGridProps) {
+  const timed = useMemo(
+    () => buildTimedSegmentsForWeek(events, weekDates),
+    [events, weekDates],
+  );
+  const allDayByCol = useMemo(
+    () => buildAllDayChipsByColumn(events, weekDates),
+    [events, weekDates],
+  );
+
+  const hours = useMemo(
+    () => Array.from({ length: HOURS_IN_GRID }, (_, i) => i),
+    [],
+  );
+
+  const [nowLinePx, setNowLinePx] = useState<number | null>(null);
+  useEffect(() => {
+    function tick() {
+      const t = new Date();
+      const mins = t.getHours() * 60 + t.getMinutes() + t.getSeconds() / 60;
+      setNowLinePx((mins / (HOURS_IN_GRID * 60)) * GRID_HEIGHT_PX);
+    }
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const todayCol = weekDates.findIndex((d) => isTodayDate(d));
+
+  const maxAllDayRows = useMemo(() => {
+    let m = 1;
+    for (let c = 0; c < 7; c++) {
+      m = Math.max(m, (allDayByCol.get(c) ?? []).length);
+    }
+    return m;
+  }, [allDayByCol]);
+
+  const allDayRowHeight = Math.min(40 + maxAllDayRows * 34, 260);
+
+  const scrollBodyRef = useRef<HTMLDivElement>(null);
+  const weekKey = weekDates[0]
+    ? `${weekDates[0].getFullYear()}-${weekDates[0].getMonth()}-${weekDates[0].getDate()}`
+    : "";
+
+  const earliestTimedTopPx = useMemo(() => {
+    if (timed.length === 0) return 0;
+    return Math.min(...timed.map((s) => s.topPx));
+  }, [timed]);
+
+  useLayoutEffect(() => {
+    const el = scrollBodyRef.current;
+    if (!el || !weekKey) return;
+    const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+    const target =
+      timed.length === 0 ? 0 : Math.max(0, Math.min(earliestTimedTopPx, maxScroll));
+    el.scrollTop = target;
+  }, [weekKey, earliestTimedTopPx, timed.length, allDayRowHeight]);
+
+  const dragRef = useRef<{
+    eventId: string;
+    startY: number;
+    origTopPx: number;
+    heightPx: number;
+  } | null>(null);
+  const [dragDeltaPx, setDragDeltaPx] = useState(0);
+  const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
+  const gridBodyRef = useRef<HTMLDivElement>(null);
+
+  const isDraggableEvent = useCallback(
+    (eventId?: string) =>
+      Boolean(onMoveEvent && eventId?.startsWith(DEADLINE_CALENDAR_EVENT_ID_PREFIX)),
+    [onMoveEvent],
+  );
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent, seg: { eventId?: string; topPx: number; heightPx: number }) => {
+      if (!seg.eventId || !isDraggableEvent(seg.eventId)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      dragRef.current = {
+        eventId: seg.eventId,
+        startY: e.clientY,
+        origTopPx: seg.topPx,
+        heightPx: seg.heightPx,
+      };
+      setDraggingEventId(seg.eventId);
+      setDragDeltaPx(0);
+    },
+    [isDraggableEvent],
+  );
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    e.preventDefault();
+    setDragDeltaPx(e.clientY - dragRef.current.startY);
+  }, []);
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      e.preventDefault();
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      dragRef.current = null;
+      setDraggingEventId(null);
+      setDragDeltaPx(0);
+
+      const newTopPx = Math.max(0, Math.min(GRID_HEIGHT_PX - drag.heightPx, drag.origTopPx + (e.clientY - drag.startY)));
+      const SNAP_MINUTES = 15;
+      const totalMinutes = (newTopPx / GRID_HEIGHT_PX) * HOURS_IN_GRID * 60;
+      const snapped = Math.round(totalMinutes / SNAP_MINUTES) * SNAP_MINUTES;
+      const h = Math.floor(snapped / 60);
+      const m = snapped % 60;
+      const newTime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+
+      const rawId = drag.eventId.startsWith(DEADLINE_CALENDAR_EVENT_ID_PREFIX)
+        ? drag.eventId.slice(DEADLINE_CALENDAR_EVENT_ID_PREFIX.length)
+        : drag.eventId;
+      onMoveEvent?.({ eventId: rawId, newTime });
+    },
+    [onMoveEvent],
+  );
+
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-white via-zinc-50/95 to-zinc-100/50 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.14)] ring-1 ring-zinc-200/70">
+      <div
+        ref={scrollBodyRef}
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-auto"
+      >
+        <div
+          className="sticky top-0 z-20 min-w-[960px] border-b border-zinc-200/80 bg-gradient-to-b from-white/98 to-zinc-50/95 backdrop-blur-sm"
+          style={{
+            display: "grid",
+            gridTemplateColumns: `4.75rem repeat(7, minmax(7rem, 1fr))`,
+          }}
+        >
+          <div className="border-r border-zinc-200/60 bg-zinc-100/40" />
+          {weekDates.map((d, col) => {
+            const today = isTodayDate(d);
+            return (
+              <div
+                key={d.toISOString()}
+                className="border-r border-zinc-200/60 bg-gradient-to-b from-white/90 to-zinc-50/70 px-1.5 py-1 last:border-r-0"
+              >
+                <div className="flex items-center justify-center gap-1.5 leading-none">
+                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                    {WEEKDAYS[col]}
+                  </span>
+                  <span
+                    className={`flex h-6 min-h-[1.25rem] w-6 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums shadow-sm ${
+                      today
+                        ? "bg-black text-white shadow-md ring-2 ring-black/25"
+                        : "bg-white/90 text-zinc-800 ring-1 ring-zinc-200/80"
+                    }`}
+                  >
+                    {d.getDate()}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="flex items-center border-r border-t border-zinc-200/60 bg-zinc-50/50 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+            Todo el día
+          </div>
+          {weekDates.map((d, col) => (
+            <div
+              key={`allday-${d.toISOString()}`}
+              className="border-r border-t border-zinc-200/60 bg-zinc-50/30 p-1.5 last:border-r-0"
+              style={{ minHeight: allDayRowHeight }}
+            >
+              <div className="flex flex-col gap-0.5">
+                {(allDayByCol.get(col) ?? []).map((chip) => {
+                  const c = getGoogleEventColorStyle(chip.colorId);
+                  const delKey =
+                    chip.calendarId && chip.eventId
+                      ? `${chip.calendarId}\u0000${chip.eventId}`
+                      : "";
+                  const showDelete = Boolean(
+                    onDeleteEvent && chip.eventId && chip.calendarId,
+                  );
+                  const isDeleting = deletingKey === delKey;
+                  return (
+                    <div
+                      key={chip.key}
+                      className="flex min-w-0 items-start gap-1 rounded-lg border px-1.5 py-1 text-xs font-medium shadow-sm ring-1 ring-black/[0.04]"
+                      style={{
+                        backgroundColor: c.bg,
+                        borderColor: c.border,
+                        borderLeftWidth: 3,
+                        borderLeftColor: c.borderLeft,
+                        color: c.text,
+                      }}
+                      title={chip.title}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{chip.title}</span>
+                      {showDelete ? (
+                        <button
+                          type="button"
+                          className="shrink-0 rounded p-0.5 opacity-80 hover:bg-black/10 hover:opacity-100 disabled:opacity-40"
+                          aria-label="Eliminar evento"
+                          disabled={isDeleting}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteEvent!({
+                              eventId: chip.eventId!,
+                              calendarId: chip.calendarId!,
+                            });
+                          }}
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="flex min-w-[960px] bg-zinc-50/20"
+          style={{ minHeight: GRID_HEIGHT_PX }}
+        >
+          <div
+            className="shrink-0 border-r border-zinc-200/60 bg-gradient-to-b from-zinc-50/80 to-white/40"
+            style={{ width: "4.75rem" }}
+          >
+            {hours.map((h) => (
+              <div
+                key={h}
+                className="relative box-border text-right"
+                style={{ height: PX_PER_HOUR }}
+              >
+                <span className="absolute -top-2.5 right-1.5 font-mono-cli text-xs tabular-nums text-zinc-400">
+                  {h.toString().padStart(2, "0")}:00
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className="relative grid flex-1 grid-cols-7"
+            style={{ height: GRID_HEIGHT_PX }}
+          >
+            {weekDates.map((d, col) => (
+              <div
+                key={`grid-${d.toISOString()}`}
+                className="relative border-l border-zinc-100 bg-white/30"
+              >
+                {hours.map((h) => (
+                  <div
+                    key={h}
+                    className="pointer-events-none absolute left-0 right-0 box-border border-t border-zinc-100/90"
+                    style={{ top: h * PX_PER_HOUR }}
+                  />
+                ))}
+                <div
+                  className="pointer-events-none absolute bottom-0 left-0 right-0 border-t border-zinc-200/60"
+                  style={{ top: GRID_HEIGHT_PX - 1 }}
+                />
+
+                {todayCol === col && nowLinePx !== null ? (
+                  <div
+                    className="pointer-events-none absolute left-0 right-0 z-30 border-t-[3px] border-black shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_12px_rgba(0,0,0,0.12)]"
+                    style={{ top: nowLinePx }}
+                    aria-hidden
+                  />
+                ) : null}
+
+                {timed
+                  .filter((s) => s.col === col)
+                  .map((s) => {
+                    const w = 100 / s.maxLanes;
+                    const leftPct = w * s.lane;
+                    const c = getGoogleEventColorStyle(s.colorId);
+                    const delKey =
+                      s.calendarId && s.eventId
+                        ? `${s.calendarId}\u0000${s.eventId}`
+                        : "";
+                    const showDelete = Boolean(
+                      onDeleteEvent && s.eventId && s.calendarId,
+                    );
+                    const isDeleting = deletingKey === delKey;
+                    const canDrag = isDraggableEvent(s.eventId);
+                    const isDragging = draggingEventId === s.eventId;
+                    const effectiveTop = isDragging
+                      ? Math.max(0, Math.min(GRID_HEIGHT_PX - s.heightPx, s.topPx + dragDeltaPx))
+                      : s.topPx;
+
+                    return (
+                      <div
+                        key={s.key}
+                        className={`absolute z-10 overflow-hidden rounded-xl border border-l-[3px] px-1.5 py-1 text-left shadow-md ring-1 ring-black/[0.05] ${canDrag ? "touch-none" : ""} ${isDragging ? "z-40 opacity-90 shadow-2xl ring-2 ring-black/20" : ""}`}
+                        style={{
+                          top: effectiveTop,
+                          height: s.heightPx,
+                          left: `calc(${leftPct}% + 1px)`,
+                          width: `calc(${w}% - 2px)`,
+                          backgroundColor: c.bg,
+                          borderColor: c.border,
+                          borderLeftColor: c.borderLeft,
+                          boxShadow: isDragging
+                            ? "0 8px 30px rgba(15,23,42,0.18)"
+                            : "0 4px 14px rgba(15,23,42,0.08)",
+                          cursor: canDrag ? (isDragging ? "grabbing" : "grab") : undefined,
+                          transition: isDragging ? "none" : "top 0.15s ease",
+                        }}
+                        title={`${s.rangeLabel} · ${s.title}`}
+                        onPointerDown={canDrag ? (e) => handlePointerDown(e, s) : undefined}
+                        onPointerMove={canDrag ? handlePointerMove : undefined}
+                        onPointerUp={canDrag ? handlePointerUp : undefined}
+                      >
+                        <div className="flex items-start gap-0.5">
+                          <div className="min-w-0 flex-1">
+                            {canDrag ? (
+                              <div
+                                className="mx-auto mb-0.5 h-1 w-8 rounded-full opacity-40"
+                                style={{ backgroundColor: c.text }}
+                                aria-hidden
+                              />
+                            ) : null}
+                            <div
+                              className="font-mono-cli text-[11px] leading-tight"
+                              style={{ color: c.textMuted }}
+                            >
+                              {isDragging
+                                ? (() => {
+                                    const SNAP = 15;
+                                    const totalMin = (effectiveTop / GRID_HEIGHT_PX) * HOURS_IN_GRID * 60;
+                                    const snapped = Math.round(totalMin / SNAP) * SNAP;
+                                    const hh = Math.floor(snapped / 60);
+                                    const mm = snapped % 60;
+                                    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+                                  })()
+                                : s.rangeLabel}
+                            </div>
+                            <div
+                              className="line-clamp-[4] text-sm font-semibold leading-snug"
+                              style={{ color: c.text }}
+                            >
+                              {s.title}
+                            </div>
+                          </div>
+                          {showDelete ? (
+                            <button
+                              type="button"
+                              className="shrink-0 rounded p-0.5 opacity-80 hover:bg-black/10 hover:opacity-100 disabled:opacity-40"
+                              style={{ color: c.text }}
+                              aria-label="Eliminar evento"
+                              disabled={isDeleting}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteEvent!({
+                                  eventId: s.eventId!,
+                                  calendarId: s.calendarId!,
+                                });
+                              }}
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+:root {
+  --canvas: #fafafa;
+  --sidebar: #ffffff;
+  --surface: #ffffff;
+  --surface-muted: #f4f4f5;
+  --ink: #0a0a0a;
+  --ink-muted: #52525b;
+  --ink-faint: #a1a1aa;
+  --border: #e4e4e7;
+  --border-strong: #18181b;
+  --accent: #0a0a0a;
+}
+
+@theme inline {
+  --font-sans: var(--font-sans-ui);
+  --font-mono: var(--font-mono-ui);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans-ui), system-ui, sans-serif;
+  overflow-x: hidden;
+  min-height: 100dvh;
+}
+
+.font-mono-cli {
+  font-family: var(--font-mono-ui), ui-monospace, monospace;
+}

@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "IEStudio — puente Blackboard",
+  "version": "1.0.0",
+  "description": "Permite que IEStudio llame a la API de Blackboard Learn usando tu sesión del navegador, sin pegar cookies.",
+  "permissions": ["tabs", "scripting", "cookies"],
+  "host_permissions": [
+    "https://blackboard.ie.edu/*",
+    "https://*.blackboard.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://blackboard.ie.edu/*",
+        "https://*.blackboard.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:*/*",
+      "http://127.0.0.1:*/*",
+      "https://localhost:*/*",
+      "https://127.0.0.1:*/*"
+    ]
+  }
+}

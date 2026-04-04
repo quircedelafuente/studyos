@@ -1,0 +1,39 @@
+{
+  "name": "iestudio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "notebooklm:backend": "cd backend && .venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000",
+    "notebooklm:login": "PLAYWRIGHT_BROWSERS_PATH=$HOME/Library/Caches/ms-playwright notebooklm login",
+    "notebooklm:auth": "notebooklm auth check --test",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "cheerio": "^1.2.0",
+    "katex": "^0.16.44",
+    "luxon": "^3.7.2",
+    "next": "16.2.1",
+    "next-auth": "^5.0.0-beta.30",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/luxon": "^3.7.1",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
