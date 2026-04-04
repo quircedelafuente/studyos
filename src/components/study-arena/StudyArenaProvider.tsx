@@ -9,18 +9,6 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  clearStudyArenaPersisted,
-  loadStudyArenaPersisted,
-  rehydrateActiveSession,
-  saveStudyArenaPersisted,
-  STUDY_ARENA_PERSIST_CHANGED,
-  STUDY_ARENA_PERSIST_KEY,
-  type FalseSessionPromptPersist,
-  type SerializedArenaActiveSession,
-  type StudyArenaPersistedPayload,
-} from "@/lib/study-arena-persist";
-import { requestCloudSyncPush } from "@/lib/user-cloud-storage";
 
 export type StudyArenaSessionOption = {
   key: string;
@@ -50,11 +38,10 @@ type StudyArenaActiveSession = StudyArenaSessionOption & {
   lastInteractionMs: number;
 };
 
-export type FalseSessionPrompt = FalseSessionPromptPersist;
-
-function serializeActiveSession(s: StudyArenaActiveSession): SerializedArenaActiveSession {
-  return { ...s };
-}
+type FalseSessionPrompt = {
+  reason: "too_short" | "too_long";
+  mode: "active" | "ended";
+};
 
 type StudyArenaContextValue = {
   activeSession: StudyArenaActiveSession | null;
@@ -163,80 +150,6 @@ export function StudyArenaProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     promptRef.current = falseSessionPrompt;
   }, [falseSessionPrompt]);
-
-  const [storageHydrated, setStorageHydrated] = useState(false);
-  const lastPersistJsonRef = useRef<string>("");
-
-  useEffect(() => {
-    const saved = loadStudyArenaPersisted();
-    if (saved) {
-      lastPersistJsonRef.current = JSON.stringify(saved);
-      if (saved.activeSession) {
-        const adj = rehydrateActiveSession(saved.activeSession, saved.savedAtMs);
-        setActiveSession(adj as StudyArenaActiveSession);
-      }
-      if (saved.falseSessionPrompt) setFalseSessionPrompt(saved.falseSessionPrompt);
-    }
-    queueMicrotask(() => setStorageHydrated(true));
-  }, []);
-
-  useEffect(() => {
-    const onRemote = () => {
-      if (!storageHydrated) return;
-      const raw = localStorage.getItem(STUDY_ARENA_PERSIST_KEY);
-      if (raw == null || raw === lastPersistJsonRef.current) return;
-      lastPersistJsonRef.current = raw;
-      let saved: StudyArenaPersistedPayload;
-      try {
-        saved = JSON.parse(raw) as StudyArenaPersistedPayload;
-      } catch {
-        return;
-      }
-      if (saved.v !== 1) return;
-      if (saved.activeSession) {
-        const adj = rehydrateActiveSession(saved.activeSession, saved.savedAtMs);
-        setActiveSession(adj as StudyArenaActiveSession);
-      } else {
-        setActiveSession(null);
-      }
-      setFalseSessionPrompt(saved.falseSessionPrompt);
-    };
-    window.addEventListener(STUDY_ARENA_PERSIST_CHANGED, onRemote);
-    return () => window.removeEventListener(STUDY_ARENA_PERSIST_CHANGED, onRemote);
-  }, [storageHydrated]);
-
-  useEffect(() => {
-    if (!storageHydrated) return;
-    const id = window.setTimeout(() => {
-      if (!activeSession && !falseSessionPrompt) {
-        if (localStorage.getItem(STUDY_ARENA_PERSIST_KEY)) {
-          clearStudyArenaPersisted();
-          lastPersistJsonRef.current = "";
-          requestCloudSyncPush();
-        }
-        return;
-      }
-      const payload: StudyArenaPersistedPayload = activeSession
-        ? {
-            v: 1,
-            savedAtMs: Date.now(),
-            activeSession: serializeActiveSession(activeSession),
-            falseSessionPrompt,
-          }
-        : {
-            v: 1,
-            savedAtMs: Date.now(),
-            activeSession: null,
-            falseSessionPrompt,
-          };
-      const json = JSON.stringify(payload);
-      if (json === lastPersistJsonRef.current) return;
-      lastPersistJsonRef.current = json;
-      saveStudyArenaPersisted(payload);
-      requestCloudSyncPush();
-    }, 350);
-    return () => window.clearTimeout(id);
-  }, [storageHydrated, activeSession, falseSessionPrompt]);
 
   const derived = useMemo(() => {
     if (!activeSession) {

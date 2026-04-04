@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useStudyArena } from "@/components/study-arena/StudyArenaProvider";
 import type { MainTabId } from "@/types/dashboard";
@@ -28,7 +28,6 @@ import {
   IconX,
 } from "./icons";
 import { NotesPanel } from "./NotesPanel";
-import { CloudSyncIndicator } from "./CloudSyncIndicator";
 
 const MAIN_TABS: {
   id: MainTabId;
@@ -60,54 +59,6 @@ export function DashboardApp() {
   }, [mainTab, setSuppressFloatingWidget]);
 
   const closeSidebar = () => setSidebarOpen(false);
-
-  if (status === "loading") {
-    return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-[var(--canvas)] px-6 text-[var(--ink)]">
-        <p className="text-sm font-medium text-[var(--ink-muted)]">Comprobando sesión…</p>
-      </div>
-    );
-  }
-
-  if (status !== "authenticated" || !session?.user) {
-    return (
-      <div className="flex min-h-dvh flex-col bg-[var(--canvas)] text-[var(--ink)]">
-        <div
-          className="border-b border-amber-200/90 bg-amber-50/95 px-4 py-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-50"
-          role="alert"
-        >
-          <p className="mx-auto max-w-lg text-center text-sm font-semibold leading-snug">
-            Debes iniciar sesión con Google para usar IEStudio. Tus datos (dashboard, cursos,
-            calendario, planes, notas y Study Arena) se guardan en tu cuenta y se sincronizan
-            entre dispositivos.
-          </p>
-        </div>
-        <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 pb-12 pt-8">
-          <div className="max-w-md text-center">
-            <h1 className="text-2xl font-bold tracking-tight">IEStudio</h1>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--ink-muted)]">
-              En el ordenador conecta Blackboard para subir cursos y gradebooks. En el móvil verás
-              esos mismos datos sin usar la extensión.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              void signIn("google", {
-                callbackUrl:
-                  typeof window !== "undefined"
-                    ? `${window.location.pathname}${window.location.search}`
-                    : "/",
-              })
-            }
-            className="rounded-2xl bg-[var(--ink)] px-8 py-3.5 text-sm font-bold text-white shadow-lg transition hover:opacity-90"
-          >
-            Continuar con Google
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 min-w-0 overflow-x-hidden bg-[var(--canvas)] text-[var(--ink)]">
@@ -189,25 +140,30 @@ export function DashboardApp() {
         </nav>
 
         <div className={`border-t border-[var(--border)] p-3 ${sidebarCollapsed ? "hidden" : ""}`}>
-          <div className="space-y-2">
-            <p className="truncate px-2 text-xs text-[var(--ink-muted)]">
-              {session.user.email ?? session.user.name}
+          {status === "authenticated" && session?.user ? (
+            <div className="space-y-2">
+              <p className="truncate px-2 text-xs text-[var(--ink-muted)]">
+                {session.user.email ?? session.user.name}
+              </p>
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-center text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          ) : status === "loading" ? (
+            <p className="px-2 text-xs text-[var(--ink-faint)]">Cargando sesión…</p>
+          ) : (
+            <p className="px-2 text-xs text-[var(--ink-faint)]">
+              Inicia sesión desde Calendario para sincronizar Google.
             </p>
-            <button
-              type="button"
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-center text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
-            >
-              Cerrar sesión
-            </button>
-          </div>
+          )}
         </div>
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:pl-0">
-        <div className="hidden shrink-0 border-b border-[var(--border)] bg-[var(--surface-muted)]/40 px-4 py-2.5 md:block">
-          <CloudSyncIndicator />
-        </div>
         <header className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
           <button
             type="button"

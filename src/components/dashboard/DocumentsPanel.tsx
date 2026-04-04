@@ -50,7 +50,6 @@ import {
 import { CourseFilterSelect } from "./CourseFilterSelect";
 import { CourseGlyph } from "./CourseGlyph";
 import { IconFolder } from "./icons";
-import { useDeviceMode } from "@/components/providers/DeviceModeContext";
 
 function fileBadge(kind: CourseFileStored["kind"]) {
   const map: Record<CourseFileStored["kind"], string> = {
@@ -749,7 +748,6 @@ function RootFolderTree({
 }
 
 export function DocumentsPanel() {
-  const isMobile = useDeviceMode();
   const [courses, setCourses] = useState<DocCourseVM[]>([]);
   const [emptyKind, setEmptyKind] = useState<DocumentsEmptyKind>("ok");
   const [hydrated, setHydrated] = useState(false);
@@ -794,7 +792,7 @@ export function DocumentsPanel() {
       catTotals: courseCategoryTotals(snap.curatedCourses),
       curatedLength: snap.curatedCourses.length,
     });
-    if (!snap.hasConfig && snap.apiCourses.length === 0) {
+    if (!snap.hasConfig) {
       setEmptyKind("no_config");
       setCourses([]);
       setActiveId("");
@@ -1404,21 +1402,6 @@ export function DocumentsPanel() {
       `Sincronización completada: ${coursesOk} cursos, ${totalFiles} archivos nuevos, ${totalFolders} carpetas nuevas${totalSkipped > 0 ? `, ${totalSkipped} ya existían` : ""}${coursesFailed > 0 ? `, ${coursesFailed} cursos con error` : ""}`,
     );
     setSyncAllBusy(false);
-  }
-
-  if (isMobile) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col px-4 py-8 md:px-10">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink-muted)]">
-          Documentos
-        </p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">No disponible en móvil</h1>
-        <p className="mt-4 max-w-md text-sm leading-relaxed text-[var(--ink-muted)]">
-          Los archivos de cursos no se suben a la nube (siguen en el ordenador). Gestiona documentos y
-          descargas desde IEStudio en el PC con Blackboard y la extensión puente.
-        </p>
-      </div>
-    );
   }
 
   return (
