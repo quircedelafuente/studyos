@@ -2,6 +2,10 @@
   "name": "iestudio",
   "version": "0.1.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agustmun-web/studyos.git"
+  },
   "engines": {
     "node": ">=20.9.0"
   },
@@ -12,7 +16,8 @@
     "notebooklm:auth": "notebooklm auth check --test",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "vercel deploy --prod --yes"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
