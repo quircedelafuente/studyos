@@ -54,6 +54,9 @@ import {
   pingBlackboardBridge,
 } from "@/lib/blackboard-bridge-client";
 import { getSubmissionLight } from "@/lib/blackboard-submission-status";
+import { hasBbSyncedCache } from "@/lib/bb-displayed-courses";
+import { useSession } from "next-auth/react";
+import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 
 /* ─── Inline SVG icons ─── */
 
@@ -206,6 +209,9 @@ function SubmissionStatusIndicator({
 /* ─── Main panel ─── */
 
 export function AssignmentsPanel() {
+  const { status: sessionStatus } = useSession();
+  const cloudSync = useCloudSyncStatus();
+
   /* Config */
   const [config, setConfig] = useState<BbConfig | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
@@ -215,8 +221,11 @@ export function AssignmentsPanel() {
   const [bridgeOk, setBridgeOk] = useState(false);
   const [bridgeChecked, setBridgeChecked] = useState(false);
 
-  /* Courses */
-  const [allCourses, setAllCourses] = useState<BbCourseItem[]>([]);
+  /* Courses (caché inmediata: sync cloud puede rellenar sin pestaña Assignments) */
+  const [allCourses, setAllCourses] = useState<BbCourseItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    return loadBbCourses()?.courses ?? [];
+  });
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesFetched, setCoursesFetched] = useState<string | null>(null);
   const [coursesError, setCoursesError] = useState<string | null>(null);
@@ -249,6 +258,17 @@ export function AssignmentsPanel() {
 
   const selectedCourseIdRef = useRef<string | null>(null);
   selectedCourseIdRef.current = selectedCourseId;
+
+  const hasBbCache = hasBbSyncedCache();
+  /** Datos de la nube aún no aplicados a localStorage: no mostrar “vacío” ni asistente. */
+  const waitingCloudHydration =
+    sessionStatus === "authenticated" &&
+    cloudSync &&
+    !cloudSync.initialSyncDone &&
+    cloudSync.cloudEnabled !== false;
+  /** Vista principal del gradebook; el asistente de conexión solo si el usuario abre Ajustes. */
+  const showAssignmentsMain = !showConfig;
+  const showFullConfigWizard = showConfig;
 
   /* Load config from localStorage on mount */
   useEffect(() => {
@@ -537,8 +557,10 @@ export function AssignmentsPanel() {
     } else {
       setGradebook([]);
       setGbFetched(null);
-      // Sin botón manual de “Actualizar”: si no hay caché, carga automáticamente.
-      void fetchGradebookForCourse(courseId);
+      // Solo la API local+puente puede rellenar; sin config queda vacío hasta sync/caché.
+      if (config) {
+        void fetchGradebookForCourse(courseId);
+      }
     }
   }
 
@@ -612,20 +634,21 @@ export function AssignmentsPanel() {
             Gradebook &amp; Tareas
           </h1>
         </div>
-        {config ? (
-          <button
-            type="button"
-            onClick={() => setShowConfig((v) => !v)}
-            className="shrink-0 rounded-xl border border-[var(--border)] p-2.5 text-[var(--ink-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"
-            aria-label="Ajustes Blackboard"
-          >
-            <IconSettings className="h-5 w-5" />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={() => setShowConfig((v) => !v)}
+          className={`shrink-0 rounded-xl border border-[var(--border)] p-2.5 transition hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] ${
+            showConfig ? "text-[var(--ink)] ring-2 ring-[var(--ink-muted)]/25" : "text-[var(--ink-muted)]"
+          }`}
+          aria-label={showConfig ? "Cerrar ajustes Blackboard" : "Ajustes Blackboard"}
+          aria-pressed={showConfig}
+        >
+          <IconSettings className="h-5 w-5" />
+        </button>
       </header>
 
       {/* ─── Config panel ─── */}
-      {!config || showConfig ? (
+      {showFullConfigWizard ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
           <h2 className="text-sm font-bold text-[var(--ink)]">
             {config ? "Configuración de Blackboard" : "Conectar con Blackboard Learn"}
@@ -847,9 +870,34 @@ export function AssignmentsPanel() {
         </section>
       ) : null}
 
-      {/* ─── Connected state ─── */}
-      {config && !showConfig ? (
+      {/* ─── Gradebook (config local o solo caché sincronizada) ─── */}
+      {showAssignmentsMain ? (
         <div className="flex min-h-0 flex-1 flex-col gap-5">
+          {waitingCloudHydration ? (
+            <div className="flex min-h-[18rem] flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-14">
+              <p className="text-sm font-medium text-[var(--ink)]">
+                Sincronizando datos desde la nube…
+              </p>
+              <p className="mt-2 max-w-md text-center text-xs text-[var(--ink-muted)]">
+                Cursos y gradebooks de tu cuenta se cargan en este dispositivo.
+              </p>
+            </div>
+          ) : (
+            <>
+          {!config && hasBbCache ? (
+            <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-sm leading-relaxed text-sky-950 dark:text-sky-100/95">
+              <p className="font-semibold text-[var(--ink)]">
+                Solo lectura (datos sincronizados)
+              </p>
+              <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                Este dispositivo no tiene Blackboard conectado aquí; se muestran
+                cursos y gradebooks de la última copia en la nube. Para
+                actualizar desde Blackboard, abre{" "}
+                <strong className="text-[var(--ink)]">Ajustes</strong> y configura
+                la URL + extensión, o usa un PC con la extensión instalada.
+              </p>
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center justify-end gap-3">
             {(coursesLoading || bulkGbLoading) &&
             (coursesProgress || bulkGbProgress) ? (
@@ -924,9 +972,15 @@ export function AssignmentsPanel() {
                   <button
                     type="button"
                     onClick={() => void refreshAllGradebooks()}
-                    disabled={bulkGbLoading || coursesLoading || gbLoading}
+                    disabled={
+                      !config || bulkGbLoading || coursesLoading || gbLoading
+                    }
                     className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)] disabled:opacity-50"
-                    title="Actualizar todos los gradebooks"
+                    title={
+                      config
+                        ? "Actualizar todos los gradebooks"
+                        : "Conecta Blackboard en Ajustes para actualizar"
+                    }
                     aria-label="Actualizar todos los gradebooks"
                   >
                     <IconRefresh
@@ -1031,8 +1085,18 @@ export function AssignmentsPanel() {
 
                     {gradebook.length === 0 && !gbLoading && !gbFetched ? (
                       <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-10 text-center text-sm text-[var(--ink-muted)]">
-                        Pulsa &quot;Cargar gradebook&quot; para obtener las
-                        columnas de este curso.
+                        {config ? (
+                          <>
+                            Pulsa &quot;Cargar gradebook&quot; para obtener las
+                            columnas de este curso.
+                          </>
+                        ) : (
+                          <>
+                            No hay gradebook en caché para este curso. Espera la
+                            sincronización en la nube o configura Blackboard en
+                            Ajustes para descargarlo aquí.
+                          </>
+                        )}
                       </div>
                     ) : null}
 
@@ -1143,7 +1207,9 @@ export function AssignmentsPanel() {
             <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-14 text-center text-sm text-[var(--ink-muted)]">
               {coursesFetched
                 ? "Ningún curso coincide con el filtro. Prueba «Todos los cursos» en el desplegable."
-                : "Pulsa «Cargar cursos» (con Blackboard abierto en otra pestaña)."}
+                : config
+                  ? "Pulsa «Cargar cursos» (con Blackboard abierto en otra pestaña)."
+                  : "No hay cursos en la caché. Inicia sesión y espera la sincronización en la nube, o configura Blackboard en Ajustes."}
             </div>
           ) : displayedCourses.length === 0 &&
             curatedCourses.length > 0 &&
@@ -1153,6 +1219,8 @@ export function AssignmentsPanel() {
               Cambia a «Todos los cursos» en el desplegable para ver el listado completo.
             </div>
           ) : null}
+            </>
+          )}
         </div>
       ) : null}
     </div>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import type { BbCourseItem } from "@/types/blackboard";
 import { courseAccentFromId } from "@/lib/course-avatar";
 import { addDroppedFilesToCourse, purgeCourseBlobs } from "@/lib/course-mutations";
@@ -37,6 +39,8 @@ const rowClass =
   "flex w-full min-h-[3.25rem] min-w-0 items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3";
 
 export function CoursesPanel() {
+  const { status: sessionStatus } = useSession();
+  const cloudSync = useCloudSyncStatus();
   const [hydrated, setHydrated] = useState(false);
   const [hasConfig, setHasConfig] = useState(false);
   const [apiCourses, setApiCourses] = useState<BbCourseItem[]>([]);
@@ -68,7 +72,7 @@ export function CoursesPanel() {
   useEffect(() => {
     refreshFromStorage();
     setHydrated(true);
-  }, [refreshFromStorage]);
+  }, [refreshFromStorage, cloudSync?.initialSyncDone]);
 
   useEffect(() => {
     const onStorage = () => refreshFromStorage();
@@ -188,6 +192,38 @@ export function CoursesPanel() {
     );
   }
 
+  if (sessionStatus === "loading") {
+    return (
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col px-4 py-6 md:px-10 md:py-8">
+        <p className="text-sm text-[var(--ink-muted)]">Cargando…</p>
+      </div>
+    );
+  }
+
+  const waitingCloud =
+    sessionStatus === "authenticated" &&
+    cloudSync &&
+    !cloudSync.initialSyncDone &&
+    cloudSync.cloudEnabled !== false;
+
+  if (waitingCloud) {
+    return (
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col px-4 py-6 md:px-10 md:py-8">
+        <header className="shrink-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink-muted)]">
+            Courses
+          </p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
+            Tus asignaturas
+          </h1>
+        </header>
+        <p className="mt-6 text-sm text-[var(--ink-muted)]">
+          Sincronizando datos desde la nube…
+        </p>
+      </div>
+    );
+  }
+
   if (!hasConfig) {
     return (
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col px-4 py-6 md:px-10 md:py-8">
@@ -199,9 +235,10 @@ export function CoursesPanel() {
             Tus asignaturas
           </h1>
           <p className="mt-2 max-w-xl text-sm text-[var(--ink-muted)]">
-            Conecta Blackboard en la pestaña <strong className="text-[var(--ink)]">Assignments</strong>{" "}
-            y pulsa «Cargar cursos». Aquí verás los mismos cursos detectados y podrás ocultarlos o añadir
-            uno por su ID si no aparece en la lista.
+            Aún no hay cursos en esta cuenta o no se han sincronizado desde otro dispositivo. Cuando
+            cargues datos desde Blackboard en otro equipo, aparecerán aquí automáticamente. También
+            puedes conectar Blackboard en <strong className="text-[var(--ink)]">Assignments</strong>{" "}
+            (icono de ajustes) y pulsar «Cargar cursos».
           </p>
         </header>
       </div>

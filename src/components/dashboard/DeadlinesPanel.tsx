@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import type { DeadlineTag, ImportantDeadline } from "@/types/dashboard";
 import type { BbCourseItem } from "@/types/blackboard";
 import {
@@ -312,6 +313,7 @@ function ChevronDownMini({ className }: { className?: string }) {
 }
 
 export function DeadlinesPanel() {
+  const cloudSync = useCloudSyncStatus();
   const [deadlines, setDeadlines] = useState<ImportantDeadline[]>([]);
   const [tagRegistry, setTagRegistry] = useState<DeadlineTag[]>([]);
   /** Misma lista que el panel Courses (Blackboard + curación + filtro). */
@@ -364,7 +366,7 @@ export function DeadlinesPanel() {
       window.removeEventListener(BB_COURSE_CURATION_CHANGED, refresh);
       window.removeEventListener(BB_COURSE_FILTER_CHANGED, refresh);
     };
-  }, [refresh]);
+  }, [refresh, cloudSync?.initialSyncDone]);
 
   /** Si el curso elegido deja de estar en la lista de Courses, se anula la selección. */
   useEffect(() => {

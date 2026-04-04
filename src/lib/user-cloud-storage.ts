@@ -16,6 +16,14 @@ import { STUDY_ARENA_CHANGED_EVENT } from "@/lib/study-arena-storage";
 
 const SYNC_PREFIX = "iestudio-";
 
+/**
+ * PostgreSQL json/jsonb no admite U+0000 en textos; si llega en el payload da
+ * «unsupported Unicode escape sequence» (p. ej. datos pegados o APIs).
+ */
+export function sanitizeStringForPostgresJson(s: string): string {
+  return s.replace(/\u0000/g, "");
+}
+
 /** Claves que nunca se suben a la nube (documentos / archivos de cursos en este navegador). */
 const CLOUD_EXCLUDE = new Set<string>([MANUAL_COURSES_STORAGE_KEY]);
 
@@ -47,7 +55,7 @@ export function normalizeCloudPayload(raw: unknown): Record<string, string> {
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
     if (typeof k !== "string" || !k.startsWith(SYNC_PREFIX)) continue;
     if (CLOUD_EXCLUDE.has(k)) continue;
-    if (typeof v === "string") out[k] = v;
+    if (typeof v === "string") out[k] = sanitizeStringForPostgresJson(v);
   }
   return out;
 }
@@ -58,7 +66,7 @@ export function sanitizeEntriesForUpload(
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(entries)) {
     if (!k.startsWith(SYNC_PREFIX) || CLOUD_EXCLUDE.has(k)) continue;
-    if (typeof v === "string") out[k] = v;
+    if (typeof v === "string") out[k] = sanitizeStringForPostgresJson(v);
   }
   return out;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import type { ReactNode } from "react";
 import { readBbDisplayedCoursesSnapshot } from "@/lib/bb-displayed-courses";
 import { filterCoursesByMode, resolveGradebookColumnUltraUrl } from "@/lib/blackboard-api";
@@ -701,6 +702,7 @@ function EisenhowerMatrix() {
 }
 
 export function DashboardOverviewPanel() {
+  const cloudSync = useCloudSyncStatus();
   const [upcomingModalOpen, setUpcomingModalOpen] = useState(false);
   const [criticalModalOpen, setCriticalModalOpen] = useState(false);
   const [studyModalOpen, setStudyModalOpen] = useState(false);
@@ -708,6 +710,12 @@ export function DashboardOverviewPanel() {
   const [contentFetchBusy, setContentFetchBusy] = useState(false);
   const [studyPlansRevision, setStudyPlansRevision] = useState(0);
   const [deadlinesRevision, setDeadlinesRevision] = useState(0);
+
+  useEffect(() => {
+    if (cloudSync?.initialSyncDone) {
+      setBbRevision((n) => n + 1);
+    }
+  }, [cloudSync?.initialSyncDone]);
 
   useEffect(() => {
     function bump() {

@@ -48,6 +48,11 @@ export type CloudSyncStatus = {
   lastReceiveError: string | null;
   isUploading: boolean;
   isReceiving: boolean;
+  /**
+   * Primer GET /api/user-sync tras autenticarse ya terminó (localStorage puede
+   * estar rellenado por la nube). Hasta entonces, paneles BB deben mostrar carga.
+   */
+  initialSyncDone: boolean;
 };
 
 const initialStatus: CloudSyncStatus = {
@@ -58,6 +63,7 @@ const initialStatus: CloudSyncStatus = {
   lastReceiveError: null,
   isUploading: false,
   isReceiving: false,
+  initialSyncDone: false,
 };
 
 const CloudSyncContext = createContext<CloudSyncStatus | null>(null);
@@ -194,7 +200,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     }
     let cancelled = false;
     void (async () => {
-      patch({ isReceiving: true, lastReceiveError: null });
+      patch({ isReceiving: true, lastReceiveError: null, initialSyncDone: false });
       try {
         const res = await fetch("/api/user-sync", { credentials: "same-origin" });
         if (cancelled) return;
@@ -245,7 +251,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           });
         }
       } finally {
-        if (!cancelled) patch({ isReceiving: false });
+        if (!cancelled) {
+          patch({ isReceiving: false, initialSyncDone: true });
+        }
       }
     })();
     return () => {

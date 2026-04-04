@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import type { CourseFileStored, CourseFolder } from "@/types/dashboard";
 import { courseAccentFromId } from "@/lib/course-avatar";
 import { idbGetBlob } from "@/lib/course-files-idb";
@@ -298,7 +300,12 @@ type DocCourseVM = {
   folders: CourseFolder[];
 };
 
-type DocumentsEmptyKind = "ok" | "no_config" | "no_bb_cache" | "filtered";
+type DocumentsEmptyKind =
+  | "ok"
+  | "syncing"
+  | "no_config"
+  | "no_bb_cache"
+  | "filtered";
 
 /** `root` = raíz del curso; string = id de carpeta. */
 type DocDropHighlight = null | "root" | string;
@@ -748,6 +755,8 @@ function RootFolderTree({
 }
 
 export function DocumentsPanel() {
+  const { status: sessionStatus } = useSession();
+  const cloudSync = useCloudSyncStatus();
   const [courses, setCourses] = useState<DocCourseVM[]>([]);
   const [emptyKind, setEmptyKind] = useState<DocumentsEmptyKind>("ok");
   const [hydrated, setHydrated] = useState(false);
@@ -792,6 +801,17 @@ export function DocumentsPanel() {
       catTotals: courseCategoryTotals(snap.curatedCourses),
       curatedLength: snap.curatedCourses.length,
     });
+    if (
+      sessionStatus === "authenticated" &&
+      cloudSync &&
+      !cloudSync.initialSyncDone &&
+      cloudSync.cloudEnabled !== false
+    ) {
+      setEmptyKind("syncing");
+      setCourses([]);
+      setActiveId("");
+      return;
+    }
     if (!snap.hasConfig) {
       setEmptyKind("no_config");
       setCourses([]);
@@ -832,7 +852,7 @@ export function DocumentsPanel() {
       if (prev && list.some((c) => c.id === prev)) return prev;
       return list[0]!.id;
     });
-  }, []);
+  }, [sessionStatus, cloudSync?.initialSyncDone, cloudSync?.cloudEnabled]);
 
   useEffect(() => {
     refresh();
@@ -1437,7 +1457,9 @@ export function DocumentsPanel() {
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-6">
         <aside className="flex w-full shrink-0 flex-col gap-3 md:h-full md:max-w-xs md:shrink-0">
-          {hydrated && emptyKind !== "no_config" ? (
+          {hydrated &&
+          emptyKind !== "no_config" &&
+          emptyKind !== "syncing" ? (
             <div className="flex shrink-0 flex-col gap-2">
               <CourseFilterSelect
                 id="docs-course-filter"
@@ -1461,8 +1483,10 @@ export function DocumentsPanel() {
               <p className="text-sm text-[var(--ink-muted)]">Cargando…</p>
             ) : courses.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-6 text-sm text-[var(--ink-muted)]">
-                {emptyKind === "no_config"
-                  ? "Conecta Blackboard en la pestaña Assignments para ver tus cursos aquí."
+                {emptyKind === "syncing"
+                  ? "Sincronizando datos desde la nube…"
+                  : emptyKind === "no_config"
+                  ? "Aún no hay cursos sincronizados. Cuando cargues datos desde otro dispositivo o conectes Blackboard en Assignments (icono de ajustes), aparecerán aquí."
                   : emptyKind === "no_bb_cache"
                     ? "Aún no hay cursos en caché. En Assignments, pulsa «Cargar cursos» con la sesión del LMS activa."
                     : emptyKind === "filtered"
