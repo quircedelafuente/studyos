@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "IEStudio — puente Blackboard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Permite que IEStudio llame a la API de Blackboard Learn usando tu sesión del navegador, sin pegar cookies.",
   "permissions": ["tabs", "scripting", "cookies"],
   "host_permissions": [
@@ -26,7 +26,8 @@
       "http://localhost:*/*",
       "http://127.0.0.1:*/*",
       "https://localhost:*/*",
-      "https://127.0.0.1:*/*"
+      "https://127.0.0.1:*/*",
+      "https://*.vercel.app/*"
     ]
   }
 }

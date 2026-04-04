@@ -26,9 +26,14 @@ Las cookies **no** se envían a servidores de IEStudio ni se guardan en texto pl
 
 5. Reinicia `npm run dev`.
 
-## Producción
+## Producción (Vercel)
 
-En `manifest.json`, dentro de `externally_connectable.matches`, añade el origen exacto donde esté desplegada IEStudio (por ejemplo `https://tu-dominio.vercel.app/*`). Vuelve a cargar la extensión tras editar.
+Desde la v1.0.1, `externally_connectable` incluye `https://*.vercel.app/*` para que funcione cualquier preview o deploy `*.vercel.app` sin editar el manifest.
+
+1. **Recarga la extensión** en `chrome://extensions` (botón actualizar) tras actualizar el código del repo.
+2. En **Vercel** → Environment Variables → `NEXT_PUBLIC_BB_BRIDGE_EXTENSION_ID` = el ID de la extensión → **Redeploy** (así el ID está en el bundle aunque la sync borre `localStorage`).
+
+Si usas **dominio propio** (no `*.vercel.app`), añade en `manifest.json` una línea como `https://tudominio.com/*` en `externally_connectable.matches` y vuelve a cargar la extensión.
 
 ## Permisos de host
 
