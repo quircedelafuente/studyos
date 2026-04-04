@@ -7,6 +7,8 @@ import {
 } from "@/lib/user-cloud-storage";
 import { NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+
 export async function GET() {
   const sql = getSql();
   if (!sql) {
@@ -16,12 +18,21 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const rows = await sql`
-    SELECT payload FROM user_app_kv WHERE user_id = ${session.user.id}
-  `;
-  const row = rows[0] as { payload: unknown } | undefined;
-  const entries = normalizeCloudPayload(row?.payload ?? {});
-  return NextResponse.json({ entries });
+  try {
+    const rows = await sql`
+      SELECT payload FROM user_app_kv WHERE user_id = ${session.user.id}
+    `;
+    const row = rows[0] as { payload: unknown } | undefined;
+    const entries = normalizeCloudPayload(row?.payload ?? {});
+    return NextResponse.json({ entries });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[user-sync GET]", detail);
+    return NextResponse.json(
+      { error: "Error al leer la nube", detail: detail.slice(0, 500) },
+      { status: 500 },
+    );
+  }
 }
 
 export async function PUT(request: Request) {
@@ -47,13 +58,28 @@ export async function PUT(request: Request) {
     raw.entries as Record<string, string>,
   );
   delete sanitized[MANUAL_COURSES_STORAGE_KEY];
-  const json = JSON.stringify(sanitized);
-  await sql`
-    INSERT INTO user_app_kv (user_id, payload, updated_at)
-    VALUES (${session.user.id}, ${json}::jsonb, NOW())
-    ON CONFLICT (user_id) DO UPDATE SET
-      payload = EXCLUDED.payload,
-      updated_at = NOW()
-  `;
-  return NextResponse.json({ ok: true });
+
+  /**
+   * El driver @neondatabase/serverless serializa objetos a JSON/JSONB.
+   * Usar `${string}::jsonb` en el template a veces provoca errores en runtime.
+   */
+  const payloadJson = sanitized as unknown as Record<string, string>;
+
+  try {
+    await sql`
+      INSERT INTO user_app_kv (user_id, payload, updated_at)
+      VALUES (${session.user.id}, ${payloadJson}, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        payload = EXCLUDED.payload,
+        updated_at = NOW()
+    `;
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[user-sync PUT]", detail);
+    return NextResponse.json(
+      { error: "Error al guardar en la nube", detail: detail.slice(0, 500) },
+      { status: 500 },
+    );
+  }
 }

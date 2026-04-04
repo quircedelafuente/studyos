@@ -20,6 +20,25 @@ import {
 const PUSH_INTERVAL_MS = 12_000;
 const PULL_INTERVAL_MS = 12_000;
 
+/** Mensaje legible desde JSON `{ error, detail }` o cuerpo texto. */
+async function readApiErrorMessage(res: Response): Promise<string> {
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    const j = (await res.json().catch(() => ({}))) as {
+      detail?: string;
+      error?: string;
+    };
+    if (typeof j.detail === "string" && j.detail.trim()) {
+      return j.detail.trim().slice(0, 220);
+    }
+    if (typeof j.error === "string" && j.error.trim()) {
+      return j.error.trim().slice(0, 220);
+    }
+  }
+  const text = await res.text().catch(() => "");
+  return (text.trim().slice(0, 220) || `HTTP ${res.status}`);
+}
+
 export type CloudSyncStatus = {
   /** null = aún no sabemos; false = Neon/API desactivada (503). */
   cloudEnabled: boolean | null;
@@ -88,9 +107,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           cloudEnabled: true,
         });
       } else {
-        const text = await res.text().catch(() => "");
+        const msg = await readApiErrorMessage(res);
         patch({
-          lastUploadError: text.slice(0, 120) || `HTTP ${res.status}`,
+          lastUploadError: msg || `HTTP ${res.status}`,
         });
       }
     } catch (e) {
@@ -123,9 +142,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         }
       }
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
+        const msg = await readApiErrorMessage(res);
         patch({
-          lastReceiveError: text.slice(0, 120) || `HTTP ${res.status}`,
+          lastReceiveError: msg || `HTTP ${res.status}`,
         });
         return;
       }
@@ -189,8 +208,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           }
         }
         if (!res.ok) {
+          const msg = await readApiErrorMessage(res);
           patch({
-            lastReceiveError: `HTTP ${res.status}`,
+            lastReceiveError: msg || `HTTP ${res.status}`,
             isReceiving: false,
           });
           return;
