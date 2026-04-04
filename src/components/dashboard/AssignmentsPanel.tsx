@@ -57,6 +57,7 @@ import {
 import { readBbDisplayedCoursesSnapshot } from "@/lib/bb-displayed-courses";
 import { requestCloudSyncPush } from "@/lib/user-cloud-storage";
 import { useDeviceMode } from "@/components/providers/DeviceModeContext";
+import { useCloudSync } from "@/components/providers/CloudSyncContext";
 import { getSubmissionLight } from "@/lib/blackboard-submission-status";
 
 /* ─── Inline SVG icons ─── */
@@ -211,6 +212,7 @@ function SubmissionStatusIndicator({
 
 export function AssignmentsPanel() {
   const isMobile = useDeviceMode();
+  const cloud = useCloudSync();
 
   /* Config */
   const [config, setConfig] = useState<BbConfig | null>(null);
@@ -1001,13 +1003,71 @@ export function AssignmentsPanel() {
       ) : null}
 
       {/* ─── Config panel (solo PC; en móvil no hay conexión Blackboard) ─── */}
-      {isMobile && allCourses.length === 0 ? (
+      {isMobile &&
+      (!cloud.initialSyncDone ||
+        cloud.phase === "pulling" ||
+        cloud.phase === "unauthenticated") ? (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center shadow-sm">
+          <p className="text-sm font-medium text-[var(--ink-muted)]">
+            Descargando datos de tu cuenta (Neon)…
+          </p>
+        </section>
+      ) : isMobile && cloud.phase === "no_database" ? (
+        <section className="rounded-2xl border border-amber-400/40 bg-amber-50/80 p-6 text-center shadow-sm dark:bg-amber-950/30">
+          <h2 className="text-sm font-bold text-amber-950 dark:text-amber-50">
+            Base de datos no configurada
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+            En el servidor falta <code className="font-mono-cli">DATABASE_URL</code> (Neon). Sin eso no hay
+            copia en la nube: configura la variable en Vercel y vuelve a desplegar.
+          </p>
+        </section>
+      ) : isMobile && cloud.phase === "error" ? (
+        <section className="rounded-2xl border border-red-400/40 bg-red-50/80 p-6 text-center shadow-sm dark:bg-red-950/30">
+          <h2 className="text-sm font-bold text-red-900 dark:text-red-100">No se pudo sincronizar</h2>
+          <p className="mt-2 text-sm text-red-800 dark:text-red-200">{cloud.errorMessage}</p>
+          <button
+            type="button"
+            onClick={() => void cloud.refresh()}
+            className="mt-4 rounded-xl bg-[var(--ink)] px-4 py-2 text-xs font-bold text-white"
+          >
+            Reintentar
+          </button>
+        </section>
+      ) : isMobile &&
+        cloud.initialSyncDone &&
+        allCourses.length === 0 &&
+        (cloud.serverStats?.bbKeys ?? 0) === 0 ? (
         <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center shadow-sm">
           <h2 className="text-sm font-bold text-[var(--ink)]">Sin datos de cursos en la nube</h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--ink-muted)]">
             Abre IEStudio en el ordenador, inicia sesión con esta misma cuenta de Google y sincroniza
             Blackboard. Los cursos y gradebooks aparecerán aquí automáticamente.
           </p>
+          <button
+            type="button"
+            onClick={() => void cloud.refresh()}
+            className="mt-4 rounded-xl border border-[var(--border)] px-4 py-2 text-xs font-semibold text-[var(--ink)]"
+          >
+            Volver a comprobar la nube
+          </button>
+        </section>
+      ) : isMobile &&
+        cloud.initialSyncDone &&
+        allCourses.length === 0 &&
+        (cloud.serverStats?.bbKeys ?? 0) > 0 ? (
+        <section className="rounded-2xl border border-amber-400/40 bg-amber-50/80 p-6 text-center shadow-sm">
+          <h2 className="text-sm font-bold text-[var(--ink)]">Hay datos en el servidor pero no en este dispositivo</h2>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--ink-muted)]">
+            Pulsa reintentar para volver a aplicar la copia de Neon a este móvil (almacenamiento local).
+          </p>
+          <button
+            type="button"
+            onClick={() => void cloud.refresh()}
+            className="mt-4 rounded-xl bg-[var(--ink)] px-4 py-2 text-xs font-bold text-white"
+          >
+            Reintentar sincronización
+          </button>
         </section>
       ) : !isMobile && ((!config && allCourses.length === 0) || showConfig) ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">

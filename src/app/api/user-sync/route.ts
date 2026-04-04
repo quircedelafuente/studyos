@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { getSql } from "@/lib/db";
 import { MANUAL_COURSES_STORAGE_KEY } from "@/lib/manual-courses-storage";
 import {
+  computeCloudEntryStats,
   normalizeCloudPayload,
   sanitizeEntriesForUpload,
 } from "@/lib/user-cloud-storage";
@@ -20,7 +21,10 @@ function formatPgTimestamptz(v: unknown): string | null {
 export async function GET() {
   const sql = getSql();
   if (!sql) {
-    return NextResponse.json({ disabled: true, entries: {} }, { status: 503 });
+    return NextResponse.json(
+      { disabled: true, entries: {}, updatedAt: null, stats: null },
+      { status: 503 },
+    );
   }
   const session = await auth();
   if (!session?.user?.id) {
@@ -34,7 +38,8 @@ export async function GET() {
     | undefined;
   const entries = normalizeCloudPayload(row?.payload ?? {});
   const updatedAt = formatPgTimestamptz(row?.updated_at);
-  return NextResponse.json({ entries, updatedAt });
+  const stats = computeCloudEntryStats(entries);
+  return NextResponse.json({ entries, updatedAt, stats });
 }
 
 export async function PUT(request: Request) {

@@ -28,6 +28,7 @@ import {
   IconX,
 } from "./icons";
 import { NotesPanel } from "./NotesPanel";
+import { CloudSyncIndicator } from "./CloudSyncIndicator";
 
 const MAIN_TABS: {
   id: MainTabId;
@@ -204,6 +205,9 @@ export function DashboardApp() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:pl-0">
+        <div className="hidden shrink-0 border-b border-[var(--border)] bg-[var(--surface-muted)]/40 px-4 py-2.5 md:block">
+          <CloudSyncIndicator />
+        </div>
         <header className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
           <button
             type="button"

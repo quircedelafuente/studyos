@@ -16,7 +16,7 @@ import { STUDY_ARENA_PERSIST_CHANGED } from "@/lib/study-arena-persist";
 
 const SYNC_PREFIX = "iestudio-";
 
-/** Dispara un push inmediato (escucha `UserCloudSync`). */
+/** Dispara un push inmediato (escucha `CloudSyncProvider`). */
 export const IESTUDIO_CLOUD_PUSH_REQUEST = "iestudio-cloud-push-request";
 
 /** Último `updated_at` del servidor que aplicamos en local (ISO). Evita pisar datos nuevos con un cliente obsoleto. */
@@ -111,10 +111,45 @@ export function coerceCloudStorageValue(v: unknown): string | null {
   return null;
 }
 
+/** El driver a veces devuelve el JSONB completo como string; sin esto el payload parece vacío. */
+export function unwrapDbPayloadObject(raw: unknown): Record<string, unknown> {
+  if (raw == null) return {};
+  if (typeof raw === "string") {
+    try {
+      const p = JSON.parse(raw) as unknown;
+      if (p && typeof p === "object" && !Array.isArray(p)) {
+        return p as Record<string, unknown>;
+      }
+    } catch {
+      /* ignore */
+    }
+    return {};
+  }
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  return {};
+}
+
+export function computeCloudEntryStats(entries: Record<string, string>): {
+  totalKeys: number;
+  bbKeys: number;
+  approxBytes: number;
+} {
+  const keys = Object.keys(entries);
+  let bbKeys = 0;
+  let approxBytes = 0;
+  for (const k of keys) {
+    if (isBlackboardCloudKey(k)) bbKeys += 1;
+    approxBytes += entries[k]?.length ?? 0;
+  }
+  return { totalKeys: keys.length, bbKeys, approxBytes };
+}
+
 export function normalizeCloudPayload(raw: unknown): Record<string, string> {
-  if (!raw || typeof raw !== "object") return {};
+  const root = unwrapDbPayloadObject(raw);
   const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+  for (const [k, v] of Object.entries(root)) {
     if (typeof k !== "string" || !k.startsWith(SYNC_PREFIX)) continue;
     if (CLOUD_EXCLUDE.has(k)) continue;
     const s = coerceCloudStorageValue(v);
