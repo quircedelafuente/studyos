@@ -410,8 +410,8 @@ function UpcomingDeliveriesModal({
         aria-label="Cerrar"
         onClick={onClose}
       />
-      <div className="relative h-[92vh] sm:h-auto sm:max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-3xl sm:rounded-2xl border border-[var(--border)] bg-white shadow-2xl pb-[env(safe-area-inset-bottom)]">
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
+      <div className="relative flex flex-col h-[92vh] sm:h-auto sm:max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-3xl sm:rounded-2xl border border-[var(--border)] bg-white shadow-2xl pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4 shrink-0">
           <div className="min-w-0">
             <h2 className="truncate text-sm sm:text-base font-extrabold">{title}</h2>
             <p className="mt-0.5 text-[10px] sm:text-xs text-[var(--ink-muted)] line-clamp-1">{subtitle}</p>
@@ -424,7 +424,7 @@ function UpcomingDeliveriesModal({
             Cerrar
           </button>
         </div>
-        <div className="min-h-0 overflow-y-auto p-3 sm:p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
           {items.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-8 text-center text-xs sm:text-sm text-[var(--ink-muted)]">
               No hay entregas pendientes.
@@ -521,8 +521,8 @@ function StudySessionsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4">
       <button type="button" className="absolute inset-0" aria-label="Cerrar" onClick={onClose} />
-      <div className="relative h-[92vh] sm:h-auto sm:max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-3xl sm:rounded-2xl border border-[var(--border)] bg-white shadow-2xl pb-[env(safe-area-inset-bottom)]">
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
+      <div className="relative flex flex-col h-[92vh] sm:h-auto sm:max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-3xl sm:rounded-2xl border border-[var(--border)] bg-white shadow-2xl pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4 shrink-0">
           <div className="min-w-0">
             <h2 className="truncate text-sm sm:text-base font-extrabold">Sesiones de estudio</h2>
             <p className="mt-0.5 text-[10px] sm:text-xs text-[var(--ink-muted)] line-clamp-1">
@@ -537,7 +537,7 @@ function StudySessionsModal({
             Cerrar
           </button>
         </div>
-        <div className="min-h-0 overflow-y-auto p-3 sm:p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
           {items.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-8 text-center text-xs sm:text-sm text-[var(--ink-muted)]">
               No hay sesiones próximas.
@@ -880,7 +880,7 @@ export function DashboardOverviewPanel() {
     return [...withDue, ...noDue];
   }, [bbRevision]);
 
-  const top4 = useMemo(() => upcomingDeliveries.slice(0, 4), [upcomingDeliveries]);
+  const top3 = useMemo(() => upcomingDeliveries.slice(0, 3), [upcomingDeliveries]);
 
   const upcomingStudySessions = useMemo(() => {
     if (typeof window === "undefined") return [];
@@ -1052,9 +1052,9 @@ export function DashboardOverviewPanel() {
   }, [bbRevision]);
 
   useEffect(() => {
-    // Fetch perezoso: solo para completar el top4 en el dashboard; y al abrir el modal, para todo.
+    // Fetch perezoso: solo para completar el top3 en el dashboard; y al abrir el modal, para todo.
     let cancelled = false;
-    const need = upcomingModalOpen ? upcomingDeliveries.length : 4;
+    const need = upcomingModalOpen ? upcomingDeliveries.length : 3;
     const candidates = [
       ...upcomingDeliveries.slice(0, need),
       ...criticalAlerts.slice(0, 8),
@@ -1104,7 +1104,7 @@ export function DashboardOverviewPanel() {
         <div className="lg:col-span-4 xl:col-span-4">
           <WidgetShell
             title="Próximas entregas"
-            subtitle="Top 4 no entregadas"
+            subtitle="Top 3 no entregadas"
             right={
               <div className="flex items-center gap-2">
                 {contentFetchBusy ? (
@@ -1124,13 +1124,13 @@ export function DashboardOverviewPanel() {
           >
             <div className="min-h-0 flex flex-col max-h-[16rem] sm:max-h-[19rem]">
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                {top4.length === 0 ? (
+                {top3.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] px-3 py-5 text-xs text-[var(--ink-muted)]">
                     No hay entregas pendientes.
                   </div>
                 ) : (
                   <ul className="space-y-1.5">
-                    {top4.map((it) => {
+                    {top3.map((it) => {
                       const rel = it.dueIso ? relativeDue(it.dueIso) : null;
                       return (
                         <li
