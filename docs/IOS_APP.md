@@ -49,13 +49,25 @@ cd ios/App && pod install && cd ../..
 
 `npm run cap:sync` ejecuta `pod install` cuando actualizas iOS desde Capacitor.
 
+## Pantalla negra al abrir la app
+
+- Con **modo oscuro** en el iPhone, el WKWebView usaba el fondo del sistema (negro) hasta que cargaba la web; el proyecto fija **fondo blanco** en `capacitor.config.ts` (`backgroundColor`).
+- Si sigue en negro: comprueba red, URL en `server.url`, y que hayas ejecutado `npm run cap:sync` tras cambiar la config.
+
+## Xcode instala pero “no arranca” / depurador
+
+- Cierra otras ventanas de Xcode, **Product → Clean Build Folder**, desenchufa y vuelve a enchufar el iPhone.
+- **Edit Scheme → Run → Info**: desactiva **Wait for the executable to be launched** si estuviera activo.
+- Prueba **Run** con **Debug executable** desactivado (mismo menú del scheme): a veces el depurador (LLDB) no engancha y la app no pasa al primer plano.
+- Si la instalación funciona, abre el icono **manualmente** en la pantalla de inicio; el problema suele ser el **attach del debugger**, no la instalación.
+
 ## Google OAuth en WebView (importante)
 
-Google **puede bloquear o limitar** el inicio de sesión en navegadores incrustados (WKWebView). Si al pulsar «Iniciar sesión con Google» ves error o pantalla en blanco:
+Google **puede bloquear o limitar** el inicio de sesión en navegadores incrustados (WKWebView). En `capacitor.config.ts` se usa un **User-Agent tipo Safari** en iOS para mejorar compatibilidad; aun así puede fallar.
 
-1. Prueba iniciar sesión en **Safari** en el mismo iPhone y luego usa la app (si compartiera cookies — en la práctica a veces no).
-2. Usa **Añadir a la pantalla de inicio** desde Safari (PWA): el flujo OAuth usa Safari completo y suele funcionar.
-3. **Siguiente paso técnico** (si lo necesitas): integrar `@capacitor/browser` para abrir el login en el sistema y volver con un esquema de URL personalizado; eso implica cambios acotados en cliente/servidor. No está implementado por defecto para no tocar el flujo web.
+1. Prueba **Añadir a la pantalla de inicio** desde **Safari** (PWA): el flujo OAuth usa el navegador completo y suele funcionar igual que en escritorio.
+2. Si en la app sigue fallando, usa la web en Safari; la sesión **no** se comparte automáticamente con el WebView de la app (almacenamiento distinto).
+3. **Siguiente paso técnico** (si lo necesitas): integrar `@capacitor/browser` + deep link / token en backend; no está implementado por defecto para no tocar el flujo web.
 
 ## Paridad con la web
 
