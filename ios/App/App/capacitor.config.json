@@ -1,0 +1,10 @@
+{
+	"appId": "com.agustmun.iestudio",
+	"appName": "IEStudio",
+	"webDir": "public/capacitor-shell",
+	"server": {
+		"url": "https://studyos-delta.vercel.app",
+		"cleartext": false
+	},
+	"packageClassList": []
+}
