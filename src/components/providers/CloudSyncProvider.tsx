@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useSession } from "next-auth/react";
 import { CLOUD_SYNC_PUSH_REQUEST_EVENT } from "@/lib/cloud-sync-push";
+import { CLOUD_SYNC_PULL_REQUEST_EVENT } from "@/lib/cloud-sync-pull";
 import {
   applyCloudEntries,
   collectSyncableEntries,
@@ -282,9 +283,16 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       lastPushedSig.current = "";
       void push();
     };
+    const onImmediatePull = () => {
+      void pull();
+    };
     window.addEventListener(CLOUD_SYNC_PUSH_REQUEST_EVENT, onImmediatePush);
-    return () => window.removeEventListener(CLOUD_SYNC_PUSH_REQUEST_EVENT, onImmediatePush);
-  }, [status, userId, push]);
+    window.addEventListener(CLOUD_SYNC_PULL_REQUEST_EVENT, onImmediatePull);
+    return () => {
+      window.removeEventListener(CLOUD_SYNC_PUSH_REQUEST_EVENT, onImmediatePush);
+      window.removeEventListener(CLOUD_SYNC_PULL_REQUEST_EVENT, onImmediatePull);
+    };
+  }, [status, userId, push, pull]);
 
   useEffect(() => {
     if (status !== "authenticated" || !userId) return;
