@@ -104,8 +104,9 @@ export function WeekGoogleStyleGrid({
 
   const earliestTimedTopPx = useMemo(() => {
     if (timed.length === 0) return 0;
-    return Math.min(...timed.map((s) => s.topPx));
-  }, [timed]);
+    // Escalamos el topPx original (basado en 76px/h) al nuevo gridHeightPx
+    return Math.min(...timed.map((s) => (s.topPx / (24 * 76)) * gridHeightPx));
+  }, [timed, gridHeightPx]);
 
   useLayoutEffect(() => {
     const el = scrollBodyRef.current;
@@ -124,7 +125,6 @@ export function WeekGoogleStyleGrid({
   } | null>(null);
   const [dragDeltaPx, setDragDeltaPx] = useState(0);
   const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
-  const gridBodyRef = useRef<HTMLDivElement>(null);
 
   const isDraggableEvent = useCallback(
     (eventId?: string) =>
@@ -138,16 +138,19 @@ export function WeekGoogleStyleGrid({
       e.preventDefault();
       e.stopPropagation();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      // Escalamos el topPx/heightPx original al actual para el drag
+      const currentTop = (seg.topPx / (24 * 76)) * gridHeightPx;
+      const currentHeight = (seg.heightPx / (24 * 76)) * gridHeightPx;
       dragRef.current = {
         eventId: seg.eventId,
         startY: e.clientY,
-        origTopPx: seg.topPx,
-        heightPx: seg.heightPx,
+        origTopPx: currentTop,
+        heightPx: currentHeight,
       };
       setDraggingEventId(seg.eventId);
       setDragDeltaPx(0);
     },
-    [isDraggableEvent],
+    [isDraggableEvent, gridHeightPx],
   );
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
@@ -314,17 +317,17 @@ export function WeekGoogleStyleGrid({
                   <div
                     key={h}
                     className="pointer-events-none absolute left-0 right-0 box-border border-t border-zinc-100/90"
-                    style={{ top: h * PX_PER_HOUR }}
+                    style={{ top: h * pxPerHour }}
                   />
                 ))}
                 <div
                   className="pointer-events-none absolute bottom-0 left-0 right-0 border-t border-zinc-200/60"
-                  style={{ top: GRID_HEIGHT_PX - 1 }}
+                  style={{ top: gridHeightPx - 1 }}
                 />
 
                 {todayCol === col && nowLinePx !== null ? (
                   <div
-                    className="pointer-events-none absolute left-0 right-0 z-30 border-t-[3px] border-black shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_12px_rgba(0,0,0,0.12)]"
+                    className="pointer-events-none absolute left-0 right-0 z-30 border-t-[2px] sm:border-t-[3px] border-black shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_12px_rgba(0,0,0,0.12)]"
                     style={{ top: nowLinePx }}
                     aria-hidden
                   />
@@ -346,17 +349,21 @@ export function WeekGoogleStyleGrid({
                     const isDeleting = deletingKey === delKey;
                     const canDrag = isDraggableEvent(s.eventId);
                     const isDragging = draggingEventId === s.eventId;
+
+                    const scaledTopPx = (s.topPx / (24 * 76)) * gridHeightPx;
+                    const scaledHeightPx = (s.heightPx / (24 * 76)) * gridHeightPx;
+
                     const effectiveTop = isDragging
-                      ? Math.max(0, Math.min(GRID_HEIGHT_PX - s.heightPx, s.topPx + dragDeltaPx))
-                      : s.topPx;
+                      ? Math.max(0, Math.min(gridHeightPx - scaledHeightPx, scaledTopPx + dragDeltaPx))
+                      : scaledTopPx;
 
                     return (
                       <div
                         key={s.key}
-                        className={`absolute z-10 overflow-hidden rounded-xl border border-l-[3px] px-1.5 py-1 text-left shadow-md ring-1 ring-black/[0.05] ${canDrag ? "touch-none" : ""} ${isDragging ? "z-40 opacity-90 shadow-2xl ring-2 ring-black/20" : ""}`}
+                        className={`absolute z-10 overflow-hidden rounded-lg sm:rounded-xl border border-l-[2px] sm:border-l-[3px] px-1 sm:px-1.5 py-0.5 sm:py-1 text-left shadow-sm sm:shadow-md ring-1 ring-black/[0.05] ${canDrag ? "touch-none" : ""} ${isDragging ? "z-40 opacity-90 shadow-2xl ring-2 ring-black/20" : ""}`}
                         style={{
                           top: effectiveTop,
-                          height: s.heightPx,
+                          height: Math.max(scaledHeightPx, isMobile ? 18 : 22),
                           left: `calc(${leftPct}% + 1px)`,
                           width: `calc(${w}% - 2px)`,
                           backgroundColor: c.bg,
@@ -373,9 +380,9 @@ export function WeekGoogleStyleGrid({
                         onPointerMove={canDrag ? handlePointerMove : undefined}
                         onPointerUp={canDrag ? handlePointerUp : undefined}
                       >
-                        <div className="flex items-start gap-0.5">
-                          <div className="min-w-0 flex-1">
-                            {canDrag ? (
+                        <div className="flex items-start gap-0.5 h-full">
+                          <div className="min-w-0 flex-1 h-full overflow-hidden">
+                            {canDrag && !isMobile ? (
                               <div
                                 className="mx-auto mb-0.5 h-1 w-8 rounded-full opacity-40"
                                 style={{ backgroundColor: c.text }}
@@ -383,13 +390,13 @@ export function WeekGoogleStyleGrid({
                               />
                             ) : null}
                             <div
-                              className="font-mono-cli text-[11px] leading-tight"
+                              className="font-mono-cli text-[8px] sm:text-[11px] leading-tight font-bold"
                               style={{ color: c.textMuted }}
                             >
                               {isDragging
                                 ? (() => {
                                     const SNAP = 15;
-                                    const totalMin = (effectiveTop / GRID_HEIGHT_PX) * HOURS_IN_GRID * 60;
+                                    const totalMin = (effectiveTop / gridHeightPx) * HOURS_IN_GRID * 60;
                                     const snapped = Math.round(totalMin / SNAP) * SNAP;
                                     const hh = Math.floor(snapped / 60);
                                     const mm = snapped % 60;
@@ -398,13 +405,13 @@ export function WeekGoogleStyleGrid({
                                 : s.rangeLabel}
                             </div>
                             <div
-                              className="line-clamp-[4] text-sm font-semibold leading-snug"
+                              className="line-clamp-3 sm:line-clamp-[4] text-[10px] sm:text-sm font-black sm:font-semibold leading-tight sm:leading-snug"
                               style={{ color: c.text }}
                             >
                               {s.title}
                             </div>
                           </div>
-                          {showDelete ? (
+                          {showDelete && !isMobile ? (
                             <button
                               type="button"
                               className="shrink-0 rounded p-0.5 opacity-80 hover:bg-black/10 hover:opacity-100 disabled:opacity-40"
