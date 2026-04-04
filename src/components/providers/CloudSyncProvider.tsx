@@ -240,13 +240,22 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           lastReceiveError: null,
         });
         const server = data.entries ?? {};
-        if (Object.keys(server).length === 0) {
+        const serverKeyCount = Object.keys(server).length;
+        const local = collectSyncableEntries();
+        const localKeyCount = Object.keys(local).length;
+
+        if (serverKeyCount === 0 && localKeyCount > 0) {
           await push();
-        } else {
+        } else if (serverKeyCount > 0 && localKeyCount === 0) {
           applyCloudEntries(server);
-          lastPushedSig.current = syncSnapshotSignature(
-            collectSyncableEntries(),
-          );
+          lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
+        } else if (serverKeyCount > 0 && localKeyCount > 0) {
+          if (serverKeyCount >= localKeyCount) {
+            applyCloudEntries(server);
+            lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
+          } else {
+            await push();
+          }
         }
       } catch (e) {
         if (!cancelled) {
