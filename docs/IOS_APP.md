@@ -63,11 +63,17 @@ cd ios/App && pod install && cd ../..
 
 ## Google OAuth en WebView (importante)
 
-Google **puede bloquear o limitar** el inicio de sesión en navegadores incrustados (WKWebView). En `capacitor.config.ts` se usa un **User-Agent tipo Safari** en iOS para mejorar compatibilidad; aun así puede fallar.
+Google **puede bloquear o limitar** el login en WKWebView. **No** uses `overrideUserAgent` imitando Safari: en iOS el login puede pasar a **Safari** mientras el `state`/PKCE de OAuth quedó en cookies del **WebView** → al volver, el servidor rechaza el callback (“error de servidor” / OAuth).
 
-1. Prueba **Añadir a la pantalla de inicio** desde **Safari** (PWA): el flujo OAuth usa el navegador completo y suele funcionar igual que en escritorio.
-2. Si en la app sigue fallando, usa la web en Safari; la sesión **no** se comparte automáticamente con el WebView de la app (almacenamiento distinto).
-3. **Siguiente paso técnico** (si lo necesitas): integrar `@capacitor/browser` + deep link / token en backend; no está implementado por defecto para no tocar el flujo web.
+1. En **Vercel** (Production): `AUTH_URL=https://studyos-delta.vercel.app` (sin `/` final), `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`. Si `AUTH_URL` no coincide con el dominio real, Auth falla en el callback.
+2. Prueba **Añadir a la pantalla de inicio** desde **Safari** (PWA): el flujo completo va en un solo navegador.
+3. **Siguiente paso técnico** si hace falta: `@capacitor/browser` + deep link / token en backend.
+
+## Avisos de consola (UIScene, sandbox, WebContent)
+
+- **`UIScene` lifecycle will soon be required**: aviso futuro de Apple; el template actual de Capacitor aún puede usar el ciclo de vida clásico. No suele explicar un fallo de login.
+- **`Could not create a sandbox extension`**, **`unable to make sandbox extension`**: ruido habitual en depuración con WebKit; prueba compilar en **Release** o **Run** sin depurador.
+- **Networking/GPU/WebContent took N seconds**, **processDidBecomeUnresponsive**: carga lenta o depurador; en dispositivo físico a veces mejora sin Xcode conectado.
 
 ## Paridad con la web
 

@@ -15,13 +15,9 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   /**
-   * Google OAuth suele rechazar WebViews “genéricos”. Imitar Safari en iPhone mejora
-   * el flujo en WKWebView (sigue pudiendo fallar por políticas de Google).
+   * No usar overrideUserAgent tipo Safari: en iOS puede hacer que Google abra el login
+   * en Safari mientras state/PKCE viven en cookies del WKWebView → callback con error de servidor.
    */
-  ios: {
-    overrideUserAgent:
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1",
-  },
 };
 
 export default config;
