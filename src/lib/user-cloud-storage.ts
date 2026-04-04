@@ -92,24 +92,45 @@ export function syncSnapshotSignature(entries: Record<string, string>): string {
   return stableSnapshot(entries);
 }
 
+/**
+ * El JSONB en Neon/Postgres puede devolver valores ya parseados como objeto/array;
+ * antes solo aceptábamos `string` y el payload quedaba vacío → "nada en la nube".
+ */
+export function coerceCloudStorageValue(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (typeof v === "bigint") return String(v);
+  if (typeof v === "object") {
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export function normalizeCloudPayload(raw: unknown): Record<string, string> {
   if (!raw || typeof raw !== "object") return {};
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
     if (typeof k !== "string" || !k.startsWith(SYNC_PREFIX)) continue;
     if (CLOUD_EXCLUDE.has(k)) continue;
-    if (typeof v === "string") out[k] = v;
+    const s = coerceCloudStorageValue(v);
+    if (s !== null) out[k] = s;
   }
   return out;
 }
 
 export function sanitizeEntriesForUpload(
-  entries: Record<string, string>,
+  entries: Record<string, string | unknown>,
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(entries)) {
     if (!k.startsWith(SYNC_PREFIX) || CLOUD_EXCLUDE.has(k)) continue;
-    if (typeof v === "string") out[k] = v;
+    const s = coerceCloudStorageValue(v);
+    if (s !== null) out[k] = s;
   }
   return out;
 }

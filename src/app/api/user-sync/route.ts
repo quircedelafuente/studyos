@@ -7,6 +7,16 @@ import {
 } from "@/lib/user-cloud-storage";
 import { NextResponse } from "next/server";
 
+function formatPgTimestamptz(v: unknown): string | null {
+  if (v == null) return null;
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "string" && v.length > 0) return v;
+  if (typeof v === "number" && Number.isFinite(v)) {
+    return new Date(v).toISOString();
+  }
+  return null;
+}
+
 export async function GET() {
   const sql = getSql();
   if (!sql) {
@@ -20,15 +30,10 @@ export async function GET() {
     SELECT payload, updated_at FROM user_app_kv WHERE user_id = ${session.user.id}
   `;
   const row = rows[0] as
-    | { payload: unknown; updated_at: string | Date }
+    | { payload: unknown; updated_at: unknown }
     | undefined;
   const entries = normalizeCloudPayload(row?.payload ?? {});
-  const updatedAt =
-    row?.updated_at instanceof Date
-      ? row.updated_at.toISOString()
-      : typeof row?.updated_at === "string"
-        ? row.updated_at
-        : null;
+  const updatedAt = formatPgTimestamptz(row?.updated_at);
   return NextResponse.json({ entries, updatedAt });
 }
 
@@ -53,7 +58,7 @@ export async function PUT(request: Request) {
   }
   const merge = raw.merge === true;
   const sanitized = sanitizeEntriesForUpload(
-    raw.entries as Record<string, string>,
+    raw.entries as Record<string, unknown>,
   );
   delete sanitized[MANUAL_COURSES_STORAGE_KEY];
 
@@ -76,12 +81,8 @@ export async function PUT(request: Request) {
       updated_at = NOW()
     RETURNING updated_at
   `;
-  const row = out[0] as { updated_at: string | Date } | undefined;
+  const row = out[0] as { updated_at: unknown } | undefined;
   const updatedAt =
-    row?.updated_at instanceof Date
-      ? row.updated_at.toISOString()
-      : typeof row?.updated_at === "string"
-        ? row.updated_at
-        : new Date().toISOString();
+    formatPgTimestamptz(row?.updated_at) ?? new Date().toISOString();
   return NextResponse.json({ ok: true, updatedAt });
 }

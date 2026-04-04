@@ -32,17 +32,24 @@ export function UserCloudSync() {
       updatedAt?: string | null;
     };
     if (data.disabled) return;
-    if (!data.updatedAt) return;
-    const applied = getCloudServerAppliedAt();
-    if (applied !== null && data.updatedAt <= applied) return;
     const serverEntries = normalizeCloudPayload(data.entries ?? {});
-    applyCloudEntriesSmartMerge(serverEntries);
-    setCloudServerAppliedAt(data.updatedAt);
+    const hasPayload = Object.keys(serverEntries).length > 0;
+    if (!hasPayload && !data.updatedAt) return;
+    if (data.updatedAt) {
+      const applied = getCloudServerAppliedAt();
+      if (applied !== null && data.updatedAt <= applied) return;
+    }
+    if (hasPayload) {
+      applyCloudEntriesSmartMerge(serverEntries);
+    }
+    if (data.updatedAt) {
+      setCloudServerAppliedAt(data.updatedAt);
+    }
     lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
   }, []);
 
   const push = useCallback(async () => {
-    if (!userId) return;
+    if (!userId?.trim()) return;
     await syncPullIfServerNewer();
     const entries = collectSyncableEntriesForUpload(isMobile);
     const sig = syncSnapshotSignature(entries);
@@ -61,16 +68,24 @@ export function UserCloudSync() {
   }, [userId, isMobile, syncPullIfServerNewer]);
 
   useEffect(() => {
-    if (status !== "authenticated" || !userId) {
+    if (status !== "authenticated" || !userId?.trim()) {
       lastPushedSig.current = "";
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/user-sync", {
+        let res = await fetch("/api/user-sync", {
           credentials: "same-origin",
         });
+        if (cancelled) return;
+        if (!res.ok && res.status === 401) {
+          await new Promise((r) => setTimeout(r, 1200));
+          if (cancelled) return;
+          res = await fetch("/api/user-sync", {
+            credentials: "same-origin",
+          });
+        }
         if (cancelled || !res.ok) return;
         const data = (await res.json()) as {
           disabled?: boolean;
@@ -99,7 +114,8 @@ export function UserCloudSync() {
   }, [status, userId, push]);
 
   useEffect(() => {
-    if (status !== "authenticated" || !userId) return;
+    if (status !== "authenticated" || !userId?.trim()) return;
+    void push();
     const id = window.setInterval(() => {
       void push();
     }, PUSH_INTERVAL_MS);
@@ -121,7 +137,7 @@ export function UserCloudSync() {
   }, [status, userId, push, syncPullIfServerNewer]);
 
   useEffect(() => {
-    if (status !== "authenticated" || !userId) return;
+    if (status !== "authenticated" || !userId?.trim()) return;
     const onReq = () => {
       void push();
     };
@@ -131,7 +147,7 @@ export function UserCloudSync() {
   }, [status, userId, push]);
 
   useEffect(() => {
-    if (status !== "authenticated" || !userId) return;
+    if (status !== "authenticated" || !userId?.trim()) return;
     const flush = () => {
       void push();
     };
