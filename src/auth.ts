@@ -38,6 +38,8 @@ async function refreshGoogleAccessToken(token: JWT): Promise<JWT> {
 
 export const { handlers: { GET, POST }, auth } = NextAuth({
   trustHost: true,
+  /** Obligatorio en producción (Vercel). Sin esto → /api/auth/error?error=Configuration */
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID,
