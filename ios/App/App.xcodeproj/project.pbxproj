@@ -20,7 +20,6 @@
 		796276FC484176E20E262447 /* StudyWidget in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 309AEAB4F13A95EF6CD5124D /* StudyWidget */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		82D562DB4B2367D7560D044A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C28FFAC998FF4434FC648C66 /* WidgetKit.framework */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
-		B39D811120090EEBAC149CA4 /* Pods_StudyWidget.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 68363E977DE60EE46DD9736F /* Pods_StudyWidget.framework */; };
 		CD67765CA9074F09DE019EF6 /* StudyWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15C0ECD96D2720BF2409CD36 /* StudyWidgetBundle.swift */; };
 		D214C2E9FE9125098E32025F /* StudySessionAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1319492CB6CCC86B0FE4B0A7 /* StudySessionAttributes.swift */; };
 		F43E78B41A8C4B8F71B5DC7C /* StudyWidgetLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E870D315C3F550EA363D9A96 /* StudyWidgetLiveActivity.swift */; };
@@ -51,12 +50,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0A8E39DADE081FDBBB9D4BDF /* Pods-StudyWidget.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StudyWidget.debug.xcconfig"; path = "Pods/Target Support Files/Pods-StudyWidget/Pods-StudyWidget.debug.xcconfig"; sourceTree = "<group>"; };
 		1319492CB6CCC86B0FE4B0A7 /* StudySessionAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StudySessionAttributes.swift; sourceTree = "<group>"; };
 		15C0ECD96D2720BF2409CD36 /* StudyWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StudyWidgetBundle.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		309AEAB4F13A95EF6CD5124D /* StudyWidget */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = StudyWidget; path = StudyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		374EEA6F813B5822FD65481C /* Pods-StudyWidget.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StudyWidget.release.xcconfig"; path = "Pods/Target Support Files/Pods-StudyWidget/Pods-StudyWidget.release.xcconfig"; sourceTree = "<group>"; };
 		48C7EB64B87F41F229998B31 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -66,7 +63,6 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
-		68363E977DE60EE46DD9736F /* Pods_StudyWidget.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_StudyWidget.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		8696BAC1F523499E411269A1 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/ActivityKit.framework; sourceTree = DEVELOPER_DIR; };
 		AC268E940A6FE17392394EB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_App.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -92,7 +88,6 @@
 				230113631D3B137280B8D80D /* Foundation.framework in Frameworks */,
 				82D562DB4B2367D7560D044A /* WidgetKit.framework in Frameworks */,
 				592FA68D76A206A7B2A1D766 /* ActivityKit.framework in Frameworks */,
-				B39D811120090EEBAC149CA4 /* Pods_StudyWidget.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -116,7 +111,6 @@
 			children = (
 				AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */,
 				2E045824EB92645522151E99 /* iOS */,
-				68363E977DE60EE46DD9736F /* Pods_StudyWidget.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -171,8 +165,6 @@
 			children = (
 				FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */,
 				AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */,
-				374EEA6F813B5822FD65481C /* Pods-StudyWidget.release.xcconfig */,
-				0A8E39DADE081FDBBB9D4BDF /* Pods-StudyWidget.debug.xcconfig */,
 			);
 			name = Pods;
 			sourceTree = "<group>";
@@ -184,7 +176,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 65992603C6F0F4D0838581C6 /* Build configuration list for PBXNativeTarget "StudyWidget" */;
 			buildPhases = (
-				9B4AB94AF7F19A9E67FBA67D /* [CP] Check Pods Manifest.lock */,
 				884C7C587B99A603B0AA0B5D /* Sources */,
 				C232B15394AF9E7F95CE6EB3 /* Frameworks */,
 				F37E7726F276B9B6D4325217 /* Resources */,
@@ -309,28 +300,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-App/Pods-App-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		9B4AB94AF7F19A9E67FBA67D /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-StudyWidget-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -536,40 +505,46 @@
 		};
 		6454B16C68FC48565EA16992 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0A8E39DADE081FDBBB9D4BDF /* Pods-StudyWidget.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = QCQL2JX4UQ;
+				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = StudyWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.agustmun.iestudio.StudyWidget;
+				PRODUCT_NAME = StudyWidget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
+				WRAPPER_EXTENSION = appex;
 			};
 			name = Debug;
 		};
 		98A5FC5355F8D50AE39B59F7 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 374EEA6F813B5822FD65481C /* Pods-StudyWidget.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = QCQL2JX4UQ;
+				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = StudyWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.agustmun.iestudio.StudyWidget;
+				PRODUCT_NAME = StudyWidget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				VALIDATE_PRODUCT = YES;
+				WRAPPER_EXTENSION = appex;
 			};
 			name = Release;
 		};

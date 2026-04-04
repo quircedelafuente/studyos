@@ -52,6 +52,9 @@ widget_target = proj.new_target(
   s['DEVELOPMENT_TEAM']              = TEAM_ID
   s['LD_RUNPATH_SEARCH_PATHS']       = '$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks'
   s['ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'] = 'NO'
+  # Sin PRODUCT_NAME explícito Xcode puede generar salida literal ".appex" y fallar el build.
+  s['PRODUCT_NAME']                  = WIDGET_NAME
+  s['WRAPPER_EXTENSION']               = 'appex'
 end
 
 # Actualizar deployment target del target App (Podfile ya está en 15.0)

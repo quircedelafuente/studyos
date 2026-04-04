@@ -5,7 +5,7 @@ import WidgetKit
 // MARK: - Helpers
 
 @available(iOS 16.2, *)
-private let accentColor  = Color(red: 99/255,  green: 102/255, blue: 241/255) // indigo-500
+private let brandAccent  = Color(red: 99/255,  green: 102/255, blue: 241/255) // indigo-500 (evitar el nombre accentColor: choca con SwiftUI)
 @available(iOS 16.2, *)
 private let bgColor      = Color(red: 15/255,  green: 23/255,  blue: 42/255)  // slate-900
 @available(iOS 16.2, *)
@@ -74,7 +74,7 @@ struct LockScreenLiveActivityView: View {
                 Circle()
                     .trim(from: 0, to: CGFloat(state.progressPercent / 100.0))
                     .stroke(
-                        accentColor,
+                        brandAccent,
                         style: StrokeStyle(lineWidth: 5, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -98,10 +98,10 @@ struct LockScreenLiveActivityView: View {
                 HStack(spacing: 5) {
                     Image(systemName: "brain.head.profile")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(brandAccent)
                     Text("IEStudio")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(brandAccent)
                     Spacer()
                     if state.isPaused {
                         Label("Pausado", systemImage: "pause.circle.fill")
@@ -156,7 +156,7 @@ struct LockScreenLiveActivityView: View {
                             .fill(Color.white.opacity(0.1))
                             .frame(height: 3)
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(accentColor)
+                            .fill(brandAccent)
                             .frame(
                                 width: geo.size.width * CGFloat(state.progressPercent / 100.0),
                                 height: 3
@@ -191,10 +191,10 @@ struct StudyWidgetLiveActivity: Widget {
                         HStack(spacing: 4) {
                             Image(systemName: "brain.head.profile")
                                 .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(accentColor)
+                                .foregroundColor(brandAccent)
                             Text("IEStudio")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(accentColor)
+                                .foregroundColor(brandAccent)
                         }
                         Text(
                             context.state.subject.isEmpty
@@ -242,7 +242,7 @@ struct StudyWidgetLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack(spacing: 8) {
                         ProgressView(value: context.state.progressPercent / 100.0)
-                            .tint(accentColor)
+                            .tint(brandAccent)
                             .frame(maxWidth: .infinity)
 
                         if context.state.distractionCount > 0 {
@@ -268,7 +268,7 @@ struct StudyWidgetLiveActivity: Widget {
                         : "brain.head.profile"
                 )
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(context.state.isPaused ? .yellow : accentColor)
+                .foregroundColor(context.state.isPaused ? .yellow : brandAccent)
 
             } compactTrailing: {
                 // ── Pill compacta: derecha (countdown) ───────────────────
@@ -285,10 +285,10 @@ struct StudyWidgetLiveActivity: Widget {
                         : "brain.head.profile"
                 )
                 .font(.system(size: 14))
-                .foregroundColor(context.state.isPaused ? .yellow : accentColor)
+                .foregroundColor(context.state.isPaused ? .yellow : brandAccent)
             }
             .widgetURL(URL(string: "iestudio://study-arena"))
-            .keylineTint(accentColor)
+            .keylineTint(brandAccent)
         }
     }
 }
