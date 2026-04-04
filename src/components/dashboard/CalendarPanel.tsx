@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { GoogleCalendarEventItem } from "@/lib/google-calendar-types";
 import { getGoogleEventColorStyle } from "@/lib/google-calendar-event-colors";
@@ -25,7 +25,7 @@ import {
   loadImportantDeadlines,
   saveImportantDeadlines,
 } from "@/lib/deadlines-storage";
-import { getOAuthCallbackUrl } from "@/lib/auth-callback-url";
+import { signInWithGoogle } from "@/lib/capacitor-auth";
 import { loadStudyPlans, STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
 import {
   STUDY_PLAN_PREVIEW_CALENDAR_ID,
@@ -422,7 +422,7 @@ export function CalendarPanel() {
           <button
             type="button"
             onClick={() =>
-              signIn("google", { callbackUrl: getOAuthCallbackUrl() })
+              void signInWithGoogle()
             }
             className="inline-flex items-center gap-2 rounded-xl bg-[var(--ink)] px-6 py-3 text-base font-semibold text-white transition hover:opacity-90"
           >
@@ -437,7 +437,7 @@ export function CalendarPanel() {
           <button
             type="button"
             onClick={() =>
-              signIn("google", { callbackUrl: getOAuthCallbackUrl() })
+              void signInWithGoogle()
             }
             className="inline-flex items-center gap-2 rounded-xl border-2 border-[var(--border-strong)] px-6 py-3 text-base font-semibold"
           >
@@ -543,7 +543,7 @@ export function CalendarPanel() {
               <button
                 type="button"
                 onClick={() =>
-                  signIn("google", { callbackUrl: getOAuthCallbackUrl() })
+                  void signInWithGoogle()
                 }
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-zinc-700 shadow-sm ring-1 ring-zinc-200/80 transition hover:bg-zinc-50 hover:ring-zinc-300 active:scale-[0.97]"
                 title="Conectar o actualizar Google Calendar"

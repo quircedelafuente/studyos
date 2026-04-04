@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import type { JWT } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
@@ -55,7 +55,11 @@ async function refreshGoogleAccessToken(token: JWT): Promise<JWT> {
   };
 }
 
-const nextAuth = NextAuth((req) => {
+/**
+ * Config builder exportado: lo usan tanto NextAuth (lazy init)
+ * como el endpoint /api/auth/mobile-start para el flujo OAuth en iOS.
+ */
+export function buildAuthConfig(req?: NextRequest): NextAuthConfig {
   const secret = env("AUTH_SECRET") ?? env("NEXTAUTH_SECRET");
   const clientId = env("AUTH_GOOGLE_ID") ?? env("GOOGLE_CLIENT_ID");
   const clientSecret =
@@ -77,13 +81,13 @@ const nextAuth = NextAuth((req) => {
   return {
     trustHost: true,
     secret,
-    /** Nuevo nombre para no leer cookies viejas con URL inválida (p. ej. WebView). */
+    /** Nombre v2 para no leer cookies viejas con URL inválida (WebView). */
     cookies: {
       callbackUrl: {
         name: `${cookiePrefix}authjs.callback-url.v2`,
         options: {
           httpOnly: true,
-          sameSite: "lax",
+          sameSite: "lax" as const,
           path: "/",
           secure,
         },
@@ -143,7 +147,9 @@ const nextAuth = NextAuth((req) => {
       },
     },
   };
-});
+}
+
+const nextAuth = NextAuth(buildAuthConfig);
 
 export const handlers = nextAuth.handlers;
 export const auth = nextAuth.auth;

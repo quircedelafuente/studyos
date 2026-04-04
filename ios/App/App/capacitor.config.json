@@ -7,5 +7,8 @@
 		"url": "https://studyos-delta.vercel.app",
 		"cleartext": false
 	},
-	"packageClassList": []
+	"packageClassList": [
+		"AppPlugin",
+		"CAPBrowserPlugin"
+	]
 }

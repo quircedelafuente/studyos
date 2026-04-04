@@ -22,6 +22,8 @@
     "cap:open:ios": "cap open ios"
   },
   "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/browser": "^7.0.5",
     "@neondatabase/serverless": "^1.0.2",
     "archiver": "^7.0.1",
     "cheerio": "^1.2.0",
