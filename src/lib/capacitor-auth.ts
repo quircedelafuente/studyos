@@ -1,16 +1,15 @@
 /**
  * Helper para autenticación OAuth en Capacitor iOS.
  *
- * Problema: el flujo estándar de NextAuth desde WKWebView genera cookies PKCE
- * en el WebView, pero Google redirige en Safari (SFSafariViewController), que
- * tiene un cookie store distinto → el callback no encuentra las cookies PKCE →
- * Auth.js falla con "Configuration error".
- *
- * Solución: abrimos TODA la cadena OAuth en SFSafariViewController mediante
- * @capacitor/browser. El endpoint /api/auth/mobile-start genera las cookies PKCE
- * y las devuelve al browser; el callback se completa en el mismo contexto Safari.
- * En iOS 14+ WKWebsiteDataStore.default() comparte cookies con Safari, por lo que
- * al recargar el WKWebView la sesión queda disponible.
+ * Flujo:
+ * 1. signInWithGoogle() abre /api/auth/mobile-start en SFSafariViewController.
+ * 2. OAuth completa en Safari; Auth.js establece la cookie de sesión en su store.
+ * 3. /api/auth/mobile-callback lee la cookie, crea un token de intercambio
+ *    encriptado y redirige a iestudio://auth-callback?tok=<token>.
+ * 4. setupMobileAuthUrlHandler() captura ese evento, cierra el browser y navega
+ *    el WKWebView a /api/auth/mobile-exchange?tok=<token>.
+ * 5. mobile-exchange desencripta el token, establece Set-Cookie en WKWebView y
+ *    redirige a /, donde la sesión ya está activa.
  *
  * En web (no Capacitor) usa el signIn normal de next-auth/react.
  */
@@ -18,8 +17,9 @@ import { getOAuthCallbackUrl } from "@/lib/auth-callback-url";
 import { Capacitor } from "@capacitor/core";
 
 /** URL base de producción (build-time, igual que AUTH_URL en Vercel). */
-const APP_URL =
-  (process.env.NEXT_PUBLIC_APP_URL ?? "https://studyos-delta.vercel.app").replace(/\/$/, "");
+const APP_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://studyos-delta.vercel.app"
+).replace(/\/$/, "");
 
 export function isCapacitorIOS(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
@@ -40,24 +40,23 @@ export async function signInWithGoogle(): Promise<void> {
   const { Browser } = await import("@capacitor/browser");
 
   // Abre el flujo completo en SFSafariViewController.
-  // El endpoint mobile-start genera el redirect a Google + cookies PKCE.
+  // NO registramos browserFinished aquí: todo el ciclo lo gestiona
+  // setupMobileAuthUrlHandler() vía el esquema iestudio://.
+  // Si el usuario cierra el browser manualmente (sin completar OAuth),
+  // simplemente no pasa nada (sesión no cambia).
   await Browser.open({
     url: `${APP_URL}/api/auth/mobile-start`,
     presentationStyle: "popover",
-  });
-
-  // Cuando el browser se cierra (por iestudio:// que lo trae a la app, o manual),
-  // recarga el WKWebView para que recoja la cookie de sesión del store compartido.
-  const listener = await Browser.addListener("browserFinished", async () => {
-    await listener.remove();
-    window.location.reload();
   });
 }
 
 /**
  * Registra el listener para el esquema iestudio:// en la app nativa.
- * Cuando /api/auth/mobile-callback redirige a iestudio://auth-callback,
- * iOS abre la app; aquí cerramos el browser y recargamos la sesión.
+ *
+ * Cuando /api/auth/mobile-callback redirige a iestudio://auth-callback?tok=<token>:
+ * 1. Cierra el SFSafariViewController.
+ * 2. Navega el WKWebView a /api/auth/mobile-exchange?tok=<token>.
+ *    Ese endpoint establece la cookie de sesión en WKWebView y redirige a /.
  *
  * Llamar desde AppProviders (useEffect) una sola vez al montar.
  * Devuelve una función de limpieza para el useEffect.
@@ -70,11 +69,28 @@ export async function setupMobileAuthUrlHandler(): Promise<() => void> {
     import("@capacitor/browser"),
   ]);
 
+  let handled = false;
+
   const listener = await App.addListener("appUrlOpen", async (event) => {
-    if (event.url.startsWith("iestudio://auth-callback")) {
-      // Cierra el SFSafariViewController si aún está abierto
-      await Browser.close().catch(() => {});
-      // Recarga para que el WKWebView recoja la cookie de sesión
+    if (!event.url.startsWith("iestudio://auth-callback")) return;
+
+    // Guard para evitar que el evento replay (tras recargas) dispare el flujo varias veces
+    if (handled) return;
+    handled = true;
+
+    // Cierra el SFSafariViewController si aún está abierto
+    await Browser.close().catch(() => {});
+
+    // Extraer el token de intercambio del URL
+    // iestudio://auth-callback?tok=<encryptedToken>
+    const tokMatch = event.url.match(/[?&]tok=([^&]+)/);
+    const tok = tokMatch ? tokMatch[1] : null;
+
+    if (tok) {
+      // Navegar el WKWebView al endpoint de intercambio para obtener la cookie de sesión
+      window.location.href = `${APP_URL}/api/auth/mobile-exchange?tok=${tok}`;
+    } else {
+      // Fallback sin token (flujo antiguo o de emergencia)
       window.location.reload();
     }
   });
