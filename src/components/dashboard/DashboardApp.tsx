@@ -1,7 +1,8 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useStudyArena } from "@/components/study-arena/StudyArenaProvider";
 import type { MainTabId } from "@/types/dashboard";
 import { AssignmentsPanel } from "./AssignmentsPanel";
@@ -13,7 +14,9 @@ import { DocumentsPanel } from "./DocumentsPanel";
 import { DashboardOverviewPanel } from "./DashboardOverviewPanel";
 import { StudyPlannerPanel } from "./StudyPlannerPanel";
 import { StudyArenaPanel } from "@/components/study-arena/StudyArenaPanel";
+import { AppBlockingPanel } from "@/components/app-blocking/AppBlockingPanel";
 import {
+  IconAppBlocking,
   IconAssignments,
   IconDashboard,
   IconCalendar,
@@ -29,21 +32,23 @@ import {
 } from "./icons";
 import { NotesPanel } from "./NotesPanel";
 
-const MAIN_TABS: {
+const BASE_TABS: {
   id: MainTabId;
   label: string;
   Icon: typeof IconCalendar;
+  iosOnly?: boolean;
 }[] = [
-  { id: "dashboard", label: "Dashboard", Icon: IconDashboard },
-  { id: "calendario", label: "Calendario", Icon: IconCalendar },
-  { id: "courses", label: "Courses", Icon: IconCourses },
-  { id: "fechas", label: "Exámenes y fechas", Icon: IconDeadlines },
-  { id: "documentos", label: "Documentos", Icon: IconFolder },
-  { id: "assignments", label: "Assignments", Icon: IconAssignments },
-  { id: "study-planner", label: "Study Planner", Icon: IconStudyPlanner },
-  { id: "study-arena", label: "Study Arena", Icon: IconStudyArena },
-  { id: "notas", label: "Notas", Icon: IconNotes },
-  { id: "notebooklm", label: "NotebookLM", Icon: IconTerminal },
+  { id: "dashboard",     label: "Dashboard",        Icon: IconDashboard },
+  { id: "calendario",    label: "Calendario",        Icon: IconCalendar },
+  { id: "courses",       label: "Courses",           Icon: IconCourses },
+  { id: "fechas",        label: "Exámenes y fechas", Icon: IconDeadlines },
+  { id: "documentos",    label: "Documentos",        Icon: IconFolder },
+  { id: "assignments",   label: "Assignments",       Icon: IconAssignments },
+  { id: "study-planner", label: "Study Planner",     Icon: IconStudyPlanner },
+  { id: "study-arena",   label: "Study Arena",       Icon: IconStudyArena },
+  { id: "notas",         label: "Notas",             Icon: IconNotes },
+  { id: "notebooklm",    label: "NotebookLM",        Icon: IconTerminal },
+  { id: "app-blocking",  label: "Bloqueo de Apps",   Icon: IconAppBlocking, iosOnly: true },
 ];
 
 export function DashboardApp() {
@@ -52,6 +57,15 @@ export function DashboardApp() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { data: session, status } = useSession();
   const { setSuppressFloatingWidget } = useStudyArena();
+
+  const isIOS = useMemo(
+    () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios",
+    [],
+  );
+  const MAIN_TABS = useMemo(
+    () => BASE_TABS.filter((t) => !t.iosOnly || isIOS),
+    [isIOS],
+  );
 
   useEffect(() => {
     setSuppressFloatingWidget(mainTab === "study-arena");
@@ -131,12 +145,6 @@ export function DashboardApp() {
               </button>
             );
           })}
-          <p className={`mt-4 mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-faint)] ${sidebarCollapsed ? "hidden" : "block"}`}>
-            Próximamente
-          </p>
-          <div className={`rounded-xl border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--ink-faint)] ${sidebarCollapsed ? "hidden" : "block"}`}>
-            Más pestañas aquí
-          </div>
         </nav>
 
         <div className={`border-t border-[var(--border)] p-3 ${sidebarCollapsed ? "hidden" : ""}`}>
@@ -226,6 +234,11 @@ export function DashboardApp() {
           {mainTab === "notebooklm" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <NotebookLMPanel />
+            </div>
+          ) : null}
+          {mainTab === "app-blocking" ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              <AppBlockingPanel />
             </div>
           ) : null}
         </main>

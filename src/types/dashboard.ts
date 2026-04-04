@@ -8,7 +8,8 @@ export type MainTabId =
   | "study-arena"
   | "study-planner"
   | "notas"
-  | "notebooklm";
+  | "notebooklm"
+  | "app-blocking";
 
 /** Mensaje en el chat de planificación (modelo vía OpenRouter). */
 export type StudyPlanChatTurn = {

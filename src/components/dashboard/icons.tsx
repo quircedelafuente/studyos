@@ -425,3 +425,23 @@ export function IconStudyArena({ className }: { className?: string }) {
     </svg>
   );
 }
+
+export function IconAppBlocking({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 2L4 6v6c0 4.97 3.37 9.63 8 10.93C17.63 21.63 21 16.97 21 12V6l-9-4z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 12l2 2 4-4"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

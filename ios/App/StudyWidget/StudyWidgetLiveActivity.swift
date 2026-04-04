@@ -49,6 +49,8 @@ struct TimerLabel: View {
         .font(font)
         .monospacedDigit()
         .lineLimit(1)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -87,7 +89,10 @@ struct LockScreenLiveActivityView: View {
                     Text("restante")
                         .font(.system(size: 8, weight: .medium))
                         .foregroundColor(secondaryTxt)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
                 }
+                .frame(maxWidth: .infinity)
             }
             .frame(width: 78, height: 78)
 
