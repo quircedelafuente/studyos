@@ -29,7 +29,6 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
       <CloudSyncProvider>
-        <CloudSyncIndicator />
         <StudyArenaProvider>
           <StudyArenaFloatingWidget />
           <StudyArenaFalseSessionModal />

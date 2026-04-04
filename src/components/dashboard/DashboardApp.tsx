@@ -179,9 +179,9 @@ export function DashboardApp() {
           </div>
         </header>
 
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {mainTab === "dashboard" ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scroll-smooth">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scroll-smooth pb-[env(safe-area-inset-bottom,0px)]">
               <DashboardOverviewPanel />
             </div>
           ) : null}
