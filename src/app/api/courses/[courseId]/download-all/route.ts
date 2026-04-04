@@ -1,7 +1,10 @@
 export const runtime = "nodejs";
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import archiver from "archiver";
 import { load } from "cheerio";
 
 const BLACKBOARD_BASE = "https://blackboard.ie.edu";
@@ -14,6 +17,8 @@ type DownloadAllBody = {
   cookieHeader?: string;
   xsrfToken?: string;
   courseName?: string;
+  /** En Vercel / sin disco escribible: empaqueta en ZIP (temp + stream al cliente). */
+  responseMode?: "json" | "zip";
 };
 
 type BbContentsResponse = {
@@ -366,6 +371,45 @@ async function crawlContents(
   return { downloaded, folders, visited, skipped };
 }
 
+function buildZipBuffer(
+  filesRoot: string,
+  tree: DownloadTree,
+  manifest: Record<string, unknown>,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const archive = archiver("zip", { zlib: { level: 5 } });
+    const chunks: Buffer[] = [];
+    archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+    archive.once("error", reject);
+    archive.once("end", () => resolve(Buffer.concat(chunks)));
+    archive.append(JSON.stringify(manifest), {
+      name: "__iestudio_manifest__.json",
+    });
+    const rootResolved = path.resolve(filesRoot);
+    for (const f of tree.files) {
+      const rel = f.relativePath.replace(/\\/g, "/");
+      const absNorm = path.resolve(filesRoot, ...rel.split("/"));
+      if (
+        absNorm !== rootResolved &&
+        !absNorm.startsWith(rootResolved + path.sep)
+      ) {
+        continue;
+      }
+      archive.file(absNorm, { name: rel });
+    }
+    void archive.finalize().catch(reject);
+  });
+}
+
+function zipDownloadBasename(courseLabel: string, courseId: string): string {
+  const base = sanitizeName(courseLabel || courseId, "curso")
+    .replace(/[\r\n]/g, "_")
+    .slice(0, 100);
+  const stem = base || "curso";
+  const ascii = stem.replace(/[^\x20-\x7E]+/g, "_").replace(/["\\]/g, "_") || "curso";
+  return `${ascii}.zip`;
+}
+
 /* ── Route handler ── */
 
 export async function POST(
@@ -376,7 +420,7 @@ export async function POST(
     const { courseId } = await params;
     const body = (await req.json().catch(() => ({}))) as DownloadAllBody;
     const rawBasePath = (body.basePath ?? "").trim();
-    const basePath = rawBasePath || path.join(process.cwd(), "downloads", "blackboard");
+    const wantZip = body.responseMode === "zip";
     const baseUrl = (body.baseUrl ?? BLACKBOARD_BASE).trim().replace(/\/+$/, "");
     const cookieHeader = typeof body.cookieHeader === "string" ? body.cookieHeader : "";
     const xsrfToken = typeof body.xsrfToken === "string" ? body.xsrfToken : "";
@@ -387,7 +431,19 @@ export async function POST(
     }
 
     const dirName = sanitizeName(courseName || courseId, "course");
-    const finalPath = path.join(basePath, dirName);
+
+    let finalPath: string;
+    let workRoot: string | null = null;
+
+    if (wantZip) {
+      workRoot = path.join(os.tmpdir(), `iestudio-bb-${randomUUID()}`);
+      finalPath = path.join(workRoot, dirName);
+    } else {
+      const basePath =
+        rawBasePath || path.join(process.cwd(), "downloads", "blackboard");
+      finalPath = path.join(basePath, dirName);
+    }
+
     await mkdir(finalPath, { recursive: true });
 
     const tree: DownloadTree = { folders: [], files: [] };
@@ -396,6 +452,40 @@ export async function POST(
       courseId, finalPath, baseUrl, cookieHeader, xsrfToken,
       new Set<string>(), 0, tree, null,
     );
+
+    if (wantZip) {
+      const manifest = {
+        version: 1 as const,
+        courseId,
+        courseName: courseName || courseId,
+        tree,
+        stats: {
+          downloadedFiles: stats.downloaded,
+          skippedItems: stats.skipped,
+          visitedItems: stats.visited,
+          createdFolders: stats.folders,
+        },
+      };
+      let buf: Buffer;
+      try {
+        buf = await buildZipBuffer(finalPath, tree, manifest);
+      } finally {
+        if (workRoot) {
+          await rm(workRoot, { recursive: true, force: true }).catch(() => {});
+        }
+      }
+      const zipName = zipDownloadBasename(courseName, courseId);
+      const utf8Name = encodeURIComponent(
+        `${sanitizeName(courseName || courseId, "curso").slice(0, 100) || "curso"}.zip`,
+      );
+      return new Response(new Uint8Array(buf), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${zipName}"; filename*=UTF-8''${utf8Name}`,
+        },
+      });
+    }
 
     return Response.json({
       ok: true,

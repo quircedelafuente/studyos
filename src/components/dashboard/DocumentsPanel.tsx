@@ -37,7 +37,11 @@ import {
 } from "@/lib/blackboard-api";
 import { loadBbConfig } from "@/lib/blackboard-config";
 import { bridgeBlackboardAuthSnapshot } from "@/lib/blackboard-bridge-client";
-import { importBlackboardTree, type DownloadTree } from "@/lib/bb-download-import";
+import {
+  importBlackboardTree,
+  importBlackboardTreeFromZipBuffer,
+  type DownloadTree,
+} from "@/lib/bb-download-import";
 import { CourseFilterSelect } from "./CourseFilterSelect";
 import { CourseGlyph } from "./CourseGlyph";
 import { IconFolder } from "./icons";
@@ -54,6 +58,13 @@ function fileBadge(kind: CourseFileStored["kind"]) {
 }
 
 const TEXT_PREVIEW_MAX = 120_000;
+
+/** En producción (Vercel) no hay carpeta `downloads/` en el servidor: usamos ZIP + descarga local. */
+function preferZipDownload(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname;
+  return h !== "localhost" && h !== "127.0.0.1";
+}
 
 function guessMimeFromName(name: string): string {
   const n = name.toLowerCase();
@@ -942,14 +953,18 @@ export function DocumentsPanel() {
 
   async function handleDownloadAll() {
     if (!active || downloadAllBusy) return;
-    const defaultPath = `./downloads/blackboard`;
-    const basePathRaw = window.prompt(
-      "Ruta base para guardar el curso (servidor):",
-      defaultPath,
-    );
-    if (basePathRaw === null) return;
-    const basePath = basePathRaw.trim();
-    if (!basePath) return;
+    const zipMode = preferZipDownload();
+    let basePath = "";
+    if (!zipMode) {
+      const defaultPath = `./downloads/blackboard`;
+      const basePathRaw = window.prompt(
+        "Ruta base para guardar el curso (servidor Next.js local):",
+        defaultPath,
+      );
+      if (basePathRaw === null) return;
+      basePath = basePathRaw.trim();
+      if (!basePath) return;
+    }
 
     const config = loadBbConfig();
     setDownloadAllBusy(true);
@@ -965,7 +980,8 @@ export function DocumentsPanel() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            basePath,
+            ...(zipMode ? {} : { basePath }),
+            responseMode: zipMode ? "zip" : "json",
             baseUrl: config?.baseUrl ?? "https://blackboard.ie.edu",
             cookieHeader: auth.cookieHeader,
             xsrfToken: auth.xsrfToken,
@@ -973,6 +989,43 @@ export function DocumentsPanel() {
           }),
         },
       );
+      const ct = res.headers.get("content-type") ?? "";
+
+      if (zipMode || ct.includes("application/zip")) {
+        if (!res.ok) {
+          const errBody = (await res.json().catch(() => ({}))) as {
+            detail?: string;
+            error?: string;
+          };
+          throw new Error(
+            errBody.detail ??
+              errBody.error ??
+              `No se pudo generar el ZIP (HTTP ${res.status}).`,
+          );
+        }
+        const buf = await res.arrayBuffer();
+        const safe =
+          active.name.replace(/[/\\?*:"|<>]/g, "_").trim().slice(0, 80) ||
+          active.id;
+        setDownloadAllMsg("Importando desde ZIP a IEStudio...");
+        const imported = await importBlackboardTreeFromZipBuffer(
+          buf,
+          active.id,
+          active.name,
+          {
+            saveZipAs: `${safe}.zip`,
+            onProgress: (done, total) => {
+              setDownloadAllMsg(`Importando archivos: ${done}/${total}...`);
+            },
+          },
+        );
+        refresh();
+        setDownloadAllMsg(
+          `Completado: ${imported.importedFiles} archivos y ${imported.importedFolders} carpetas en IEStudio (${imported.downloadedFiles} desde BB, ${imported.skippedItems} omitidos). El .zip también se guardó en tu carpeta de descargas.`,
+        );
+        return;
+      }
+
       const payload = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         message?: string;
@@ -1031,6 +1084,7 @@ export function DocumentsPanel() {
 
   async function handleSyncAllCourses() {
     if (syncAllBusy || courses.length === 0) return;
+    const zipMode = preferZipDownload();
     const basePath = "./downloads/blackboard";
     const config = loadBbConfig();
     const baseUrl = config?.baseUrl ?? "https://blackboard.ie.edu";
@@ -1068,6 +1122,7 @@ export function DocumentsPanel() {
         detail?: string;
       } | null = null;
       let lastErr = "";
+      let courseDone = false;
 
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         setSyncAllMsg(
@@ -1081,7 +1136,8 @@ export function DocumentsPanel() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                basePath,
+                ...(zipMode ? {} : { basePath }),
+                responseMode: zipMode ? "zip" : "json",
                 baseUrl,
                 cookieHeader: auth.cookieHeader,
                 xsrfToken: auth.xsrfToken,
@@ -1089,18 +1145,61 @@ export function DocumentsPanel() {
               }),
             },
           );
-          const body = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            path?: string;
-            tree?: DownloadTree;
-            error?: string;
-            detail?: string;
-          };
-          if (res.ok && body?.ok && body.tree && body.path) {
-            payload = body;
-            break;
+          const ct = res.headers.get("content-type") ?? "";
+
+          if (zipMode || ct.includes("application/zip")) {
+            if (!res.ok) {
+              const errBody = (await res.json().catch(() => ({}))) as {
+                detail?: string;
+                error?: string;
+              };
+              lastErr =
+                errBody.detail ??
+                errBody.error ??
+                `HTTP ${res.status}`;
+            } else {
+              const buf = await res.arrayBuffer();
+              const safe =
+                c.name.replace(/[/\\?*:"|<>]/g, "_").trim().slice(0, 60) ||
+                c.id;
+              setSyncAllMsg(
+                `Curso ${i + 1}/${courses.length}: ${c.name} — importando desde ZIP...`,
+              );
+              const imported = await importBlackboardTreeFromZipBuffer(
+                buf,
+                c.id,
+                c.name,
+                {
+                  saveZipAs: `${safe}.zip`,
+                  onProgress: (done, total) => {
+                    setSyncAllMsg(
+                      `Curso ${i + 1}/${courses.length}: ${c.name} — importando ${done}/${total}...`,
+                    );
+                  },
+                },
+              );
+              totalFiles += imported.importedFiles;
+              totalFolders += imported.importedFolders;
+              totalSkipped += imported.skippedFiles;
+              coursesOk += 1;
+              refresh();
+              courseDone = true;
+              break;
+            }
+          } else {
+            const body = (await res.json().catch(() => ({}))) as {
+              ok?: boolean;
+              path?: string;
+              tree?: DownloadTree;
+              error?: string;
+              detail?: string;
+            };
+            if (res.ok && body?.ok && body.tree && body.path) {
+              payload = body;
+              break;
+            }
+            lastErr = body?.detail ?? body?.error ?? `HTTP ${res.status}`;
           }
-          lastErr = body?.detail ?? body?.error ?? `HTTP ${res.status}`;
         } catch (err) {
           lastErr =
             err instanceof Error ? err.message : "Error de red";
@@ -1109,6 +1208,10 @@ export function DocumentsPanel() {
         if (attempt < MAX_RETRIES) {
           await new Promise((r) => setTimeout(r, 2000 * attempt));
         }
+      }
+
+      if (courseDone) {
+        continue;
       }
 
       if (!payload?.tree || !payload.path) {

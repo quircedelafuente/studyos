@@ -1,5 +1,6 @@
 "use client";
 
+import JSZip from "jszip";
 import { idbGetBlob, idbPutBlob } from "@/lib/course-files-idb";
 import { newEntityId, isoDate } from "@/lib/course-file-utils";
 import {
@@ -42,6 +43,8 @@ function buildFolderPathById(folders: CourseFolder[]): Map<string, string> {
 /**
  * Imports a Blackboard download tree into IEStudio's folder/file storage.
  * Skips folders and files that already exist (matched by name + path).
+ *
+ * Si pasas `getBlob`, se usa en lugar de pedir cada archivo al API `/serve` (Vercel / ZIP).
  */
 export async function importBlackboardTree(
   courseId: string,
@@ -49,6 +52,7 @@ export async function importBlackboardTree(
   diskBasePath: string,
   tree: DownloadTree,
   onProgress?: (done: number, total: number) => void,
+  getBlob?: (relativePath: string) => Promise<Blob | null>,
 ): Promise<{ importedFiles: number; importedFolders: number; skippedFiles: number }> {
   ensureManualCourseForBbLearnId(courseId, courseName);
 
@@ -128,13 +132,21 @@ export async function importBlackboardTree(
   let done = 0;
 
   for (const tf of filesToImport) {
-    const diskPath = `${diskBasePath}/${tf.relativePath}`;
-    const serveUrl = `/api/courses/${encodeURIComponent(courseId)}/download-all/serve?path=${encodeURIComponent(diskPath)}`;
-
+    let blob: Blob | null = null;
     try {
-      const res = await fetch(serveUrl);
-      if (!res.ok) { done += 1; onProgress?.(done, total); continue; }
-      const blob = await res.blob();
+      if (getBlob) {
+        blob = await getBlob(tf.relativePath);
+      } else {
+        const diskPath = `${diskBasePath}/${tf.relativePath}`;
+        const serveUrl = `/api/courses/${encodeURIComponent(courseId)}/download-all/serve?path=${encodeURIComponent(diskPath)}`;
+        const res = await fetch(serveUrl);
+        if (res.ok) blob = await res.blob();
+      }
+      if (!blob) {
+        done += 1;
+        onProgress?.(done, total);
+        continue;
+      }
       const fileId = newEntityId();
       await idbPutBlob(fileId, blob);
 
@@ -170,4 +182,79 @@ export async function importBlackboardTree(
   }
 
   return { importedFiles: newFiles.length, importedFolders: newFolders.length, skippedFiles };
+}
+
+type ZipManifest = {
+  version: number;
+  courseId: string;
+  courseName: string;
+  tree: DownloadTree;
+  stats?: {
+    downloadedFiles?: number;
+    skippedItems?: number;
+    visitedItems?: number;
+    createdFolders?: number;
+  };
+};
+
+/**
+ * Descarga el .zip al disco local del usuario (navegador) e importa a IEStudio desde el manifiesto.
+ */
+export async function importBlackboardTreeFromZipBuffer(
+  buffer: ArrayBuffer,
+  courseId: string,
+  courseDisplayName: string,
+  options?: {
+    saveZipAs?: string;
+    onProgress?: (done: number, total: number) => void;
+  },
+): Promise<{
+  importedFiles: number;
+  importedFolders: number;
+  skippedFiles: number;
+  downloadedFiles: number;
+  skippedItems: number;
+}> {
+  if (options?.saveZipAs && typeof document !== "undefined") {
+    const blob = new Blob([buffer], { type: "application/zip" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const name = options.saveZipAs.endsWith(".zip")
+      ? options.saveZipAs
+      : `${options.saveZipAs}.zip`;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  const zip = await JSZip.loadAsync(buffer);
+  const mf = zip.file("__iestudio_manifest__.json");
+  if (!mf) {
+    throw new Error(
+      "ZIP sin manifiesto IEStudio. Vuelve a descargar desde Documentos.",
+    );
+  }
+  const manifest = JSON.parse(await mf.async("string")) as ZipManifest;
+  const tree = manifest.tree;
+
+  const getBlob = async (relativePath: string) => {
+    const entry = zip.file(relativePath);
+    if (!entry) return null;
+    return entry.async("blob");
+  };
+
+  const r = await importBlackboardTree(
+    courseId,
+    courseDisplayName,
+    "",
+    tree,
+    options?.onProgress,
+    getBlob,
+  );
+
+  return {
+    ...r,
+    downloadedFiles: manifest.stats?.downloadedFiles ?? tree.files.length,
+    skippedItems: manifest.stats?.skippedItems ?? 0,
+  };
 }
