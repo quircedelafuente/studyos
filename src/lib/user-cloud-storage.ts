@@ -17,11 +17,12 @@ import { STUDY_ARENA_CHANGED_EVENT } from "@/lib/study-arena-storage";
 const SYNC_PREFIX = "iestudio-";
 
 /**
- * PostgreSQL json/jsonb no admite U+0000 en textos; si llega en el payload da
- * «unsupported Unicode escape sequence» (p. ej. datos pegados o APIs).
+ * PostgreSQL json/jsonb rechaza U+0000 y secuencias de surrogates sueltos
+ * (D800-DFFF sin pareja). Limpiar antes de enviar a Neon.
  */
 export function sanitizeStringForPostgresJson(s: string): string {
-  return s.replace(/\u0000/g, "");
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/[\u0000]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
 }
 
 /** Claves que nunca se suben a la nube (documentos / archivos de cursos en este navegador). */
@@ -35,7 +36,7 @@ export function collectSyncableEntries(): Record<string, string> {
     if (!k || !k.startsWith(SYNC_PREFIX)) continue;
     if (CLOUD_EXCLUDE.has(k)) continue;
     const v = localStorage.getItem(k);
-    if (v !== null) out[k] = v;
+    if (v !== null) out[k] = sanitizeStringForPostgresJson(v);
   }
   return out;
 }

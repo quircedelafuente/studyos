@@ -177,7 +177,11 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         lastPushedSig.current = localSig;
         return;
       }
-      if (localSig === lastPushedSig.current) {
+
+      const localIsEmpty = Object.keys(localEntries).length === 0;
+      const localNotChanged = localSig === lastPushedSig.current;
+
+      if (localIsEmpty || localNotChanged) {
         applyCloudEntries(serverEntries);
         lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
       }
@@ -205,11 +209,11 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         const res = await fetch("/api/user-sync", { credentials: "same-origin" });
         if (cancelled) return;
         if (res.status === 503) {
-          const data = (await res.json().catch(() => ({}))) as {
+          const d = (await res.json().catch(() => ({}))) as {
             disabled?: boolean;
           };
-          if (data.disabled) {
-            patch({ cloudEnabled: false, isReceiving: false });
+          if (d.disabled) {
+            patch({ cloudEnabled: false, isReceiving: false, initialSyncDone: true });
             return;
           }
         }
@@ -218,6 +222,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           patch({
             lastReceiveError: msg || `HTTP ${res.status}`,
             isReceiving: false,
+            initialSyncDone: true,
           });
           return;
         }
@@ -226,7 +231,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           entries?: Record<string, string>;
         };
         if (data.disabled) {
-          patch({ cloudEnabled: false, isReceiving: false });
+          patch({ cloudEnabled: false, isReceiving: false, initialSyncDone: true });
           return;
         }
         patch({

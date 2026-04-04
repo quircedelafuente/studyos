@@ -28,6 +28,42 @@ export async function GET() {
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     console.error("[user-sync GET]", detail);
+
+    const isUnicode =
+      detail.includes("unicode") ||
+      detail.includes("Unicode") ||
+      detail.includes("invalid byte sequence");
+
+    if (isUnicode) {
+      console.warn(
+        "[user-sync GET] Dato corrupto en Neon; intentando leer como texto y limpiar…",
+      );
+      try {
+        const textRows = await sql`
+          SELECT payload::text AS raw FROM user_app_kv WHERE user_id = ${session.user.id}
+        `;
+        const rawText = (textRows[0] as { raw?: string } | undefined)?.raw;
+        if (rawText) {
+          // eslint-disable-next-line no-control-regex
+          const cleaned = rawText.replace(
+            /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+            "",
+          );
+          const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+          const entries = normalizeCloudPayload(parsed);
+
+          await sql`
+            UPDATE user_app_kv SET payload = ${cleaned}::jsonb, updated_at = NOW()
+            WHERE user_id = ${session.user.id}
+          `;
+          console.log("[user-sync GET] Dato reparado en Neon.");
+          return NextResponse.json({ entries });
+        }
+      } catch (repairErr) {
+        console.error("[user-sync GET] Reparación fallida:", repairErr);
+      }
+    }
+
     return NextResponse.json(
       { error: "Error al leer la nube", detail: detail.slice(0, 500) },
       { status: 500 },
@@ -60,17 +96,32 @@ export async function PUT(request: Request) {
   delete sanitized[MANUAL_COURSES_STORAGE_KEY];
 
   /**
-   * El driver @neondatabase/serverless serializa objetos a JSON/JSONB.
-   * Usar `${string}::jsonb` en el template a veces provoca errores en runtime.
+   * Serializar a texto JSON nosotros y pasar como string con cast ::jsonb.
+   * Esto evita que el driver intente serialización propia que puede romper
+   * con secuencias unicode problemáticas.
    */
-  const payloadJson = sanitized as unknown as Record<string, string>;
+  let payloadText: string;
+  try {
+    payloadText = JSON.stringify(sanitized);
+    // Quitar NUL y surrogates sueltos que hayan quedado en la cadena JSON
+    // eslint-disable-next-line no-control-regex
+    payloadText = payloadText.replace(
+      /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+      "",
+    );
+  } catch {
+    return NextResponse.json(
+      { error: "No se pudo serializar el payload" },
+      { status: 400 },
+    );
+  }
 
   try {
     await sql`
       INSERT INTO user_app_kv (user_id, payload, updated_at)
-      VALUES (${session.user.id}, ${payloadJson}, NOW())
+      VALUES (${session.user.id}, ${payloadText}::jsonb, NOW())
       ON CONFLICT (user_id) DO UPDATE SET
-        payload = EXCLUDED.payload,
+        payload = ${payloadText}::jsonb,
         updated_at = NOW()
     `;
     return NextResponse.json({ ok: true });
