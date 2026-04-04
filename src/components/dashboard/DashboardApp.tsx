@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useStudyArena } from "@/components/study-arena/StudyArenaProvider";
 import type { MainTabId } from "@/types/dashboard";
@@ -156,8 +156,12 @@ export function DashboardApp() {
           ) : status === "loading" ? (
             <p className="px-2 text-xs text-[var(--ink-faint)]">Cargando sesión…</p>
           ) : (
-            <p className="px-2 text-xs text-[var(--ink-faint)]">
-              Inicia sesión desde Calendario para sincronizar Google.
+            <p className="px-2 text-xs leading-relaxed text-[var(--ink-faint)]">
+              Inicia sesión con Google para el calendario y para{" "}
+              <strong className="text-[var(--ink-muted)]">
+                sincronizar cursos, assignments y el resto de datos
+              </strong>{" "}
+              entre dispositivos.
             </p>
           )}
         </div>
@@ -177,6 +181,35 @@ export function DashboardApp() {
         </header>
 
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
+          {status === "unauthenticated" ? (
+            <div
+              className="shrink-0 border-b border-amber-200/90 bg-amber-50/90 px-3 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-50"
+              role="status"
+            >
+              <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <p className="min-w-0 leading-snug">
+                  <strong>Sin sesión no hay datos en la nube.</strong> Con la misma cuenta de
+                  Google que en el ordenador, aquí se descargan cursos, gradebooks y ajustes
+                  guardados en tu cuenta. En el PC también debes haber iniciado sesión{" "}
+                  <em>antes</em> de sincronizar Blackboard para que se suban a la nube.
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void signIn("google", {
+                      callbackUrl:
+                        typeof window !== "undefined"
+                          ? `${window.location.pathname}${window.location.search}`
+                          : "/",
+                    })
+                  }
+                  className="shrink-0 rounded-xl bg-[var(--ink)] px-4 py-2.5 text-center text-xs font-bold text-white shadow-sm transition hover:opacity-90"
+                >
+                  Iniciar sesión con Google
+                </button>
+              </div>
+            </div>
+          ) : null}
           {mainTab === "dashboard" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <DashboardOverviewPanel />

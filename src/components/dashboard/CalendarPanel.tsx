@@ -388,7 +388,7 @@ export function CalendarPanel() {
   return (
     <div className="flex min-h-0 min-h-[70vh] flex-1 flex-col gap-4 px-3 py-4 md:px-6 md:py-5">
       {status === "unauthenticated" ? (
-        <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 py-4">
+        <div className="flex shrink-0 flex-col items-center justify-center gap-2 py-4">
           <button
             type="button"
             onClick={() => signIn("google", { callbackUrl: "/" })}
@@ -397,6 +397,10 @@ export function CalendarPanel() {
             <SyncIcon className="h-5 w-5 shrink-0" />
             Conectar Google Calendar
           </button>
+          <p className="max-w-md px-2 text-center text-xs text-[var(--ink-muted)]">
+            Este mismo inicio de sesión guarda en tu cuenta los datos de Blackboard (cursos,
+            assignments, etc.) para verlos en el móvil u otros dispositivos.
+          </p>
         </div>
       ) : status === "loading" ? (
         <p className="shrink-0 text-base text-[var(--ink-muted)]">Comprobando sesión…</p>
