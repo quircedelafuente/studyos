@@ -56,6 +56,7 @@ import {
 } from "@/lib/blackboard-bridge-client";
 import { readBbDisplayedCoursesSnapshot } from "@/lib/bb-displayed-courses";
 import { requestCloudSyncPush } from "@/lib/user-cloud-storage";
+import { useDeviceMode } from "@/components/providers/DeviceModeContext";
 import { getSubmissionLight } from "@/lib/blackboard-submission-status";
 
 /* ─── Inline SVG icons ─── */
@@ -209,6 +210,8 @@ function SubmissionStatusIndicator({
 /* ─── Main panel ─── */
 
 export function AssignmentsPanel() {
+  const isMobile = useDeviceMode();
+
   /* Config */
   const [config, setConfig] = useState<BbConfig | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
@@ -281,8 +284,13 @@ export function AssignmentsPanel() {
     return () => window.removeEventListener(BB_CONFIG_CHANGED, syncFromStorage);
   }, []);
 
-  /* Comprobar extensión puente (Chrome/Edge) */
+  /* Comprobar extensión puente (Chrome/Edge) — no en móvil */
   useEffect(() => {
+    if (isMobile) {
+      setBridgeOk(false);
+      setBridgeChecked(true);
+      return;
+    }
     if (!configLoaded) return;
     let cancelled = false;
     void (async () => {
@@ -302,7 +310,11 @@ export function AssignmentsPanel() {
     return () => {
       cancelled = true;
     };
-  }, [configLoaded, config?.extensionId, config?.baseUrl]);
+  }, [isMobile, configLoaded, config?.extensionId, config?.baseUrl]);
+
+  useEffect(() => {
+    if (isMobile) setShowConfig(false);
+  }, [isMobile]);
 
   /* Load cached courses on mount */
   useEffect(() => {
@@ -559,7 +571,7 @@ export function AssignmentsPanel() {
     } else {
       setGradebook([]);
       setGbFetched(null);
-      if (bridgeOk) void fetchGradebookForCourse(courseId);
+      if (!isMobile && bridgeOk) void fetchGradebookForCourse(courseId);
     }
   }
 
@@ -612,13 +624,14 @@ export function AssignmentsPanel() {
   }, [gradebook, gbSortMode]);
 
   const readOnlyBbView = useMemo(() => {
+    if (isMobile) return true;
     if (typeof window === "undefined") return false;
     const snap = readBbDisplayedCoursesSnapshot();
     return (
       snap.readOnlyBbFromCloud ||
       (bridgeChecked && !bridgeOk && allCourses.length > 0)
     );
-  }, [bridgeChecked, bridgeOk, allCourses.length]);
+  }, [isMobile, bridgeChecked, bridgeOk, allCourses.length]);
 
   /* ─── Render ─── */
 
@@ -643,7 +656,7 @@ export function AssignmentsPanel() {
           </h1>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {!config && allCourses.length > 0 ? (
+          {!isMobile && !config && allCourses.length > 0 ? (
             <button
               type="button"
               onClick={() => setShowConfig(true)}
@@ -652,7 +665,7 @@ export function AssignmentsPanel() {
               Ajustes Blackboard
             </button>
           ) : null}
-          {config ? (
+          {!isMobile && config ? (
             <button
               type="button"
               onClick={() => setShowConfig((v) => !v)}
@@ -667,10 +680,10 @@ export function AssignmentsPanel() {
 
       {readOnlyBbView ? (
         <p className="rounded-xl border border-sky-200/80 bg-sky-50/50 px-3 py-2 text-sm text-sky-950 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-100">
-          <strong>Solo lectura:</strong> estás viendo cursos y gradebooks guardados en tu cuenta
-          (sincronizados desde el ordenador). Para actualizar desde Blackboard, usa Chrome/Edge con
-          la extensión puente en el PC; aquí se cargará la última versión al abrir la app o al
-          volver a conexión.
+          <strong>Solo lectura{isMobile ? " (móvil)" : ""}:</strong>{" "}
+          {isMobile
+            ? "Blackboard no está disponible en móvil. Ves los cursos y gradebooks que tu PC subió a la nube con la misma cuenta de Google."
+            : "Estás viendo datos guardados en tu cuenta (sincronizados desde el ordenador). Para actualizar desde Blackboard, usa Chrome/Edge con la extensión puente en el PC; aquí se cargará la última versión al abrir la app o al volver a conexión."}
         </p>
       ) : null}
 
@@ -987,8 +1000,16 @@ export function AssignmentsPanel() {
         </div>
       ) : null}
 
-      {/* ─── Config panel (debajo del gradebook si hay datos; ya no bloquea la vista) ─── */}
-      {(!config && allCourses.length === 0) || showConfig ? (
+      {/* ─── Config panel (solo PC; en móvil no hay conexión Blackboard) ─── */}
+      {isMobile && allCourses.length === 0 ? (
+        <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center shadow-sm">
+          <h2 className="text-sm font-bold text-[var(--ink)]">Sin datos de cursos en la nube</h2>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--ink-muted)]">
+            Abre IEStudio en el ordenador, inicia sesión con esta misma cuenta de Google y sincroniza
+            Blackboard. Los cursos y gradebooks aparecerán aquí automáticamente.
+          </p>
+        </section>
+      ) : !isMobile && ((!config && allCourses.length === 0) || showConfig) ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
           {(config || allCourses.length > 0) && showConfig ? (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-3">

@@ -12,6 +12,7 @@ import {
 import { BB_COURSE_FILTER_CHANGED } from "@/lib/bb-course-filter-prefs";
 import { BB_COURSE_CURATION_CHANGED } from "@/lib/bb-course-curation";
 import { BB_CONFIG_CHANGED } from "@/lib/blackboard-config";
+import { STUDY_ARENA_PERSIST_CHANGED } from "@/lib/study-arena-persist";
 
 const SYNC_PREFIX = "iestudio-";
 
@@ -21,8 +22,18 @@ export const IESTUDIO_CLOUD_PUSH_REQUEST = "iestudio-cloud-push-request";
 /** Último `updated_at` del servidor que aplicamos en local (ISO). Evita pisar datos nuevos con un cliente obsoleto. */
 export const CLOUD_SERVER_APPLIED_AT_KEY = "iestudio-cloud-server-applied-at";
 
+/** Prefijo de claves Blackboard (PC es la fuente de verdad; en móvil no se suben). */
+export const BLACKBOARD_CLOUD_KEY_PREFIX = "iestudio-bb-";
+
 /** Claves que nunca se suben a la nube (documentos / archivos de cursos en este navegador). */
-const CLOUD_EXCLUDE = new Set<string>([MANUAL_COURSES_STORAGE_KEY]);
+const CLOUD_EXCLUDE = new Set<string>([
+  MANUAL_COURSES_STORAGE_KEY,
+  CLOUD_SERVER_APPLIED_AT_KEY,
+]);
+
+export function isBlackboardCloudKey(key: string): boolean {
+  return key.startsWith(BLACKBOARD_CLOUD_KEY_PREFIX);
+}
 
 export function getCloudServerAppliedAt(): string | null {
   if (typeof window === "undefined") return null;
@@ -56,6 +67,18 @@ export function collectSyncableEntries(): Record<string, string> {
     if (CLOUD_EXCLUDE.has(k)) continue;
     const v = localStorage.getItem(k);
     if (v !== null) out[k] = v;
+  }
+  return out;
+}
+
+/** En móvil no se suben datos de Blackboard (el PC los mantiene); el resto sí. */
+export function collectSyncableEntriesForUpload(isMobile: boolean): Record<string, string> {
+  const all = collectSyncableEntries();
+  if (!isMobile) return all;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(all)) {
+    if (isBlackboardCloudKey(k)) continue;
+    out[k] = v;
   }
   return out;
 }
@@ -122,6 +145,34 @@ export function applyCloudEntries(entries: Record<string, string>): void {
   dispatchCloudRefreshEvents();
 }
 
+/** Solo sobrescribe claves presentes en `entries`; no borra claves locales ausentes en el servidor. */
+export function applyCloudEntriesMerge(entries: Record<string, string>): void {
+  if (typeof window === "undefined") return;
+  const clean = normalizeCloudPayload(entries);
+  for (const [k, v] of Object.entries(clean)) {
+    if (CLOUD_EXCLUDE.has(k)) continue;
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+      /* quota */
+    }
+  }
+  dispatchCloudRefreshEvents();
+}
+
+/**
+ * Aplica el payload del servidor sin borrar claves locales que el servidor no envía.
+ * Así las notas/planes creados en móvil no desaparecen al bajar cursos del PC; el PC sigue
+ * mandando PUT completo (`merge: false`) para que la copia en servidor sea la verdad.
+ */
+export function applyCloudEntriesSmartMerge(
+  serverEntries: Record<string, string>,
+): void {
+  const clean = normalizeCloudPayload(serverEntries);
+  if (Object.keys(clean).length === 0) return;
+  applyCloudEntriesMerge(clean);
+}
+
 export function dispatchCloudRefreshEvents(): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(STUDY_PLANS_CHANGED_EVENT));
@@ -135,4 +186,5 @@ export function dispatchCloudRefreshEvents(): void {
   window.dispatchEvent(new Event(BB_COURSE_FILTER_CHANGED));
   window.dispatchEvent(new Event(BB_COURSE_CURATION_CHANGED));
   window.dispatchEvent(new Event(BB_CONFIG_CHANGED));
+  window.dispatchEvent(new Event(STUDY_ARENA_PERSIST_CHANGED));
 }

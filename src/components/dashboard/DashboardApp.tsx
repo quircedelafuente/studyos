@@ -60,6 +60,54 @@ export function DashboardApp() {
 
   const closeSidebar = () => setSidebarOpen(false);
 
+  if (status === "loading") {
+    return (
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-[var(--canvas)] px-6 text-[var(--ink)]">
+        <p className="text-sm font-medium text-[var(--ink-muted)]">Comprobando sesión…</p>
+      </div>
+    );
+  }
+
+  if (status !== "authenticated" || !session?.user) {
+    return (
+      <div className="flex min-h-dvh flex-col bg-[var(--canvas)] text-[var(--ink)]">
+        <div
+          className="border-b border-amber-200/90 bg-amber-50/95 px-4 py-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-50"
+          role="alert"
+        >
+          <p className="mx-auto max-w-lg text-center text-sm font-semibold leading-snug">
+            Debes iniciar sesión con Google para usar IEStudio. Tus datos (dashboard, cursos,
+            calendario, planes, notas y Study Arena) se guardan en tu cuenta y se sincronizan
+            entre dispositivos.
+          </p>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 pb-12 pt-8">
+          <div className="max-w-md text-center">
+            <h1 className="text-2xl font-bold tracking-tight">IEStudio</h1>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--ink-muted)]">
+              En el ordenador conecta Blackboard para subir cursos y gradebooks. En el móvil verás
+              esos mismos datos sin usar la extensión.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              void signIn("google", {
+                callbackUrl:
+                  typeof window !== "undefined"
+                    ? `${window.location.pathname}${window.location.search}`
+                    : "/",
+              })
+            }
+            className="rounded-2xl bg-[var(--ink)] px-8 py-3.5 text-sm font-bold text-white shadow-lg transition hover:opacity-90"
+          >
+            Continuar con Google
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 min-w-0 overflow-x-hidden bg-[var(--canvas)] text-[var(--ink)]">
       {sidebarOpen ? (
@@ -140,30 +188,18 @@ export function DashboardApp() {
         </nav>
 
         <div className={`border-t border-[var(--border)] p-3 ${sidebarCollapsed ? "hidden" : ""}`}>
-          {status === "authenticated" && session?.user ? (
-            <div className="space-y-2">
-              <p className="truncate px-2 text-xs text-[var(--ink-muted)]">
-                {session.user.email ?? session.user.name}
-              </p>
-              <button
-                type="button"
-                onClick={() => signOut({ callbackUrl: "/" })}
-                className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-center text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          ) : status === "loading" ? (
-            <p className="px-2 text-xs text-[var(--ink-faint)]">Cargando sesión…</p>
-          ) : (
-            <p className="px-2 text-xs leading-relaxed text-[var(--ink-faint)]">
-              Inicia sesión con Google para el calendario y para{" "}
-              <strong className="text-[var(--ink-muted)]">
-                sincronizar cursos, assignments y el resto de datos
-              </strong>{" "}
-              entre dispositivos.
+          <div className="space-y-2">
+            <p className="truncate px-2 text-xs text-[var(--ink-muted)]">
+              {session.user.email ?? session.user.name}
             </p>
-          )}
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-center text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+            >
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -181,35 +217,6 @@ export function DashboardApp() {
         </header>
 
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
-          {status === "unauthenticated" ? (
-            <div
-              className="shrink-0 border-b border-amber-200/90 bg-amber-50/90 px-3 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-50"
-              role="status"
-            >
-              <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <p className="min-w-0 leading-snug">
-                  <strong>Sin sesión no hay datos en la nube.</strong> Con la misma cuenta de
-                  Google que en el ordenador, aquí se descargan cursos, gradebooks y ajustes
-                  guardados en tu cuenta. En el PC también debes haber iniciado sesión{" "}
-                  <em>antes</em> de sincronizar Blackboard para que se suban a la nube.
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void signIn("google", {
-                      callbackUrl:
-                        typeof window !== "undefined"
-                          ? `${window.location.pathname}${window.location.search}`
-                          : "/",
-                    })
-                  }
-                  className="shrink-0 rounded-xl bg-[var(--ink)] px-4 py-2.5 text-center text-xs font-bold text-white shadow-sm transition hover:opacity-90"
-                >
-                  Iniciar sesión con Google
-                </button>
-              </div>
-            </div>
-          ) : null}
           {mainTab === "dashboard" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <DashboardOverviewPanel />

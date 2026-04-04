@@ -32,11 +32,13 @@ import {
 } from "@/lib/bb-course-filter-prefs";
 import { CourseFilterSelect } from "./CourseFilterSelect";
 import { CourseGlyph } from "./CourseGlyph";
+import { useDeviceMode } from "@/components/providers/DeviceModeContext";
 
 const rowClass =
   "flex w-full min-h-[3.25rem] min-w-0 items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3";
 
 export function CoursesPanel() {
+  const isMobile = useDeviceMode();
   const [hydrated, setHydrated] = useState(false);
   const [hasConfig, setHasConfig] = useState(false);
   const [readOnlyFromCloud, setReadOnlyFromCloud] = useState(false);
@@ -154,6 +156,9 @@ export function CoursesPanel() {
   }
 
   function courseDropProps(learnCourseId: string, displayName: string) {
+    if (isMobile) {
+      return {};
+    }
     return {
       onDragOver: (e: React.DragEvent) => {
         e.preventDefault();
@@ -201,14 +206,26 @@ export function CoursesPanel() {
             Tus asignaturas
           </h1>
           <p className="mt-2 max-w-xl text-sm text-[var(--ink-muted)]">
-            Conecta Blackboard en la pestaña <strong className="text-[var(--ink)]">Assignments</strong>{" "}
-            y pulsa «Cargar cursos». Aquí verás los mismos cursos detectados y podrás ocultarlos o añadir
-            uno por su ID si no aparece en la lista.
+            {isMobile ? (
+              <>
+                Los cursos se sincronizan desde el ordenador con la misma cuenta de Google. Abre IEStudio
+                en el PC, conecta Blackboard y carga cursos; aparecerán aquí en cuanto la nube se
+                actualice.
+              </>
+            ) : (
+              <>
+                Conecta Blackboard en la pestaña <strong className="text-[var(--ink)]">Assignments</strong>{" "}
+                y pulsa «Cargar cursos». Aquí verás los mismos cursos detectados y podrás ocultarlos o añadir
+                uno por su ID si no aparece en la lista.
+              </>
+            )}
           </p>
         </header>
       </div>
     );
   }
+
+  const readOnlyCourses = readOnlyFromCloud || isMobile;
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col px-4 py-6 md:px-10 md:py-8">
@@ -219,20 +236,22 @@ export function CoursesPanel() {
         <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
           Tus asignaturas
         </h1>
-        {readOnlyFromCloud ? (
+        {readOnlyCourses ? (
           <p className="mt-3 max-w-xl rounded-xl border border-sky-200/80 bg-sky-50/50 px-3 py-2 text-sm text-sky-950 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-100">
-            Estás viendo datos de Blackboard <strong>sincronizados desde tu cuenta</strong>. Para
-            actualizarlos, abre IEStudio en el ordenador con la extensión puente y vuelve a sincronizar;
-            al iniciar sesión aquí se cargará la última versión guardada en la nube.
+            {isMobile
+              ? "En móvil solo lectura: la lista viene de la nube (última sincronización desde el PC)."
+              : "Estás viendo datos de Blackboard sincronizados desde tu cuenta. Para actualizarlos, abre IEStudio en el ordenador con la extensión puente y vuelve a sincronizar; al iniciar sesión aquí se cargará la última versión guardada en la nube."}
           </p>
         ) : null}
-        <p className="mt-2 max-w-xl text-sm text-[var(--ink-muted)]">
-          Misma lista que en Assignments y Documentos (caché de Blackboard).{" "}
-          <strong className="text-[var(--ink)]">Quitar</strong> oculta el curso en todas las pestañas; puedes
-          restaurarlo abajo. <strong className="text-[var(--ink)]">Añadir</strong>: escribe el nombre del curso
-          (se busca en la caché) o se crea uno solo local si no hay coincidencia. Puedes soltar archivos sobre
-          una fila (almacenamiento local).
-        </p>
+        {!isMobile ? (
+          <p className="mt-2 max-w-xl text-sm text-[var(--ink-muted)]">
+            Misma lista que en Assignments y Documentos (caché de Blackboard).{" "}
+            <strong className="text-[var(--ink)]">Quitar</strong> oculta el curso en todas las pestañas; puedes
+            restaurarlo abajo. <strong className="text-[var(--ink)]">Añadir</strong>: escribe el nombre del curso
+            (se busca en la caché) o se crea uno solo local si no hay coincidencia. Puedes soltar archivos sobre
+            una fila (almacenamiento local).
+          </p>
+        ) : null}
       </header>
 
       <section
@@ -295,7 +314,8 @@ export function CoursesPanel() {
                 <button
                   type="button"
                   onClick={() => handleRemove(c.learnCourseId)}
-                  className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--ink-muted)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"
+                  disabled={readOnlyCourses}
+                  className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--ink-muted)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] disabled:opacity-40"
                   aria-label={`Quitar ${c.name} de la lista`}
                 >
                   Quitar
@@ -304,66 +324,70 @@ export function CoursesPanel() {
             ))}
 
             <li className={`${rowClass} flex-col items-stretch gap-3`}>
-              <form
-                className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center"
-                onSubmit={handleAddByNameSubmit}
-              >
-                <input
-                  type="text"
-                  value={addByName}
-                  onChange={(e) => {
-                    setAddByName(e.target.value);
-                    setAddFeedback(null);
-                    setAddPickCandidates(null);
-                  }}
-                  placeholder="Nombre del curso (búsqueda en la caché)"
-                  maxLength={120}
-                  spellCheck={true}
-                  autoComplete="off"
-                  className={`${inputClass} min-w-0 flex-1`}
-                  aria-label="Nombre del curso a añadir"
-                />
-                <button
-                  type="submit"
-                  disabled={!addByName.trim()}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--ink)] text-xl font-light leading-none text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35"
-                  aria-label="Añadir curso"
-                  title="Añadir curso"
-                >
-                  +
-                </button>
-              </form>
-              {addFeedback ? (
-                <p className="text-xs text-amber-800 dark:text-amber-200/90">{addFeedback}</p>
-              ) : null}
-              {addPickCandidates && addPickCandidates.length > 0 ? (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)]/40 p-3">
-                  <p className="text-xs font-semibold text-[var(--ink-muted)]">
-                    Varios cursos coinciden — elige uno:
-                  </p>
-                  <ul className="mt-2 space-y-1.5">
-                    {addPickCandidates.map((c) => (
-                      <li key={c.learnCourseId}>
-                        <button
-                          type="button"
-                          onClick={() => handlePickCandidate(c)}
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
-                        >
-                          <span className="font-medium">{c.name}</span>
-                          <span className="mt-0.5 block font-mono-cli text-[10px] text-[var(--ink-muted)]">
-                            {c.learnCourseId}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              {!readOnlyCourses ? (
+                <>
+                  <form
+                    className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center"
+                    onSubmit={handleAddByNameSubmit}
+                  >
+                    <input
+                      type="text"
+                      value={addByName}
+                      onChange={(e) => {
+                        setAddByName(e.target.value);
+                        setAddFeedback(null);
+                        setAddPickCandidates(null);
+                      }}
+                      placeholder="Nombre del curso (búsqueda en la caché)"
+                      maxLength={120}
+                      spellCheck={true}
+                      autoComplete="off"
+                      className={`${inputClass} min-w-0 flex-1`}
+                      aria-label="Nombre del curso a añadir"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!addByName.trim()}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--ink)] text-xl font-light leading-none text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35"
+                      aria-label="Añadir curso"
+                      title="Añadir curso"
+                    >
+                      +
+                    </button>
+                  </form>
+                  {addFeedback ? (
+                    <p className="text-xs text-amber-800 dark:text-amber-200/90">{addFeedback}</p>
+                  ) : null}
+                  {addPickCandidates && addPickCandidates.length > 0 ? (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)]/40 p-3">
+                      <p className="text-xs font-semibold text-[var(--ink-muted)]">
+                        Varios cursos coinciden — elige uno:
+                      </p>
+                      <ul className="mt-2 space-y-1.5">
+                        {addPickCandidates.map((c) => (
+                          <li key={c.learnCourseId}>
+                            <button
+                              type="button"
+                              onClick={() => handlePickCandidate(c)}
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+                            >
+                              <span className="font-medium">{c.name}</span>
+                              <span className="mt-0.5 block font-mono-cli text-[10px] text-[var(--ink-muted)]">
+                                {c.learnCourseId}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </li>
           </ul>
         )}
 
-        {hiddenIds.length > 0 ? (
+        {hiddenIds.length > 0 && !readOnlyCourses ? (
           <div className="mt-6 border-t border-[var(--border)] pt-4">
             <button
               type="button"

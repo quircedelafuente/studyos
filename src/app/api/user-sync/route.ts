@@ -47,15 +47,27 @@ export async function PUT(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const raw = body as { entries?: unknown };
+  const raw = body as { entries?: unknown; merge?: unknown };
   if (!raw.entries || typeof raw.entries !== "object" || raw.entries === null) {
     return NextResponse.json({ error: "Missing entries" }, { status: 400 });
   }
+  const merge = raw.merge === true;
   const sanitized = sanitizeEntriesForUpload(
     raw.entries as Record<string, string>,
   );
   delete sanitized[MANUAL_COURSES_STORAGE_KEY];
-  const json = JSON.stringify(sanitized);
+
+  let merged: Record<string, string> = sanitized;
+  if (merge) {
+    const prevRows = await sql`
+      SELECT payload FROM user_app_kv WHERE user_id = ${session.user.id}
+    `;
+    const prevRow = prevRows[0] as { payload?: unknown } | undefined;
+    const prev = normalizeCloudPayload(prevRow?.payload ?? {});
+    merged = { ...prev, ...sanitized };
+  }
+
+  const json = JSON.stringify(merged);
   const out = await sql`
     INSERT INTO user_app_kv (user_id, payload, updated_at)
     VALUES (${session.user.id}, ${json}::jsonb, NOW())

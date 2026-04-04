@@ -2,9 +2,12 @@
 
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef } from "react";
+import { useDeviceMode } from "@/components/providers/DeviceModeContext";
 import {
   applyCloudEntries,
+  applyCloudEntriesSmartMerge,
   collectSyncableEntries,
+  collectSyncableEntriesForUpload,
   getCloudServerAppliedAt,
   IESTUDIO_CLOUD_PUSH_REQUEST,
   normalizeCloudPayload,
@@ -17,9 +20,9 @@ const PUSH_INTERVAL_MS = 12_000;
 export function UserCloudSync() {
   const { data: session, status } = useSession();
   const userId = session?.user?.id;
+  const isMobile = useDeviceMode();
   const lastPushedSig = useRef<string>("");
 
-  /** Si el servidor tiene un snapshot más reciente, sustituye localStorage (móvil / otro dispositivo). */
   const syncPullIfServerNewer = useCallback(async () => {
     const res = await fetch("/api/user-sync", { credentials: "same-origin" });
     if (!res.ok) return;
@@ -33,7 +36,7 @@ export function UserCloudSync() {
     const applied = getCloudServerAppliedAt();
     if (applied !== null && data.updatedAt <= applied) return;
     const serverEntries = normalizeCloudPayload(data.entries ?? {});
-    applyCloudEntries(serverEntries);
+    applyCloudEntriesSmartMerge(serverEntries);
     setCloudServerAppliedAt(data.updatedAt);
     lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
   }, []);
@@ -41,13 +44,13 @@ export function UserCloudSync() {
   const push = useCallback(async () => {
     if (!userId) return;
     await syncPullIfServerNewer();
-    const entries = collectSyncableEntries();
+    const entries = collectSyncableEntriesForUpload(isMobile);
     const sig = syncSnapshotSignature(entries);
     if (sig === lastPushedSig.current) return;
     const res = await fetch("/api/user-sync", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entries }),
+      body: JSON.stringify({ entries, merge: isMobile }),
       credentials: "same-origin",
     });
     if (res.ok) {
@@ -55,7 +58,7 @@ export function UserCloudSync() {
       if (body.updatedAt) setCloudServerAppliedAt(body.updatedAt);
       lastPushedSig.current = sig;
     }
-  }, [userId, syncPullIfServerNewer]);
+  }, [userId, isMobile, syncPullIfServerNewer]);
 
   useEffect(() => {
     if (status !== "authenticated" || !userId) {
@@ -79,11 +82,12 @@ export function UserCloudSync() {
         if (Object.keys(server).length === 0) {
           await push();
         } else {
-          applyCloudEntries(server);
+          applyCloudEntriesSmartMerge(server);
           if (data.updatedAt) setCloudServerAppliedAt(data.updatedAt);
           lastPushedSig.current = syncSnapshotSignature(
             collectSyncableEntries(),
           );
+          await push();
         }
       } catch {
         /* offline */
