@@ -117,9 +117,18 @@ function ProgressRing({ valuePct, label }: { valuePct: number; label: string }) 
   );
 }
 
-function HeatmapWeek({ values }: { values: readonly number[] }) {
+function HeatmapWeek({
+  values,
+  breakdowns,
+}: {
+  values: readonly number[];
+  breakdowns?: readonly string[];
+}) {
   // valores 0..100, 7 días. Convertimos a 5 niveles.
   const levels = useMemo(() => values.slice(0, 7).map((v) => Math.max(0, Math.min(4, Math.floor((v / 100) * 5)))), [values]);
+  const today = new Date();
+  const todayDow = today.getDay(); // 0=Dom
+  const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Lun…6=Dom
   const dayLabels = ["L", "M", "X", "J", "V", "S", "D"];
 
   const colorFor = (level: number) => {
@@ -133,17 +142,34 @@ function HeatmapWeek({ values }: { values: readonly number[] }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-7 gap-2">
-        {levels.map((lvl, i) => (
-          <div key={i} className="flex flex-col items-center gap-1">
-            <div className="text-[10px] font-bold text-[var(--ink-faint)]">{dayLabels[i]}</div>
-            <div
-              className={`h-10 w-10 rounded-xl border ${colorFor(lvl)} flex items-center justify-center font-extrabold text-[11px]`}
-              title={`Carga ${values[i] ?? 0}/100`}
-            >
-              {Math.round(values[i] ?? 0)}
+        {levels.map((lvl, i) => {
+          const isToday = i === todayIdx;
+          const tooltip = breakdowns?.[i]
+            ? `${breakdowns[i]} (${values[i] ?? 0}/100)`
+            : `Carga ${values[i] ?? 0}/100`;
+          return (
+            <div key={i} className="flex flex-col items-center gap-1">
+              <div
+                className={`text-[10px] font-bold ${isToday ? "text-[var(--ink)]" : "text-[var(--ink-faint)]"}`}
+              >
+                {dayLabels[i]}
+              </div>
+              <div
+                className={`h-10 w-10 rounded-xl border ${colorFor(lvl)} flex items-center justify-center font-extrabold text-[11px] relative ${isToday ? "ring-2 ring-offset-1 ring-[var(--ink)]/40" : ""}`}
+                title={tooltip}
+              >
+                {values[i] === 0 ? (
+                  <span className="text-[10px] opacity-40">—</span>
+                ) : (
+                  Math.round(values[i] ?? 0)
+                )}
+                {isToday && (
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-[var(--ink)]" />
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="flex flex-wrap gap-2 text-xs text-[var(--ink-muted)]">
         <Pill tone="green">Verde: ligero</Pill>
@@ -613,7 +639,6 @@ const MOCK = {
     suggestion: "1h de repaso diario (20min resumen + 40min problemas).",
   },
   adherencia: { valuePct: 85, suggestion: "Parece que tu plan funciona. Prueba con 1 bloque más corto para afinar." },
-  heatmap: { values: [20, 45, 70, 30, 85, 60, 25] },
   bio: { points: [35, 42, 55, 70, 63, 58, 40, 30], labels: ["8", "10", "12", "14", "16", "18", "20", "22"] },
   effort: {
     segments: [
@@ -628,6 +653,20 @@ const MOCK = {
   streaks: { days: 6, bestDays: 12, message: "Tu racha te está dando inercia. Mantén 1 sesión mínima hoy." },
   distractionsRatio: { studyPct: 72, distractPct: 28 },
 } as const;
+
+/** Devuelve los 7 strings YYYY-MM-DD de la semana actual (lunes → domingo). */
+function getCurrentWeekDates(): string[] {
+  const today = new Date();
+  const dow = today.getDay(); // 0=Dom
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  monday.setHours(0, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return formatLocalYmd(d);
+  });
+}
 
 function EisenhowerMatrix() {
   const quadrants = [
@@ -982,6 +1021,90 @@ export function DashboardOverviewPanel() {
       segments: items.map((it) => ({ value: it.hours, color: it.color })),
     };
   }, [studyPlansRevision, deadlinesRevision]);
+  /**
+   * Carga semanal real (lun-dom de la semana actual).
+   * Fuentes: sesiones de estudio en deadlines + exámenes/fechas + entregas Blackboard.
+   *
+   * Fórmula por día:
+   *   - Minutos de sesiones de estudio planificadas → hasta 70 pts (máx útil: 6h)
+   *   - Exámenes/fechas importantes ese día        → 15 pts c/u (máx 30)
+   *   - Entregas Blackboard vencidas ese día        → 15 pts c/u (máx 30, acumulado con lo anterior)
+   * Total capped a 100.
+   */
+  const weeklyLoad = useMemo<number[]>(() => {
+    if (typeof window === "undefined") return Array(7).fill(0);
+
+    const weekDates = getCurrentWeekDates();
+    const deadlines = loadImportantDeadlines();
+
+    // Acumuladores por fecha
+    const studyMinsByDate = new Map<string, number>();
+    const importantByDate = new Map<string, number>();
+
+    for (const d of deadlines) {
+      if (!weekDates.includes(d.date)) continue;
+      if (d.id.startsWith("study-")) {
+        // Sesión de estudio
+        const mins = d.durationMinutes ?? 60;
+        studyMinsByDate.set(d.date, (studyMinsByDate.get(d.date) ?? 0) + mins);
+      } else {
+        // Examen / fecha importante
+        importantByDate.set(d.date, (importantByDate.get(d.date) ?? 0) + 1);
+      }
+    }
+
+    // Entregas Blackboard (sin entregar, con fecha de entrega esta semana)
+    const bbDeadlinesByDate = new Map<string, number>();
+    const snap = readBbDisplayedCoursesSnapshot();
+    if (snap.hasConfig) {
+      const courses = filterCoursesByMode(snap.curatedCourses, "__auto__");
+      for (const course of courses) {
+        const cols = loadBbGradebook(course.learnCourseId)?.columns ?? [];
+        for (const col of cols) {
+          const light = getSubmissionLight(col.submissionReason, col.submissionSubmitted);
+          if (light !== "red" && light !== "yellow") continue;
+          const due = col.grading?.due;
+          if (!due) continue;
+          const dueDate = due.slice(0, 10); // YYYY-MM-DD
+          if (!weekDates.includes(dueDate)) continue;
+          bbDeadlinesByDate.set(dueDate, (bbDeadlinesByDate.get(dueDate) ?? 0) + 1);
+        }
+      }
+    }
+
+    return weekDates.map((date) => {
+      const studyMins  = studyMinsByDate.get(date) ?? 0;
+      const important  = importantByDate.get(date) ?? 0;
+      const bbDue      = bbDeadlinesByDate.get(date) ?? 0;
+
+      // Estudio: 360 min → 70 pts
+      const studyLoad = Math.min(70, (studyMins / 360) * 70);
+      // Eventos importantes: cada uno +15, máx 30
+      const eventLoad = Math.min(30, (important + bbDue) * 15);
+
+      return Math.round(Math.min(100, studyLoad + eventLoad));
+    });
+  }, [studyPlansRevision, deadlinesRevision, bbRevision]);
+
+  /**
+   * Descripción de la carga de cada día para el tooltip/título del heatmap.
+   * weeklyLoadBreakdown[i] = string legible del día i de la semana actual.
+   */
+  const weeklyLoadBreakdown = useMemo<string[]>(() => {
+    if (typeof window === "undefined") return Array(7).fill("");
+    const weekDates = getCurrentWeekDates();
+    const deadlines = loadImportantDeadlines();
+    return weekDates.map((date) => {
+      const studySessions = deadlines.filter((d) => d.id.startsWith("study-") && d.date === date);
+      const studyMins = studySessions.reduce((s, d) => s + (d.durationMinutes ?? 60), 0);
+      const importantCount = deadlines.filter((d) => !d.id.startsWith("study-") && d.date === date).length;
+      const parts: string[] = [];
+      if (studyMins > 0) parts.push(`${Math.round(studyMins / 60 * 10) / 10}h estudio`);
+      if (importantCount > 0) parts.push(`${importantCount} evento${importantCount > 1 ? "s" : ""}`);
+      return parts.length ? parts.join(" · ") : "Sin carga";
+    });
+  }, [studyPlansRevision, deadlinesRevision]);
+
   const modalBtnClass =
     "rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] hover:bg-white";
 
@@ -1366,8 +1489,8 @@ export function DashboardOverviewPanel() {
         </div>
 
         <div className="md:col-span-2 lg:col-span-6 xl:col-span-7">
-          <WidgetShell title="Carga Semanal" subtitle="Mapa de calor (mock)">
-            <HeatmapWeek values={MOCK.heatmap.values} />
+          <WidgetShell title="Carga Semanal" subtitle="Sesiones · exámenes · entregas BB">
+            <HeatmapWeek values={weeklyLoad} breakdowns={weeklyLoadBreakdown} />
           </WidgetShell>
         </div>
 
