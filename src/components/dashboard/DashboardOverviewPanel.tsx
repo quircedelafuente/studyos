@@ -673,6 +673,7 @@ function getCurrentWeekDates(): string[] {
 
 // ── Widget grid (react-grid-layout) ───────────────────────────────────────
 const LAYOUT_KEY = "iestudio-dashboard-layout-v3";
+const MOBILE_HEIGHTS_KEY = "iestudio-dashboard-mobile-heights-v1";
 const WIDGET_IDS = [
   "entregas", "prioridad", "sesiones",
   "enfoque", "examenes", "adherencia",
@@ -1270,16 +1271,29 @@ export function DashboardOverviewPanel() {
   });
 
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>("lg");
-
-  // Mobile layout: derive widget order from desktop (sorted by y then x), all full-width, static
-  const mobileLayout = useMemo<LayoutItem[]>(() =>
-    [...layout]
-      .sort((a, b) => a.y - b.y || a.x - b.x)
-      .map((item, idx) => ({ i: item.i, x: 0, y: idx * item.h, w: 1, h: item.h, static: true })),
-    [layout],
-  );
-
   const isDesktop = currentBreakpoint === "lg";
+
+  // Independent mobile heights (don't affect desktop)
+  const [mobileHeights, setMobileHeights] = useState<Record<string, number>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = localStorage.getItem(MOBILE_HEIGHTS_KEY);
+      if (saved) return JSON.parse(saved) as Record<string, number>;
+    } catch { /* */ }
+    return {};
+  });
+
+  // Mobile layout: desktop order (y then x), independent heights, fixed x/w
+  const mobileLayout = useMemo<LayoutItem[]>(() => {
+    const sorted = [...layout].sort((a, b) => a.y - b.y || a.x - b.x);
+    let y = 0;
+    return sorted.map((item) => {
+      const h = mobileHeights[item.i] ?? item.h;
+      const li: LayoutItem = { i: item.i, x: 0, y, w: 1, h, minH: 3, minW: 1, maxW: 1 };
+      y += h;
+      return li;
+    });
+  }, [layout, mobileHeights]);
 
   const [editMode, setEditMode] = useState(false);
 
@@ -1419,16 +1433,23 @@ export function DashboardOverviewPanel() {
         cols={{ lg: 12, sm: 1 }}
         rowHeight={ROW_H}
         isDraggable={editMode && isDesktop}
-        isResizable={editMode && isDesktop}
+        isResizable={isDesktop ? editMode : true}
+        resizeHandles={isDesktop ? ["se"] : ["s"]}
         compactType={null}
         preventCollision={false}
         margin={[12, 12]}
         onBreakpointChange={(bp: string) => setCurrentBreakpoint(bp)}
         onLayoutChange={(cur: Layout) => {
-          if (currentBreakpoint !== "lg") return;
-          const items = [...cur];
-          setLayout(items);
-          try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(items)); } catch { /* */ }
+          if (currentBreakpoint === "lg") {
+            const items = [...cur];
+            setLayout(items);
+            try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(items)); } catch { /* */ }
+          } else {
+            const heights: Record<string, number> = {};
+            for (const item of cur) heights[item.i] = item.h;
+            setMobileHeights(heights);
+            try { localStorage.setItem(MOBILE_HEIGHTS_KEY, JSON.stringify(heights)); } catch { /* */ }
+          }
         }}
       >
         {WIDGET_IDS.map((wid) => (
