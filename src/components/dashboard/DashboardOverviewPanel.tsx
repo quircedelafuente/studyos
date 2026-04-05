@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import type { ReactNode } from "react";
 import { readBbDisplayedCoursesSnapshot } from "@/lib/bb-displayed-courses";
@@ -668,6 +668,108 @@ function getCurrentWeekDates(): string[] {
   });
 }
 
+// ── Widget ordering ────────────────────────────────────────────────────────
+const WIDGET_ORDER_KEY = "iestudio-dashboard-widget-order";
+const DEFAULT_WIDGET_ORDER = [
+  "entregas", "prioridad", "sesiones",
+  "enfoque", "examenes", "adherencia",
+  "carga", "studytrend",
+  "esfuerzo", "burnout",
+  "racha", "foco",
+] as const;
+type WidgetId = (typeof DEFAULT_WIDGET_ORDER)[number];
+const WIDGET_COL_CLASSES: Record<WidgetId, string> = {
+  entregas:   "lg:col-span-4",
+  prioridad:  "lg:col-span-4",
+  sesiones:   "lg:col-span-4",
+  enfoque:    "lg:col-span-5",
+  examenes:   "lg:col-span-4",
+  adherencia: "lg:col-span-3",
+  carga:      "lg:col-span-7",
+  studytrend: "lg:col-span-5",
+  esfuerzo:   "lg:col-span-6",
+  burnout:    "lg:col-span-6",
+  racha:      "lg:col-span-4",
+  foco:       "lg:col-span-8",
+};
+
+function daysUntilLocalDate(ymd: string): number {
+  const parts = ymd.split("-").map(Number);
+  if (parts.length < 3) return 0;
+  const [y, m, d] = parts as [number, number, number];
+  const target = new Date(y, m - 1, d);
+  target.setHours(0, 0, 0, 0);
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.ceil((target.getTime() - base.getTime()) / 86_400_000));
+}
+
+function StudyTrendChart({
+  data,
+}: {
+  data: Array<{ label: string; hours: number; isToday: boolean }>;
+}) {
+  const W = 340; const H = 110; const PX = 8; const PY = 10;
+  const LABEL_H = 14;
+  const CHART_H = H - PY * 2 - LABEL_H;
+  const N = data.length;
+  const maxH = Math.max(0.5, ...data.map((d) => d.hours));
+  const toX = (i: number) => PX + ((W - PX * 2) * i) / Math.max(1, N - 1);
+  const toY = (v: number) => PY + CHART_H - (CHART_H * v) / maxH;
+  const pts = data.map((d, i) => ({ ...d, x: toX(i), y: toY(d.hours) }));
+  const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const base = (PY + CHART_H).toFixed(1);
+  const areaPath = N > 1
+    ? `${linePath} L ${pts[N - 1]!.x.toFixed(1)} ${base} L ${pts[0]!.x.toFixed(1)} ${base} Z`
+    : "";
+  const todayIdx = data.findIndex((d) => d.isToday);
+  return (
+    <div className="w-full">
+      <svg className="w-full" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="StudyTrend: sesiones de estudio">
+        <defs>
+          <linearGradient id="stArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(99,102,241,0.18)" />
+            <stop offset="100%" stopColor="rgba(99,102,241,0)" />
+          </linearGradient>
+        </defs>
+        {[0.25, 0.5, 0.75, 1].map((f) => (
+          <line key={f} x1={PX} x2={W - PX} y1={toY(f * maxH)} y2={toY(f * maxH)}
+            stroke="rgba(0,0,0,0.06)" strokeDasharray="3 6" />
+        ))}
+        {todayIdx >= 0 && (
+          <line x1={pts[todayIdx]!.x} x2={pts[todayIdx]!.x} y1={PY} y2={PY + CHART_H}
+            stroke="rgba(99,102,241,0.3)" strokeWidth={1} strokeDasharray="3 4" />
+        )}
+        {areaPath && <path d={areaPath} fill="url(#stArea)" />}
+        <path d={linePath} fill="none" stroke="rgb(99,102,241)" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+        {pts.map((p, i) => {
+          if (p.hours === 0 && !p.isToday) return null;
+          return (
+            <circle key={i} cx={p.x} cy={p.y} r={p.isToday ? 4 : 2.5}
+              fill={p.isToday ? "rgb(99,102,241)" : "white"}
+              stroke="rgb(99,102,241)" strokeWidth={p.isToday ? 2 : 1.5} />
+          );
+        })}
+        {pts.map((p, i) => {
+          const show = p.isToday || i === 0 || i === N - 1 || i % 3 === 0;
+          if (!show) return null;
+          return (
+            <text key={i} x={p.x} y={H - 2} textAnchor="middle" fontSize="8"
+              fontWeight={p.isToday ? "800" : "500"}
+              fill={p.isToday ? "rgb(99,102,241)" : "rgba(0,0,0,0.35)"}>
+              {p.label}
+            </text>
+          );
+        })}
+        {maxH > 0.5 && (
+          <text x={PX + 1} y={PY + 9} fontSize="7" fill="rgba(99,102,241,0.55)">{maxH.toFixed(1)}h</text>
+        )}
+      </svg>
+    </div>
+  );
+}
+
 function EisenhowerMatrix() {
   const quadrants = [
     { key: "Q1", title: "Urgente + Importante", tone: "danger" as const, tonePill: "red" as const },
@@ -1105,6 +1207,68 @@ export function DashboardOverviewPanel() {
     });
   }, [studyPlansRevision, deadlinesRevision]);
 
+  // ── Exámenes y Fechas ─────────────────────────────────────────────────────
+  const nextExams = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    const todayYmd = formatLocalYmd(new Date());
+    return loadImportantDeadlines()
+      .filter((d) => !d.id.startsWith("study-") && d.date >= todayYmd)
+      .sort((a, b) => {
+        const c = a.date.localeCompare(b.date);
+        if (c !== 0) return c;
+        return (a.time ?? "23:59").localeCompare(b.time ?? "23:59");
+      })
+      .slice(0, 2);
+  }, [deadlinesRevision]);
+
+  // ── StudyTrend ────────────────────────────────────────────────────────────
+  const studyTrendData = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const DAY_LABELS = ["D", "L", "M", "X", "J", "V", "S"];
+    const slots: Array<{ date: string; label: string; hours: number; isToday: boolean }> =
+      Array.from({ length: 13 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(today.getDate() + (i - 6));
+        const dow = d.getDay();
+        return {
+          date: formatLocalYmd(d),
+          label: `${DAY_LABELS[dow] ?? ""}${d.getDate()}`,
+          hours: 0,
+          isToday: i === 6,
+        };
+      });
+    const ymdSet = new Set(slots.map((s) => s.date));
+    for (const dl of loadImportantDeadlines()) {
+      if (!dl.id.startsWith("study-") || !ymdSet.has(dl.date)) continue;
+      const slot = slots.find((s) => s.date === dl.date);
+      if (slot) slot.hours += (dl.durationMinutes ?? 60) / 60;
+    }
+    return slots;
+  }, [studyPlansRevision, deadlinesRevision]);
+
+  // ── Widget ordering ───────────────────────────────────────────────────────
+  const [widgetOrder, setWidgetOrder] = useState<WidgetId[]>(() => {
+    if (typeof window === "undefined") return [...DEFAULT_WIDGET_ORDER];
+    try {
+      const saved = localStorage.getItem(WIDGET_ORDER_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as string[];
+        const valid = parsed.filter((id): id is WidgetId =>
+          (DEFAULT_WIDGET_ORDER as readonly string[]).includes(id),
+        );
+        const missing = DEFAULT_WIDGET_ORDER.filter((id) => !valid.includes(id));
+        return [...valid, ...missing];
+      }
+    } catch { /* */ }
+    return [...DEFAULT_WIDGET_ORDER];
+  });
+
+  const [editMode, setEditMode] = useState(false);
+  const dragSourceRef = useRef<WidgetId | null>(null);
+  const [dragOverId, setDragOverId] = useState<WidgetId | null>(null);
+
   const modalBtnClass =
     "rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] hover:bg-white";
 
@@ -1220,375 +1384,396 @@ export function DashboardOverviewPanel() {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
           <Pill>Actualizado: hoy</Pill>
           <Pill tone="amber">Modo: demo</Pill>
+          <button
+            type="button"
+            onClick={() => setEditMode((v) => !v)}
+            className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${
+              editMode
+                ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--ink-muted)]"
+            }`}
+          >
+            {editMode ? "✓ Listo" : "⠿ Ordenar"}
+          </button>
         </div>
       </header>
 
       <div className="grid min-h-0 gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-12">
-        <div className="lg:col-span-4 xl:col-span-4">
-          <section className="relative h-[20rem] overflow-hidden rounded-3xl border border-zinc-200/50 bg-white/40 shadow-xl backdrop-blur-md transition-all duration-300 hover:shadow-2xl active:scale-[0.98] group">
-            <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-zinc-100/50 blur-3xl group-hover:bg-zinc-200/50 transition-colors" />
-            <div className="relative flex h-full flex-col p-5">
-              <header className="flex items-center justify-between mb-4">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">Entregas</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-zinc-800 animate-pulse" />
-                    <p className="text-xs font-bold text-zinc-800">Próximas 3</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setUpcomingModalOpen(true)}
-                  className="h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg active:scale-90 transition-transform"
-                >
-                  <span className="flex items-center justify-center text-xl leading-none select-none">+</span>
-                </button>
-              </header>
-
-              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide pr-1">
-                {top3.length === 0 ? (
-                  <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white/20 px-4 text-center">
-                    <p className="text-xs font-medium text-zinc-400">Sin entregas pendientes</p>
-                  </div>
-                ) : (
-                  <ul className="space-y-2 relative">
-                    <div className="absolute left-2.5 top-2 bottom-2 w-px bg-zinc-200/60" />
-                    {top3.map((it) => {
-                      const rel = it.dueIso ? relativeDue(it.dueIso) : null;
-                      return (
-                        <li key={it.key} className="relative pl-7 group/item h-[4.25rem]">
-                          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-white ring-2 ring-zinc-800 z-10" />
-                          <div className="h-full flex items-center rounded-xl border border-white bg-white/60 px-3 shadow-sm transition-all hover:bg-white hover:shadow-md active:bg-zinc-50">
-                            <div className="flex flex-col justify-center gap-0.5 w-full">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-1.5 overflow-hidden">
-                                  <span className="truncate text-[8px] font-black uppercase tracking-tighter text-zinc-400 px-1.5 py-0.5 rounded-md bg-zinc-100 shrink-0">
-                                    {it.courseName}
-                                  </span>
-                                  <span className={`text-[8px] font-black uppercase shrink-0 ${rel?.tone === 'red' ? 'text-red-500' : 'text-amber-500'}`}>
-                                    {rel?.label}
-                                  </span>
-                                </div>
-                                {it.url && (
-                                  <a
-                                    href={it.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="shrink-0 h-6 w-6 flex items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors"
-                                  >
-                                    <span className="text-[10px] font-bold">↗</span>
-                                  </a>
-                                )}
-                              </div>
-                              <div className="truncate text-sm font-black text-zinc-900 leading-tight">
-                                {it.title}
-                              </div>
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-              {contentFetchBusy && (
-                <div className="mt-2 text-[9px] font-bold text-center text-zinc-400 uppercase tracking-widest animate-pulse">
-                  Sincronizando...
+        {widgetOrder.map((wid) => {
+          const colClass = WIDGET_COL_CLASSES[wid] ?? "lg:col-span-4";
+          const isOver = dragOverId === wid;
+          return (
+            <div
+              key={wid}
+              className={`${colClass} relative transition-all duration-150 ${editMode ? "cursor-grab select-none" : ""} ${isOver ? "ring-2 ring-indigo-400/60 ring-offset-2 rounded-3xl" : ""}`}
+              draggable={editMode}
+              onDragStart={editMode ? (e) => { dragSourceRef.current = wid; e.dataTransfer.effectAllowed = "move"; } : undefined}
+              onDragOver={editMode ? (e) => { e.preventDefault(); if (dragSourceRef.current !== wid) setDragOverId(wid); } : undefined}
+              onDragLeave={editMode ? () => setDragOverId(null) : undefined}
+              onDrop={editMode ? (e) => {
+                e.preventDefault();
+                const src = dragSourceRef.current;
+                if (src && src !== wid) {
+                  setWidgetOrder((prev) => {
+                    const o = [...prev];
+                    const fi = o.indexOf(src);
+                    const ti = o.indexOf(wid);
+                    o.splice(fi, 1);
+                    o.splice(ti, 0, src);
+                    try { localStorage.setItem(WIDGET_ORDER_KEY, JSON.stringify(o)); } catch { /* */ }
+                    return o;
+                  });
+                }
+                dragSourceRef.current = null;
+                setDragOverId(null);
+              } : undefined}
+              onDragEnd={editMode ? () => { dragSourceRef.current = null; setDragOverId(null); } : undefined}
+            >
+              {editMode && (
+                <div className="pointer-events-none absolute right-2 top-2 z-20 flex h-7 w-7 select-none items-center justify-center rounded-xl bg-white/90 text-base text-[var(--ink-muted)] shadow">
+                  ⠿
                 </div>
               )}
-            </div>
-          </section>
-        </div>
 
-        <div className="lg:col-span-4 xl:col-span-4">
-          <section className="relative h-[20rem] overflow-hidden rounded-3xl border-2 border-red-500/20 bg-[#fffafa] shadow-xl transition-all duration-300 active:scale-[0.98]">
-            <div className="relative flex h-full flex-col p-4 sm:p-5">
-              <header className="flex items-center justify-between mb-3">
-                <div className="min-w-0">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600">Prioridad Máxima</h3>
-                  <p className="text-xl font-black tracking-tighter text-red-950">Alertas</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCriticalModalOpen(true)}
-                  className="h-7 px-3 rounded-full bg-red-600 text-[9px] font-black uppercase tracking-widest text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
-                >
-                  Ver todo
-                </button>
-              </header>
-
-              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-                {criticalAlerts.length === 0 ? (
-                  <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-red-100 bg-white px-4 text-center">
-                    <p className="text-[10px] font-bold text-red-200 uppercase tracking-widest">Sin alertas pendientes</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {criticalAlerts.slice(0, 3).map((it) => (
-                      <div
-                        key={it.key}
-                        className="group flex items-center h-[4.25rem] gap-3 rounded-xl border border-red-100 bg-white p-3 transition-all hover:border-red-300 hover:shadow-md"
-                      >
-                        <div className="h-2 w-2 shrink-0 rounded-full bg-red-600 animate-pulse" />
-                        <div className="min-w-0 flex-1 flex flex-col justify-center">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="truncate max-w-[100px] text-[8px] font-black uppercase tracking-wider text-red-600">
-                              {it.courseName}
-                            </span>
-                            <span className="text-[8px] font-bold text-red-300 uppercase">Vencida</span>
-                          </div>
-                          <div className="truncate text-sm font-black text-zinc-900 leading-tight">
-                            {it.title}
-                          </div>
-                        </div>
-                        {it.url && (
-                          <a
-                            href={it.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full bg-zinc-950 text-white active:scale-90 transition-transform"
-                          >
-                            <span className="text-[10px]">!</span>
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div className="lg:col-span-4 xl:col-span-4">
-          <section className="relative h-[20rem] overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 shadow-xl transition-all duration-300 active:scale-[0.98]">
-            <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 translate-y-[-10px] rounded-full bg-blue-200/20 blur-2xl" />
-            <div className="relative flex h-full flex-col p-5">
-              <header className="flex items-center justify-between mb-4">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-blue-400">Planificación</h3>
-                  <p className="text-xl font-black tracking-tight text-blue-900">Sesiones</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setStudyModalOpen(true)}
-                  className="rounded-2xl bg-blue-600/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-blue-700 hover:bg-blue-600/20 transition-colors"
-                >
-                  Ver plan
-                </button>
-              </header>
-
-              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-                {topStudy3.length === 0 ? (
-                  <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-blue-200 bg-white/40 px-4 text-center">
-                    <p className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Sin sesiones</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-2">
-                    {topStudy3.map((s) => (
-                      <div
-                        key={s.key}
-                        className="group flex items-center h-[4.25rem] gap-2.5 rounded-xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md hover:translate-y-[-1px]"
-                      >
-                        <div
-                          className="flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-lg"
-                          style={{
-                            backgroundColor: `color-mix(in srgb, ${s.sessionTextColor} 12%, white)`,
-                            color: s.sessionTextColor,
-                          }}
-                        >
-                          <span className="text-[10px] font-black uppercase leading-none">{s.date.split("-")[2]}</span>
-                          <span className="text-[7px] font-bold uppercase opacity-70 leading-none">{s.date.split("-")[1]}</span>
-                        </div>
-                        <div className="min-w-0 flex-1 flex flex-col justify-center">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span
-                              className="truncate max-w-[70px] text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg"
-                              style={{
-                                color: s.sessionTextColor,
-                                backgroundColor: "color-mix(in srgb, white 20%, transparent)",
-                                border: `1px solid ${s.sessionTextColor}`,
-                              }}
-                            >
-                              {s.planTitle}
-                            </span>
-                            <span className="text-[9px] font-black text-blue-900/40">{s.hours}h</span>
-                          </div>
-                          <div className="truncate text-xs font-black text-blue-950 leading-tight">
-                            {s.sessionTitle?.trim() ? s.sessionTitle : "Estudio"}
-                          </div>
+              {/* ── Próximas Entregas ── */}
+              {wid === "entregas" && (
+                <section className="relative h-[20rem] overflow-hidden rounded-3xl border border-zinc-200/50 bg-white/40 shadow-xl backdrop-blur-md transition-all duration-300 hover:shadow-2xl active:scale-[0.98] group">
+                  <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-zinc-100/50 blur-3xl group-hover:bg-zinc-200/50 transition-colors" />
+                  <div className="relative flex h-full flex-col p-5">
+                    <header className="flex items-center justify-between mb-4">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">Entregas</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <div className="h-1.5 w-1.5 rounded-full bg-zinc-800 animate-pulse" />
+                          <p className="text-xs font-bold text-zinc-800">Próximas 3</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div className="lg:col-span-5 xl:col-span-4">
-          <WidgetShell title="Enfoque del Día" subtitle="Siguiente bloque">
-            <div className="space-y-2.5">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5">
-                <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">{MOCK.enfoqueDia.block}</div>
-                <div className="mt-0.5 text-xs font-bold leading-tight">{MOCK.enfoqueDia.sessionTitle}</div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <Pill><span className="text-[9px]">En {MOCK.enfoqueDia.startInMin} min</span></Pill>
-                  <span className="text-[9px] font-bold text-[var(--ink-faint)]">Mock</span>
-                </div>
-              </div>
-              <div className="rounded-xl border border-black/5 bg-white/50 p-2.5">
-                <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Focus</div>
-                <p className="mt-1 text-xs font-bold leading-tight">{MOCK.enfoqueDia.focusPrompt}</p>
-              </div>
-              <button
-                type="button"
-                disabled
-                className="w-full min-h-[44px] rounded-xl bg-[var(--ink)] px-4 py-2 text-xs font-extrabold text-white opacity-70"
-              >
-                Empezar (mock)
-              </button>
-            </div>
-          </WidgetShell>
-        </div>
-
-        <div className="lg:col-span-7 xl:col-span-8">
-          <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
-            <WidgetShell title="Exámenes" subtitle="Cuenta regresiva">
-              <div className="flex items-center justify-between gap-3">
-                <div className="shrink-0">
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Materia</div>
-                  <div className="text-sm font-bold truncate max-w-[100px]">{MOCK.nextExam.subject}</div>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <div className="text-3xl font-extrabold tracking-tight">{MOCK.nextExam.daysLeft}</div>
-                    <div className="text-[10px] font-bold text-[var(--ink-muted)]">días</div>
-                  </div>
-                </div>
-                <div className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5">
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Tip</div>
-                  <div className="mt-0.5 text-[11px] font-bold leading-tight line-clamp-2">{MOCK.nextExam.suggestion}</div>
-                </div>
-              </div>
-              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-black/5">
-                <div className="h-full bg-[var(--ink)]" style={{ width: `${Math.max(10, 100 - MOCK.nextExam.daysLeft * 12)}%` }} />
-              </div>
-            </WidgetShell>
-
-            <WidgetShell
-              title="Adherencia"
-              subtitle="Semana actual"
-              right={<span className="text-[9px] font-bold text-[var(--ink-faint)] uppercase">Mock</span>}
-            >
-              <div className="flex items-center gap-4">
-                <ProgressRing valuePct={MOCK.adherencia.valuePct} label="Plan" />
-                <p className="text-[11px] font-bold text-[var(--ink-muted)] leading-tight">{MOCK.adherencia.suggestion}</p>
-              </div>
-            </WidgetShell>
-          </div>
-        </div>
-
-        <div className="md:col-span-2 lg:col-span-6 xl:col-span-7">
-          <WidgetShell title="Carga Semanal" subtitle="Sesiones · exámenes · entregas BB">
-            <HeatmapWeek values={weeklyLoad} breakdowns={weeklyLoadBreakdown} />
-          </WidgetShell>
-        </div>
-
-        <div className="md:col-span-2 lg:col-span-6 xl:col-span-5">
-          <WidgetShell title="Reloj Biológico" subtitle="Eficiencia (mock)">
-            <LineChart points={MOCK.bio.points} labels={MOCK.bio.labels} />
-          </WidgetShell>
-        </div>
-
-        <div className="md:col-span-2 lg:col-span-6 xl:col-span-4">
-          <WidgetShell
-            title="Esfuerzo por Asignatura"
-            subtitle="Distribución horaria"
-          >
-            {effortByObjective.items.length === 0 ? (
-              <div className="text-xs text-[var(--ink-muted)] py-4 text-center border border-dashed rounded-xl">
-                Sin datos de plan.
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                <div className="flex justify-center scale-90 sm:scale-100">
-                  <Doughnut segments={effortByObjective.segments} centerLabel="Mix" />
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {effortByObjective.items.slice(0, 4).map((it) => (
-                    <div
-                      key={it.label}
-                      className="flex items-center justify-between gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1.5"
-                    >
-                      <span className="flex items-center gap-1 text-[9px] font-bold text-[var(--ink-muted)] truncate">
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: it.color }}
-                        />
-                        <span className="truncate">{it.label}</span>
-                      </span>
-                      <span className="font-mono-cli text-[9px] font-bold shrink-0">
-                        {Math.round(it.pct)}%
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setUpcomingModalOpen(true)}
+                        className="h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg active:scale-90 transition-transform"
+                      >
+                        <span className="flex items-center justify-center text-xl leading-none select-none">+</span>
+                      </button>
+                    </header>
+                    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide pr-1">
+                      {top3.length === 0 ? (
+                        <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white/20 px-4 text-center">
+                          <p className="text-xs font-medium text-zinc-400">Sin entregas pendientes</p>
+                        </div>
+                      ) : (
+                        <ul className="space-y-2 relative">
+                          <div className="absolute left-2.5 top-2 bottom-2 w-px bg-zinc-200/60" />
+                          {top3.map((it) => {
+                            const rel = it.dueIso ? relativeDue(it.dueIso) : null;
+                            return (
+                              <li key={it.key} className="relative pl-7 group/item h-[4.25rem]">
+                                <div className="absolute left-1.5 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-white ring-2 ring-zinc-800 z-10" />
+                                <div className="h-full flex items-center rounded-xl border border-white bg-white/60 px-3 shadow-sm transition-all hover:bg-white hover:shadow-md active:bg-zinc-50">
+                                  <div className="flex flex-col justify-center gap-0.5 w-full">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-1.5 overflow-hidden">
+                                        <span className="truncate text-[8px] font-black uppercase tracking-tighter text-zinc-400 px-1.5 py-0.5 rounded-md bg-zinc-100 shrink-0">
+                                          {it.courseName}
+                                        </span>
+                                        <span className={`text-[8px] font-black uppercase shrink-0 ${rel?.tone === "red" ? "text-red-500" : "text-amber-500"}`}>
+                                          {rel?.label}
+                                        </span>
+                                      </div>
+                                      {it.url && (
+                                        <a href={it.url} target="_blank" rel="noreferrer"
+                                          className="shrink-0 h-6 w-6 flex items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors">
+                                          <span className="text-[10px] font-bold">↗</span>
+                                        </a>
+                                      )}
+                                    </div>
+                                    <div className="truncate text-sm font-black text-zinc-900 leading-tight">{it.title}</div>
+                                  </div>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </WidgetShell>
-        </div>
-
-        <div className="md:col-span-2 lg:col-span-6 xl:col-span-8">
-          <WidgetShell title="Burnout / Fatiga" subtitle="Señales tempranas">
-            <BurnoutGauge valuePct={MOCK.burnout.valuePct} />
-          </WidgetShell>
-        </div>
-
-        <div className="md:col-span-2 lg:col-span-6 xl:col-span-4">
-          <WidgetShell title="Racha (Streaks)" subtitle="Gamificación" tone="accent">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5 shrink-0 text-center">
-                <div className="text-[9px] font-bold text-[var(--ink-muted)] uppercase tracking-tight">Racha</div>
-                <div className="text-2xl font-extrabold">{MOCK.streaks.days}</div>
-                <div className="text-[8px] font-bold text-[var(--ink-faint)]">Récord: {MOCK.streaks.bestDays}</div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold leading-tight">{MOCK.streaks.message}</p>
-                <button
-                  type="button"
-                  disabled
-                  className="mt-2 w-full min-h-[36px] rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-[10px] font-bold opacity-70"
-                >
-                  Objetivo hoy (mock)
-                </button>
-              </div>
-            </div>
-          </WidgetShell>
-        </div>
-
-        <div className="md:col-span-2 lg:col-span-6 xl:col-span-8">
-          <WidgetShell title="Foco vs. Distracciones" subtitle="Ratio actual (mock)">
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold">
-                    Estudio: {MOCK.distractionsRatio.studyPct}% · Dist: {MOCK.distractionsRatio.distractPct}%
+                    {contentFetchBusy && (
+                      <div className="mt-2 text-[9px] font-bold text-center text-zinc-400 uppercase tracking-widest animate-pulse">
+                        Sincronizando...
+                      </div>
+                    )}
                   </div>
-                </div>
-                <Pill tone="green"><span className="text-[9px]">Enfocado</span></Pill>
-              </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-black/5 ring-1 ring-black/5">
-                <div className="flex h-full">
-                  <div className="bg-[var(--ink)]" style={{ width: `${MOCK.distractionsRatio.studyPct}%` }} />
-                  <div className="bg-amber-400/80" style={{ width: `${MOCK.distractionsRatio.distractPct}%` }} />
-                </div>
-              </div>
-              <p className="text-[10px] font-bold text-[var(--ink-muted)] leading-tight">
-                Tip: ventana de 15 min si te cuesta empezar.
-              </p>
+                </section>
+              )}
+
+              {/* ── Prioridad Máxima ── */}
+              {wid === "prioridad" && (
+                <section className="relative h-[20rem] overflow-hidden rounded-3xl border-2 border-red-500/20 bg-[#fffafa] shadow-xl transition-all duration-300 active:scale-[0.98]">
+                  <div className="relative flex h-full flex-col p-4 sm:p-5">
+                    <header className="flex items-center justify-between mb-3">
+                      <div className="min-w-0">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600">Prioridad Máxima</h3>
+                        <p className="text-xl font-black tracking-tighter text-red-950">Alertas</p>
+                      </div>
+                      <button type="button" onClick={() => setCriticalModalOpen(true)}
+                        className="h-7 px-3 rounded-full bg-red-600 text-[9px] font-black uppercase tracking-widest text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-200">
+                        Ver todo
+                      </button>
+                    </header>
+                    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+                      {criticalAlerts.length === 0 ? (
+                        <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-red-100 bg-white px-4 text-center">
+                          <p className="text-[10px] font-bold text-red-200 uppercase tracking-widest">Sin alertas pendientes</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {criticalAlerts.slice(0, 3).map((it) => (
+                            <div key={it.key}
+                              className="group flex items-center h-[4.25rem] gap-3 rounded-xl border border-red-100 bg-white p-3 transition-all hover:border-red-300 hover:shadow-md">
+                              <div className="h-2 w-2 shrink-0 rounded-full bg-red-600 animate-pulse" />
+                              <div className="min-w-0 flex-1 flex flex-col justify-center">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="truncate max-w-[100px] text-[8px] font-black uppercase tracking-wider text-red-600">{it.courseName}</span>
+                                  <span className="text-[8px] font-bold text-red-300 uppercase">Vencida</span>
+                                </div>
+                                <div className="truncate text-sm font-black text-zinc-900 leading-tight">{it.title}</div>
+                              </div>
+                              {it.url && (
+                                <a href={it.url} target="_blank" rel="noreferrer"
+                                  className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full bg-zinc-950 text-white active:scale-90 transition-transform">
+                                  <span className="text-[10px]">!</span>
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* ── Sesiones de Estudio ── */}
+              {wid === "sesiones" && (
+                <section className="relative h-[20rem] overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 shadow-xl transition-all duration-300 active:scale-[0.98]">
+                  <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 translate-y-[-10px] rounded-full bg-blue-200/20 blur-2xl" />
+                  <div className="relative flex h-full flex-col p-5">
+                    <header className="flex items-center justify-between mb-4">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-blue-400">Planificación</h3>
+                        <p className="text-xl font-black tracking-tight text-blue-900">Sesiones</p>
+                      </div>
+                      <button type="button" onClick={() => setStudyModalOpen(true)}
+                        className="rounded-2xl bg-blue-600/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-blue-700 hover:bg-blue-600/20 transition-colors">
+                        Ver plan
+                      </button>
+                    </header>
+                    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+                      {topStudy3.length === 0 ? (
+                        <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-blue-200 bg-white/40 px-4 text-center">
+                          <p className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Sin sesiones</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2">
+                          {topStudy3.map((s) => (
+                            <div key={s.key}
+                              className="group flex items-center h-[4.25rem] gap-2.5 rounded-xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md hover:translate-y-[-1px]">
+                              <div className="flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-lg"
+                                style={{ backgroundColor: `color-mix(in srgb, ${s.sessionTextColor} 12%, white)`, color: s.sessionTextColor }}>
+                                <span className="text-[10px] font-black uppercase leading-none">{s.date.split("-")[2]}</span>
+                                <span className="text-[7px] font-bold uppercase opacity-70 leading-none">{s.date.split("-")[1]}</span>
+                              </div>
+                              <div className="min-w-0 flex-1 flex flex-col justify-center">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="truncate max-w-[70px] text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg"
+                                    style={{ color: s.sessionTextColor, backgroundColor: "color-mix(in srgb, white 20%, transparent)", border: `1px solid ${s.sessionTextColor}` }}>
+                                    {s.planTitle}
+                                  </span>
+                                  <span className="text-[9px] font-black text-blue-900/40">{s.hours}h</span>
+                                </div>
+                                <div className="truncate text-xs font-black text-blue-950 leading-tight">
+                                  {s.sessionTitle?.trim() ? s.sessionTitle : "Estudio"}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* ── Enfoque del Día ── */}
+              {wid === "enfoque" && (
+                <WidgetShell title="Enfoque del Día" subtitle="Siguiente bloque">
+                  <div className="space-y-2.5">
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">{MOCK.enfoqueDia.block}</div>
+                      <div className="mt-0.5 text-xs font-bold leading-tight">{MOCK.enfoqueDia.sessionTitle}</div>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <Pill><span className="text-[9px]">En {MOCK.enfoqueDia.startInMin} min</span></Pill>
+                        <span className="text-[9px] font-bold text-[var(--ink-faint)]">Mock</span>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-black/5 bg-white/50 p-2.5">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Focus</div>
+                      <p className="mt-1 text-xs font-bold leading-tight">{MOCK.enfoqueDia.focusPrompt}</p>
+                    </div>
+                    <button type="button" disabled
+                      className="w-full min-h-[44px] rounded-xl bg-[var(--ink)] px-4 py-2 text-xs font-extrabold text-white opacity-70">
+                      Empezar (mock)
+                    </button>
+                  </div>
+                </WidgetShell>
+              )}
+
+              {/* ── Exámenes y Fechas ── */}
+              {wid === "examenes" && (
+                <WidgetShell title="Exámenes y Fechas" subtitle="Próximas 2 fechas">
+                  {nextExams.length === 0 ? (
+                    <div className="flex h-16 items-center justify-center rounded-xl border border-dashed border-[var(--border)] text-xs text-[var(--ink-muted)]">
+                      Sin próximos exámenes o fechas
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {nextExams.map((exam) => {
+                        const days = daysUntilLocalDate(exam.date);
+                        const progress = Math.max(5, Math.min(100, Math.round((1 - Math.max(0, days) / 30) * 100)));
+                        const cs = getGoogleEventColorStyle(exam.calendarColorId);
+                        return (
+                          <div key={exam.id} className="space-y-1.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-[11px] font-black text-[var(--ink)]">{exam.title}</div>
+                                <div className="text-[9px] font-bold text-[var(--ink-muted)]">
+                                  {exam.date}{exam.time ? ` · ${exam.time}` : ""}
+                                </div>
+                              </div>
+                              <div className="shrink-0 rounded-lg px-2 py-0.5 text-[9px] font-black"
+                                style={{ backgroundColor: cs.bg, color: cs.text, borderLeft: `3px solid ${cs.borderLeft}` }}>
+                                {days === 0 ? "Hoy" : `${days}d`}
+                              </div>
+                            </div>
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5">
+                              <div className="h-full rounded-full transition-all duration-500"
+                                style={{ width: `${progress}%`, backgroundColor: cs.borderLeft }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </WidgetShell>
+              )}
+
+              {/* ── Adherencia ── */}
+              {wid === "adherencia" && (
+                <WidgetShell title="Adherencia" subtitle="Semana actual"
+                  right={<span className="text-[9px] font-bold text-[var(--ink-faint)] uppercase">Mock</span>}>
+                  <div className="flex items-center gap-4">
+                    <ProgressRing valuePct={MOCK.adherencia.valuePct} label="Plan" />
+                    <p className="text-[11px] font-bold text-[var(--ink-muted)] leading-tight">{MOCK.adherencia.suggestion}</p>
+                  </div>
+                </WidgetShell>
+              )}
+
+              {/* ── Carga Semanal ── */}
+              {wid === "carga" && (
+                <WidgetShell title="Carga Semanal" subtitle="Sesiones · exámenes · entregas BB">
+                  <HeatmapWeek values={weeklyLoad} breakdowns={weeklyLoadBreakdown} />
+                </WidgetShell>
+              )}
+
+              {/* ── StudyTrend ── */}
+              {wid === "studytrend" && (
+                <WidgetShell title="StudyTrend" subtitle="Sesiones de estudio · ±6 días">
+                  <StudyTrendChart data={studyTrendData} />
+                </WidgetShell>
+              )}
+
+              {/* ── Esfuerzo por Asignatura ── */}
+              {wid === "esfuerzo" && (
+                <WidgetShell title="Esfuerzo por Asignatura" subtitle="Distribución horaria">
+                  {effortByObjective.items.length === 0 ? (
+                    <div className="text-xs text-[var(--ink-muted)] py-4 text-center border border-dashed rounded-xl">
+                      Sin datos de plan.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <div className="flex justify-center scale-90 sm:scale-100">
+                        <Doughnut segments={effortByObjective.segments} centerLabel="Mix" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {effortByObjective.items.slice(0, 4).map((it) => (
+                          <div key={it.label}
+                            className="flex items-center justify-between gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1.5">
+                            <span className="flex items-center gap-1 text-[9px] font-bold text-[var(--ink-muted)] truncate">
+                              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: it.color }} />
+                              <span className="truncate">{it.label}</span>
+                            </span>
+                            <span className="font-mono-cli text-[9px] font-bold shrink-0">{Math.round(it.pct)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </WidgetShell>
+              )}
+
+              {/* ── Burnout / Fatiga ── */}
+              {wid === "burnout" && (
+                <WidgetShell title="Burnout / Fatiga" subtitle="Señales tempranas">
+                  <BurnoutGauge valuePct={MOCK.burnout.valuePct} />
+                </WidgetShell>
+              )}
+
+              {/* ── Racha ── */}
+              {wid === "racha" && (
+                <WidgetShell title="Racha (Streaks)" subtitle="Gamificación" tone="accent">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5 shrink-0 text-center">
+                      <div className="text-[9px] font-bold text-[var(--ink-muted)] uppercase tracking-tight">Racha</div>
+                      <div className="text-2xl font-extrabold">{MOCK.streaks.days}</div>
+                      <div className="text-[8px] font-bold text-[var(--ink-faint)]">Récord: {MOCK.streaks.bestDays}</div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold leading-tight">{MOCK.streaks.message}</p>
+                      <button type="button" disabled
+                        className="mt-2 w-full min-h-[36px] rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-[10px] font-bold opacity-70">
+                        Objetivo hoy (mock)
+                      </button>
+                    </div>
+                  </div>
+                </WidgetShell>
+              )}
+
+              {/* ── Foco vs Distracciones ── */}
+              {wid === "foco" && (
+                <WidgetShell title="Foco vs. Distracciones" subtitle="Ratio actual (mock)">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold">
+                          Estudio: {MOCK.distractionsRatio.studyPct}% · Dist: {MOCK.distractionsRatio.distractPct}%
+                        </div>
+                      </div>
+                      <Pill tone="green"><span className="text-[9px]">Enfocado</span></Pill>
+                    </div>
+                    <div className="h-3 w-full overflow-hidden rounded-full bg-black/5 ring-1 ring-black/5">
+                      <div className="flex h-full">
+                        <div className="bg-[var(--ink)]" style={{ width: `${MOCK.distractionsRatio.studyPct}%` }} />
+                        <div className="bg-amber-400/80" style={{ width: `${MOCK.distractionsRatio.distractPct}%` }} />
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-bold text-[var(--ink-muted)] leading-tight">
+                      Tip: ventana de 15 min si te cuesta empezar.
+                    </p>
+                  </div>
+                </WidgetShell>
+              )}
             </div>
-          </WidgetShell>
-        </div>
+          );
+        })}
       </div>
 
       <UpcomingDeliveriesModal
