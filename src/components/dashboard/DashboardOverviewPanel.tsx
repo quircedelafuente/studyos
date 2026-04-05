@@ -1128,40 +1128,38 @@ export function DashboardOverviewPanel() {
                     <p className="text-xs font-medium text-zinc-400">Sin entregas pendientes</p>
                   </div>
                 ) : (
-                  <ul className="space-y-3 relative">
+                  <ul className="space-y-2 relative">
                     <div className="absolute left-2.5 top-2 bottom-2 w-px bg-zinc-200/60" />
                     {top3.map((it) => {
                       const rel = it.dueIso ? relativeDue(it.dueIso) : null;
                       return (
-                        <li key={it.key} className="relative pl-7 group/item">
-                          <div className="absolute left-1.5 top-1.5 h-2 w-2 rounded-full bg-white ring-2 ring-zinc-800 z-10" />
-                          <div className="rounded-2xl border border-white bg-white/60 p-3 shadow-sm transition-all hover:bg-white hover:shadow-md active:bg-zinc-50">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <span className="truncate text-[9px] font-black uppercase tracking-tighter text-zinc-400 px-1.5 py-0.5 rounded-md bg-zinc-100">
+                        <li key={it.key} className="relative pl-7 group/item h-[4.25rem]">
+                          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-white ring-2 ring-zinc-800 z-10" />
+                          <div className="h-full flex items-center rounded-xl border border-white bg-white/60 px-3 shadow-sm transition-all hover:bg-white hover:shadow-md active:bg-zinc-50">
+                            <div className="flex flex-col justify-center gap-0.5 w-full">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                  <span className="truncate text-[8px] font-black uppercase tracking-tighter text-zinc-400 px-1.5 py-0.5 rounded-md bg-zinc-100 shrink-0">
                                     {it.courseName}
                                   </span>
-                                  {it.dueIso && (
-                                    <span className={`text-[9px] font-black uppercase ${rel?.tone === 'red' ? 'text-red-500' : 'text-amber-500'}`}>
-                                      {rel?.label}
-                                    </span>
-                                  )}
+                                  <span className={`text-[8px] font-black uppercase shrink-0 ${rel?.tone === 'red' ? 'text-red-500' : 'text-amber-500'}`}>
+                                    {rel?.label}
+                                  </span>
                                 </div>
-                                <div className="truncate text-[13px] font-black text-zinc-900 leading-tight">
-                                  {it.title}
-                                </div>
+                                {it.url && (
+                                  <a
+                                    href={it.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="shrink-0 h-6 w-6 flex items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors"
+                                  >
+                                    <span className="text-[10px] font-bold">↗</span>
+                                  </a>
+                                )}
                               </div>
-                              {it.url && (
-                                <a
-                                  href={it.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="shrink-0 h-7 w-7 flex items-center justify-center rounded-xl bg-zinc-100 hover:bg-zinc-200 transition-colors"
-                                >
-                                  <span className="text-[10px] font-bold">↗</span>
-                                </a>
-                              )}
+                              <div className="truncate text-sm font-black text-zinc-900 leading-tight">
+                                {it.title}
+                              </div>
                             </div>
                           </div>
                         </li>
@@ -1180,60 +1178,56 @@ export function DashboardOverviewPanel() {
         </div>
 
         <div className="lg:col-span-4 xl:col-span-4">
-          <section className="relative h-[20rem] overflow-hidden rounded-3xl bg-zinc-950 text-white shadow-2xl transition-all duration-300 active:scale-[0.98]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(239,68,68,0.15),transparent_70%)]" />
-            <div className="relative flex h-full flex-col p-5">
-              <header className="flex items-center justify-between mb-4">
+          <section className="relative h-[20rem] overflow-hidden rounded-3xl border-2 border-red-500/20 bg-[#fffafa] shadow-xl transition-all duration-300 active:scale-[0.98]">
+            <div className="relative flex h-full flex-col p-4 sm:p-5">
+              <header className="flex items-center justify-between mb-3">
                 <div className="min-w-0">
-                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-red-500/80">Urgente</h3>
-                  <p className="text-xl font-black tracking-tight">Alertas Críticas</p>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600">Prioridad Máxima</h3>
+                  <p className="text-xl font-black tracking-tighter text-red-950">Alertas</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setCriticalModalOpen(true)}
-                  className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/20 transition-colors"
+                  className="h-7 px-3 rounded-full bg-red-600 text-[9px] font-black uppercase tracking-widest text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
                 >
-                  Ver todas
+                  Ver todo
                 </button>
               </header>
 
               <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
                 {criticalAlerts.length === 0 ? (
-                  <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 text-center">
-                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Todo al día</p>
+                  <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-red-100 bg-white px-4 text-center">
+                    <p className="text-[10px] font-bold text-red-200 uppercase tracking-widest">Sin alertas pendientes</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {criticalAlerts.slice(0, 3).map((it) => (
                       <div
                         key={it.key}
-                        className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 transition-all hover:bg-white/10"
+                        className="group flex items-center h-[4.25rem] gap-3 rounded-xl border border-red-100 bg-white p-3 transition-all hover:border-red-300 hover:shadow-md"
                       >
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" />
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className="truncate text-[9px] font-black uppercase tracking-wider text-red-400">
-                                {it.courseName}
-                              </span>
-                              <span className="h-1 w-1 rounded-full bg-white/20" />
-                              <span className="text-[9px] font-black text-white/40 uppercase">Vencida</span>
-                            </div>
-                            <div className="truncate text-sm font-black text-white leading-tight">
-                              {it.title}
-                            </div>
+                        <div className="h-2 w-2 shrink-0 rounded-full bg-red-600 animate-pulse" />
+                        <div className="min-w-0 flex-1 flex flex-col justify-center">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="truncate max-w-[100px] text-[8px] font-black uppercase tracking-wider text-red-600">
+                              {it.courseName}
+                            </span>
+                            <span className="text-[8px] font-bold text-red-300 uppercase">Vencida</span>
                           </div>
-                          {it.url && (
-                            <a
-                              href={it.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-red-600 text-white shadow-lg shadow-red-900/20 active:scale-90 transition-transform"
-                            >
-                              <span className="text-xs">!</span>
-                            </a>
-                          )}
+                          <div className="truncate text-sm font-black text-zinc-900 leading-tight">
+                            {it.title}
+                          </div>
                         </div>
+                        {it.url && (
+                          <a
+                            href={it.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full bg-zinc-950 text-white active:scale-90 transition-transform"
+                          >
+                            <span className="text-[10px]">!</span>
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1264,23 +1258,23 @@ export function DashboardOverviewPanel() {
               <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
                 {topStudy3.length === 0 ? (
                   <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-blue-200 bg-white/40 px-4 text-center">
-                    <p className="text-xs font-bold text-blue-300 uppercase tracking-widest">Sin sesiones</p>
+                    <p className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Sin sesiones</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2.5">
+                  <div className="grid grid-cols-1 gap-2">
                     {topStudy3.map((s) => (
                       <div
                         key={s.key}
-                        className="group flex items-center gap-3 rounded-2xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md hover:translate-y-[-1px]"
+                        className="group flex items-center h-[4.25rem] gap-2.5 rounded-xl border border-white bg-white/80 p-2 sm:px-3 shadow-sm transition-all hover:shadow-md hover:translate-y-[-1px]"
                       >
-                        <div className="flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-xl bg-blue-50 text-blue-600">
-                          <span className="text-[10px] font-black uppercase">{s.date.split("-")[2]}</span>
-                          <span className="text-[8px] font-bold uppercase opacity-60">{s.date.split("-")[1]}</span>
+                        <div className="flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-lg bg-blue-50 text-blue-600">
+                          <span className="text-[10px] font-black uppercase leading-none">{s.date.split("-")[2]}</span>
+                          <span className="text-[7px] font-bold uppercase opacity-60 leading-none">{s.date.split("-")[1]}</span>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-0.5">
+                        <div className="min-w-0 flex-1 flex flex-col justify-center">
+                          <div className="flex items-center gap-1.5 mb-0.5">
                             <span
-                              className="truncate max-w-[80px] text-[8px] font-black uppercase px-1.5 py-0.5 rounded-lg"
+                              className="truncate max-w-[70px] text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg"
                               style={{
                                 color: s.sessionTextColor,
                                 backgroundColor: "color-mix(in srgb, white 20%, transparent)",
@@ -1289,7 +1283,7 @@ export function DashboardOverviewPanel() {
                             >
                               {s.planTitle}
                             </span>
-                            <span className="text-[10px] font-black text-blue-900/40">{s.hours}h</span>
+                            <span className="text-[9px] font-black text-blue-900/40">{s.hours}h</span>
                           </div>
                           <div className="truncate text-xs font-black text-blue-950 leading-tight">
                             {s.sessionTitle?.trim() ? s.sessionTitle : "Estudio"}
