@@ -685,6 +685,18 @@ type WidgetId = (typeof WIDGET_IDS)[number];
 
 // rowHeight = 32px → h:8 ≈ 256 px (one "normal" card)
 const ROW_H = 32;
+const MOBILE_LAYOUT_KEY = "iestudio-dashboard-mobile-layout-v1";
+
+function defaultMobileLayout(desktopLayout: LayoutItem[]): LayoutItem[] {
+  const sorted = [...desktopLayout].sort((a, b) => a.y - b.y || a.x - b.x);
+  let y = 0;
+  return sorted.map((item) => {
+    const h = item.h;
+    const li: LayoutItem = { i: item.i, x: 0, y, w: 1, h, minH: 3, minW: 1, maxW: 1 };
+    y += h;
+    return li;
+  });
+}
 
 const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "entregas",   x: 0, y: 0,  w: 4, h: 8, minW: 2, minH: 3 },
@@ -1270,30 +1282,34 @@ export function DashboardOverviewPanel() {
     return [...DEFAULT_LAYOUT];
   });
 
-  const [currentBreakpoint, setCurrentBreakpoint] = useState<string>("lg");
-  const isDesktop = currentBreakpoint === "lg";
+  // Initialize breakpoint from actual window width so first onLayoutChange save is correct
+  const [currentBreakpoint, setCurrentBreakpoint] = useState<string>(() =>
+    typeof window !== "undefined" && window.innerWidth < 768 ? "sm" : "lg",
+  );
 
-  // Independent mobile heights (don't affect desktop)
-  const [mobileHeights, setMobileHeights] = useState<Record<string, number>>(() => {
-    if (typeof window === "undefined") return {};
+  // Mobile layout — fully independent from desktop (order + heights)
+  const [mobileLayout, setMobileLayout] = useState<LayoutItem[]>(() => {
+    if (typeof window === "undefined") return defaultMobileLayout(DEFAULT_LAYOUT);
     try {
-      const saved = localStorage.getItem(MOBILE_HEIGHTS_KEY);
-      if (saved) return JSON.parse(saved) as Record<string, number>;
+      const saved = localStorage.getItem(MOBILE_LAYOUT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as LayoutItem[];
+        const savedById = new Map(parsed.map((l) => [l.i, l]));
+        // Add any new widgets not in saved layout
+        const existing = parsed.filter((l) => (WIDGET_IDS as readonly string[]).includes(l.i));
+        const missing = WIDGET_IDS.filter((wid) => !savedById.has(wid));
+        let y = existing.reduce((max, l) => Math.max(max, l.y + l.h), 0);
+        const extras = missing.map((wid) => {
+          const def = DEFAULT_LAYOUT.find((d) => d.i === wid)!;
+          const li: LayoutItem = { i: wid, x: 0, y, w: 1, h: def.h, minH: 3, minW: 1, maxW: 1 };
+          y += def.h;
+          return li;
+        });
+        return [...existing, ...extras];
+      }
     } catch { /* */ }
-    return {};
+    return defaultMobileLayout(DEFAULT_LAYOUT);
   });
-
-  // Mobile layout: desktop order (y then x), independent heights, fixed x/w
-  const mobileLayout = useMemo<LayoutItem[]>(() => {
-    const sorted = [...layout].sort((a, b) => a.y - b.y || a.x - b.x);
-    let y = 0;
-    return sorted.map((item) => {
-      const h = mobileHeights[item.i] ?? item.h;
-      const li: LayoutItem = { i: item.i, x: 0, y, w: 1, h, minH: 3, minW: 1, maxW: 1 };
-      y += h;
-      return li;
-    });
-  }, [layout, mobileHeights]);
 
   const [editMode, setEditMode] = useState(false);
 
@@ -1432,11 +1448,11 @@ export function DashboardOverviewPanel() {
         breakpoints={{ lg: 768, sm: 0 }}
         cols={{ lg: 12, sm: 1 }}
         rowHeight={ROW_H}
-        isDraggable={editMode && isDesktop}
-        isResizable={isDesktop ? editMode : true}
-        resizeHandles={isDesktop ? ["se"] : ["s"]}
-        compactType={null}
-        preventCollision={false}
+        isDraggable={currentBreakpoint === "lg" ? editMode : true}
+        isResizable={currentBreakpoint === "lg" ? editMode : true}
+        resizeHandles={currentBreakpoint === "lg" ? ["se"] : ["s"]}
+        compactType={currentBreakpoint === "lg" ? null : "vertical"}
+        preventCollision={currentBreakpoint !== "lg"}
         margin={[12, 12]}
         onBreakpointChange={(bp: string) => setCurrentBreakpoint(bp)}
         onLayoutChange={(cur: Layout) => {
@@ -1445,10 +1461,9 @@ export function DashboardOverviewPanel() {
             setLayout(items);
             try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(items)); } catch { /* */ }
           } else {
-            const heights: Record<string, number> = {};
-            for (const item of cur) heights[item.i] = item.h;
-            setMobileHeights(heights);
-            try { localStorage.setItem(MOBILE_HEIGHTS_KEY, JSON.stringify(heights)); } catch { /* */ }
+            const items = [...cur].map((l) => ({ ...l, x: 0, w: 1, minW: 1, maxW: 1 }));
+            setMobileLayout(items);
+            try { localStorage.setItem(MOBILE_LAYOUT_KEY, JSON.stringify(items)); } catch { /* */ }
           }
         }}
       >
