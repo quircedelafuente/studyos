@@ -1,4 +1,44 @@
 @import "tailwindcss";
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
+
+/* react-grid-layout: make the resize handle visible and styled */
+.react-resizable-handle {
+  width: 20px;
+  height: 20px;
+  border-radius: 0 0 10px 0;
+  background: none;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  cursor: se-resize;
+  z-index: 40;
+}
+.react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(99, 102, 241, 0.7);
+  border-bottom: 2px solid rgba(99, 102, 241, 0.7);
+  border-radius: 0 0 3px 0;
+}
+.react-grid-item.react-grid-placeholder {
+  background: rgba(99, 102, 241, 0.12);
+  border: 2px dashed rgba(99, 102, 241, 0.4);
+  border-radius: 16px;
+}
+.react-grid-item > .react-resizable-handle {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.react-grid-item:hover > .react-resizable-handle,
+.react-grid-item.react-draggable-dragging > .react-resizable-handle,
+.react-grid-item.resizing > .react-resizable-handle {
+  opacity: 1;
+}
 
 :root {
   --canvas: #fafafa;

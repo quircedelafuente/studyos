@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Responsive, WidthProvider, type Layout, type LayoutItem, type ResponsiveLayouts } from "react-grid-layout/legacy";
+import { useEffect, useMemo, useState } from "react";
+
+const GridLayout = WidthProvider(Responsive);
 import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import type { ReactNode } from "react";
 import { readBbDisplayedCoursesSnapshot } from "@/lib/bb-displayed-courses";
@@ -668,36 +671,34 @@ function getCurrentWeekDates(): string[] {
   });
 }
 
-// ── Widget ordering & sizing ───────────────────────────────────────────────
-const WIDGET_ORDER_KEY = "iestudio-dashboard-widget-order";
-const WIDGET_SIZES_KEY = "iestudio-dashboard-widget-sizes";
-const DEFAULT_WIDGET_ORDER = [
+// ── Widget grid (react-grid-layout) ───────────────────────────────────────
+const LAYOUT_KEY = "iestudio-dashboard-layout-v3";
+const WIDGET_IDS = [
   "entregas", "prioridad", "sesiones",
   "enfoque", "examenes", "adherencia",
   "carga", "studytrend",
   "esfuerzo", "burnout",
   "racha", "foco",
 ] as const;
-type WidgetId = (typeof DEFAULT_WIDGET_ORDER)[number];
-type WidgetSize = "half" | "normal" | "wide";
+type WidgetId = (typeof WIDGET_IDS)[number];
 
-const DEFAULT_WIDGET_SIZES: Record<WidgetId, WidgetSize> = {
-  entregas: "normal", prioridad: "normal", sesiones: "normal",
-  enfoque: "normal", examenes: "normal", adherencia: "normal",
-  carga: "wide", studytrend: "normal",
-  esfuerzo: "wide", burnout: "normal",
-  racha: "normal", foco: "wide",
-};
-const SIZE_COL: Record<WidgetSize, string> = {
-  half:   "lg:col-span-4",
-  normal: "lg:col-span-4",
-  wide:   "lg:col-span-8",
-};
-const SIZE_H: Record<WidgetSize, string> = {
-  half:   "8rem",
-  normal: "20rem",
-  wide:   "20rem",
-};
+// rowHeight = 32px → h:8 ≈ 256 px (one "normal" card)
+const ROW_H = 32;
+
+const DEFAULT_LAYOUT: LayoutItem[] = [
+  { i: "entregas",   x: 0, y: 0,  w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "prioridad",  x: 4, y: 0,  w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "sesiones",   x: 8, y: 0,  w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "enfoque",    x: 0, y: 8,  w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "examenes",   x: 4, y: 8,  w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "adherencia", x: 8, y: 8,  w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "carga",      x: 0, y: 16, w: 8, h: 8, minW: 2, minH: 3 },
+  { i: "studytrend", x: 8, y: 16, w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "esfuerzo",   x: 0, y: 24, w: 6, h: 8, minW: 2, minH: 3 },
+  { i: "burnout",    x: 6, y: 24, w: 6, h: 8, minW: 2, minH: 3 },
+  { i: "racha",      x: 0, y: 32, w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "foco",       x: 4, y: 32, w: 8, h: 8, minW: 2, minH: 3 },
+];
 
 function daysUntilLocalDate(ymd: string): number {
   const parts = ymd.split("-").map(Number);
@@ -1254,46 +1255,21 @@ export function DashboardOverviewPanel() {
     return slots;
   }, [studyPlansRevision, deadlinesRevision]);
 
-  // ── Widget ordering ───────────────────────────────────────────────────────
-  const [widgetOrder, setWidgetOrder] = useState<WidgetId[]>(() => {
-    if (typeof window === "undefined") return [...DEFAULT_WIDGET_ORDER];
+  // ── Widget layout (react-grid-layout) ────────────────────────────────────
+  const [layout, setLayout] = useState<LayoutItem[]>(() => {
+    if (typeof window === "undefined") return [...DEFAULT_LAYOUT];
     try {
-      const saved = localStorage.getItem(WIDGET_ORDER_KEY);
+      const saved = localStorage.getItem(LAYOUT_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as string[];
-        const valid = parsed.filter((id): id is WidgetId =>
-          (DEFAULT_WIDGET_ORDER as readonly string[]).includes(id),
-        );
-        const missing = DEFAULT_WIDGET_ORDER.filter((id) => !valid.includes(id));
-        return [...valid, ...missing];
+        const parsed = JSON.parse(saved) as LayoutItem[];
+        const savedById = new Map(parsed.map((l) => [l.i, l]));
+        return DEFAULT_LAYOUT.map((def) => ({ ...def, ...(savedById.get(def.i) ?? {}) }));
       }
     } catch { /* */ }
-    return [...DEFAULT_WIDGET_ORDER];
+    return [...DEFAULT_LAYOUT];
   });
-
-  const [widgetSizes, setWidgetSizes] = useState<Record<WidgetId, WidgetSize>>(() => {
-    if (typeof window === "undefined") return { ...DEFAULT_WIDGET_SIZES };
-    try {
-      const saved = localStorage.getItem(WIDGET_SIZES_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as Partial<Record<WidgetId, WidgetSize>>;
-        return { ...DEFAULT_WIDGET_SIZES, ...parsed };
-      }
-    } catch { /* */ }
-    return { ...DEFAULT_WIDGET_SIZES };
-  });
-
-  function setWidgetSize(wid: WidgetId, size: WidgetSize) {
-    setWidgetSizes((prev) => {
-      const next = { ...prev, [wid]: size };
-      try { localStorage.setItem(WIDGET_SIZES_KEY, JSON.stringify(next)); } catch { /* */ }
-      return next;
-    });
-  }
 
   const [editMode, setEditMode] = useState(false);
-  const dragSourceRef = useRef<WidgetId | null>(null);
-  const [dragOverId, setDragOverId] = useState<WidgetId | null>(null);
 
   const modalBtnClass =
     "rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] hover:bg-white";
@@ -1424,62 +1400,34 @@ export function DashboardOverviewPanel() {
         </div>
       </header>
 
-      <div className="grid min-h-0 gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-12">
-        {widgetOrder.map((wid) => {
-          const size = widgetSizes[wid] ?? "normal";
-          const colClass = SIZE_COL[size];
-          const height = SIZE_H[size];
-          const isOver = dragOverId === wid;
-          return (
-            <div
-              key={wid}
-              style={{ height }}
-              className={`${colClass} relative overflow-hidden transition-all duration-150 ${editMode ? "cursor-grab select-none" : ""} ${isOver ? "ring-2 ring-indigo-400/60 ring-offset-2 rounded-3xl" : ""}`}
-              draggable={editMode}
-              onDragStart={editMode ? (e) => { dragSourceRef.current = wid; e.dataTransfer.effectAllowed = "move"; } : undefined}
-              onDragOver={editMode ? (e) => { e.preventDefault(); if (dragSourceRef.current !== wid) setDragOverId(wid); } : undefined}
-              onDragLeave={editMode ? () => setDragOverId(null) : undefined}
-              onDrop={editMode ? (e) => {
-                e.preventDefault();
-                const src = dragSourceRef.current;
-                if (src && src !== wid) {
-                  setWidgetOrder((prev) => {
-                    const o = [...prev];
-                    const fi = o.indexOf(src);
-                    const ti = o.indexOf(wid);
-                    o.splice(fi, 1);
-                    o.splice(ti, 0, src);
-                    try { localStorage.setItem(WIDGET_ORDER_KEY, JSON.stringify(o)); } catch { /* */ }
-                    return o;
-                  });
-                }
-                dragSourceRef.current = null;
-                setDragOverId(null);
-              } : undefined}
-              onDragEnd={editMode ? () => { dragSourceRef.current = null; setDragOverId(null); } : undefined}
-            >
-              {editMode && (
-                <div className="absolute right-2 top-2 z-20 flex items-center gap-1">
-                  <div className="flex rounded-lg border border-white/80 bg-white/95 shadow overflow-hidden text-[10px] font-black">
-                    {(["half", "normal", "wide"] as WidgetSize[]).map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setWidgetSize(wid, s); }}
-                        className={`px-1.5 py-1 transition-colors ${size === s ? "bg-indigo-600 text-white" : "text-zinc-500 hover:bg-zinc-100"}`}
-                        title={s === "half" ? "Mitad de alto" : s === "normal" ? "Normal (1×1)" : "Ancho doble (1×2)"}
-                      >
-                        {s === "half" ? "½" : s === "normal" ? "□" : "⟷"}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="pointer-events-none flex h-7 w-7 select-none items-center justify-center rounded-xl bg-white/90 text-base text-[var(--ink-muted)] shadow">
-                    ⠿
-                  </div>
-                </div>
-              )}
+      <GridLayout
+        className="layout"
+        layouts={{ lg: layout }}
+        breakpoints={{ lg: 768, sm: 0 }}
+        cols={{ lg: 12, sm: 1 }}
+        rowHeight={ROW_H}
+        isDraggable={editMode}
+        isResizable={editMode}
+        compactType={null}
+        preventCollision={false}
+        margin={[12, 12]}
+        onLayoutChange={(_cur: Layout, allLayouts: ResponsiveLayouts) => {
+          const lg = allLayouts.lg;
+          if (lg) {
+            setLayout([...lg]);
+            try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(lg)); } catch { /* */ }
+          }
+        }}
+      >
+        {WIDGET_IDS.map((wid) => (
+          <div key={wid} className="relative overflow-hidden">
+            {editMode && (
+              <div className="pointer-events-none absolute left-2 top-2 z-30 flex h-6 w-6 select-none items-center justify-center rounded-lg bg-indigo-600/90 text-sm text-white shadow">
+                ⠿
+              </div>
+            )}
 
-              {/* ── Próximas Entregas ── */}
+            {/* ── Próximas Entregas ── */}
               {wid === "entregas" && (
                 <section className="relative h-full overflow-hidden rounded-3xl border border-zinc-200/50 bg-white/40 shadow-xl backdrop-blur-md transition-all duration-300 hover:shadow-2xl active:scale-[0.98] group">
                   <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-zinc-100/50 blur-3xl group-hover:bg-zinc-200/50 transition-colors" />
@@ -1815,34 +1763,9 @@ export function DashboardOverviewPanel() {
                   </div>
                 </WidgetShell>
               )}
-            </div>
-          );
-        })}
-        {/* Drop zone at end for free placement */}
-        {editMode && (
-          <div
-            className={`lg:col-span-12 flex h-10 items-center justify-center rounded-2xl border-2 border-dashed transition-colors ${dragOverId === null && dragSourceRef.current ? "border-indigo-400 bg-indigo-50/60" : "border-[var(--border)] bg-transparent"}`}
-            onDragOver={(e) => { e.preventDefault(); setDragOverId(null); }}
-            onDragLeave={() => { /* keep null */ }}
-            onDrop={(e) => {
-              e.preventDefault();
-              const src = dragSourceRef.current;
-              if (src) {
-                setWidgetOrder((prev) => {
-                  const o = prev.filter((id) => id !== src);
-                  o.push(src);
-                  try { localStorage.setItem(WIDGET_ORDER_KEY, JSON.stringify(o)); } catch { /* */ }
-                  return o;
-                });
-              }
-              dragSourceRef.current = null;
-              setDragOverId(null);
-            }}
-          >
-            <span className="text-[10px] font-bold text-[var(--ink-faint)] uppercase tracking-widest">Soltar aquí para mover al final</span>
           </div>
-        )}
-      </div>
+        ))}
+      </GridLayout>
 
       <UpcomingDeliveriesModal
         open={upcomingModalOpen}
