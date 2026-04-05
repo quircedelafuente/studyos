@@ -1118,7 +1118,7 @@ export function DashboardOverviewPanel() {
                   onClick={() => setUpcomingModalOpen(true)}
                   className="h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg active:scale-90 transition-transform"
                 >
-                  <span className="text-lg leading-none">+</span>
+                  <span className="flex items-center justify-center text-xl leading-none select-none">+</span>
                 </button>
               </header>
 
@@ -1265,11 +1265,17 @@ export function DashboardOverviewPanel() {
                     {topStudy3.map((s) => (
                       <div
                         key={s.key}
-                        className="group flex items-center h-[4.25rem] gap-2.5 rounded-xl border border-white bg-white/80 p-2 sm:px-3 shadow-sm transition-all hover:shadow-md hover:translate-y-[-1px]"
+                        className="group flex items-center h-[4.25rem] gap-2.5 rounded-xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md hover:translate-y-[-1px]"
                       >
-                        <div className="flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-lg bg-blue-50 text-blue-600">
+                        <div
+                          className="flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-lg"
+                          style={{
+                            backgroundColor: `color-mix(in srgb, ${s.sessionTextColor} 12%, white)`,
+                            color: s.sessionTextColor,
+                          }}
+                        >
                           <span className="text-[10px] font-black uppercase leading-none">{s.date.split("-")[2]}</span>
-                          <span className="text-[7px] font-bold uppercase opacity-60 leading-none">{s.date.split("-")[1]}</span>
+                          <span className="text-[7px] font-bold uppercase opacity-70 leading-none">{s.date.split("-")[1]}</span>
                         </div>
                         <div className="min-w-0 flex-1 flex flex-col justify-center">
                           <div className="flex items-center gap-1.5 mb-0.5">

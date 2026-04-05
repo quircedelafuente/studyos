@@ -396,7 +396,15 @@ export function StudyPlanChatView({ plan, onBack, onPlansChanged }: Props) {
     (schedule: StudyPlanAISchedule) => {
       const now = new Date().toISOString();
       const studyPrefix = `study-${plan.id}-`;
-      const prev = loadImportantDeadlines().filter((d) => !d.id.startsWith(studyPrefix));
+      const all = loadImportantDeadlines();
+
+      // Index existing study-session deadlines by id so we can preserve any
+      // manual time / duration adjustments the user made in the calendar.
+      const existingById = new Map(
+        all.filter((d) => d.id.startsWith(studyPrefix)).map((d) => [d.id, d]),
+      );
+      const prev = all.filter((d) => !d.id.startsWith(studyPrefix));
+
       const newItems: ImportantDeadline[] = [];
       const planLabel = planTitleDraft.trim() || plan.title;
       const inheritedColorId = selectedDeadline?.calendarColorId ?? "10";
@@ -410,21 +418,24 @@ export function StudyPlanChatView({ plan, onBack, onPlansChanged }: Props) {
           ? `${day.sessionTitle.trim()}: `
           : "";
         const title = `📚 ${planLabel}: ${sessionHead}${summary || `${day.studyHours}h`}`;
+
+        // Preserve time and duration if the user already moved/resized this session.
+        const existing = existingById.get(id);
         newItems.push({
           id,
           title: title.slice(0, 200),
-          date: day.date,
-          time: "09:00",
-          durationMinutes: Math.max(30, durationMinutes),
+          date: existing?.date ?? day.date,
+          time: existing?.time ?? "09:00",
+          durationMinutes: existing?.durationMinutes ?? Math.max(30, durationMinutes),
           courseId: null,
-          tagIds: [],
+          tagIds: existing?.tagIds ?? [],
           calendarColorId: inheritedColorId,
-          createdAt: now,
+          createdAt: existing?.createdAt ?? now,
         });
       }
 
-      const all = [...prev, ...newItems].sort((a, b) => a.date.localeCompare(b.date));
-      saveImportantDeadlines(all);
+      const merged = [...prev, ...newItems].sort((a, b) => a.date.localeCompare(b.date));
+      saveImportantDeadlines(merged);
     },
     [plan.id, plan.title, planTitleDraft, selectedDeadline?.calendarColorId],
   );
