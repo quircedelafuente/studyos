@@ -1,7 +1,7 @@
 "use client";
 
 import { Responsive, WidthProvider, type Layout, type LayoutItem, type ResponsiveLayouts } from "react-grid-layout/legacy";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const GridLayout = WidthProvider(Responsive);
 import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
@@ -672,7 +672,7 @@ function getCurrentWeekDates(): string[] {
 }
 
 // ── Widget grid (react-grid-layout) ───────────────────────────────────────
-const LAYOUT_KEY = "iestudio-dashboard-layout-v3";
+const LAYOUT_KEY = "iestudio-dashboard-layout-v4";
 const MOBILE_HEIGHTS_KEY = "iestudio-dashboard-mobile-heights-v1";
 const WIDGET_IDS = [
   "entregas", "prioridad", "sesiones",
@@ -1271,6 +1271,7 @@ export function DashboardOverviewPanel() {
   });
 
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>("lg");
+  const currentBreakpointRef = useRef<string>("lg");
   const isDesktop = currentBreakpoint === "lg";
 
   // Independent mobile heights (don't affect desktop)
@@ -1438,9 +1439,9 @@ export function DashboardOverviewPanel() {
         compactType={null}
         preventCollision={false}
         margin={[12, 12]}
-        onBreakpointChange={(bp: string) => setCurrentBreakpoint(bp)}
+        onBreakpointChange={(bp: string) => { setCurrentBreakpoint(bp); currentBreakpointRef.current = bp; }}
         onLayoutChange={(cur: Layout) => {
-          if (currentBreakpoint === "lg") {
+          if (currentBreakpointRef.current === "lg") {
             const items = [...cur];
             setLayout(items);
             try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(items)); } catch { /* */ }
