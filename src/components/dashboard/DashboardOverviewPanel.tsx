@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import type { ReactNode } from "react";
 import { readBbDisplayedCoursesSnapshot } from "@/lib/bb-displayed-courses";
@@ -23,6 +23,49 @@ import {
   DEADLINES_STORAGE_KEY,
   loadImportantDeadlines,
 } from "@/lib/deadlines-storage";
+
+// ── Types & Constants ───────────────────────────────────────────────────────
+
+type WidgetId =
+  | "entregas"
+  | "prioridad"
+  | "sesiones"
+  | "enfoque"
+  | "examenes"
+  | "adherencia"
+  | "carga"
+  | "studytrend"
+  | "esfuerzo"
+  | "burnout"
+  | "racha"
+  | "foco";
+
+type WidgetSize = "half" | "square" | "wide";
+
+type WidgetConfig = {
+  id: WidgetId;
+  size: WidgetSize;
+};
+
+const DEFAULT_WIDGET_ORDER: WidgetId[] = [
+  "entregas",
+  "prioridad",
+  "sesiones",
+  "enfoque",
+  "examenes",
+  "adherencia",
+  "carga",
+  "studytrend",
+  "esfuerzo",
+  "burnout",
+  "racha",
+  "foco",
+];
+
+const DESKTOP_CONFIG_KEY = "iestudio-dashboard-widget-config-desktop-v3";
+const MOBILE_ORDER_KEY = "iestudio-dashboard-widget-order-mobile-v3";
+
+// ── Components ──────────────────────────────────────────────────────────────
 
 type WidgetShellProps = {
   title: string;
@@ -51,10 +94,10 @@ function WidgetShell({ title, subtitle, right, tone = "default", children }: Wid
 
   return (
     <section
-      className={`relative overflow-hidden rounded-2xl border ${toneStyles} ${accentRing} transition-all duration-200 active:scale-[0.98] sm:active:scale-100`}
+      className={`relative h-full w-full overflow-hidden rounded-2xl border ${toneStyles} ${accentRing} transition-all duration-200 active:scale-[0.98] sm:active:scale-100`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(0,0,0,0.05),transparent_45%)]" />
-      <div className="relative p-3 sm:p-4">
+      <div className="relative p-3 sm:p-4 h-full flex flex-col">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-xs sm:text-sm font-bold sm:font-semibold tracking-tight">{title}</h3>
@@ -62,7 +105,7 @@ function WidgetShell({ title, subtitle, right, tone = "default", children }: Wid
           </div>
           {right ? <div className="shrink-0">{right}</div> : null}
         </div>
-        <div className="mt-3">{children}</div>
+        <div className="mt-3 flex-1 min-h-0">{children}</div>
       </div>
     </section>
   );
@@ -124,11 +167,10 @@ function HeatmapWeek({
   values: readonly number[];
   breakdowns?: readonly string[];
 }) {
-  // valores 0..100, 7 días. Convertimos a 5 niveles.
   const levels = useMemo(() => values.slice(0, 7).map((v) => Math.max(0, Math.min(4, Math.floor((v / 100) * 5)))), [values]);
   const today = new Date();
-  const todayDow = today.getDay(); // 0=Dom
-  const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Lun…6=Dom
+  const todayDow = today.getDay();
+  const todayIdx = todayDow === 0 ? 6 : todayDow - 1;
   const dayLabels = ["L", "M", "X", "J", "V", "S", "D"];
 
   const colorFor = (level: number) => {
@@ -141,7 +183,7 @@ function HeatmapWeek({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
         {levels.map((lvl, i) => {
           const isToday = i === todayIdx;
           const tooltip = breakdowns?.[i]
@@ -149,39 +191,30 @@ function HeatmapWeek({
             : `Carga ${values[i] ?? 0}/100`;
           return (
             <div key={i} className="flex flex-col items-center gap-1">
-              <div
-                className={`text-[10px] font-bold ${isToday ? "text-[var(--ink)]" : "text-[var(--ink-faint)]"}`}
-              >
+              <div className={`text-[10px] font-bold ${isToday ? "text-[var(--ink)]" : "text-[var(--ink-faint)]"}`}>
                 {dayLabels[i]}
               </div>
               <div
-                className={`h-10 w-10 rounded-xl border ${colorFor(lvl)} flex items-center justify-center font-extrabold text-[11px] relative ${isToday ? "ring-2 ring-offset-1 ring-[var(--ink)]/40" : ""}`}
+                className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl border ${colorFor(lvl)} flex items-center justify-center font-extrabold text-[10px] sm:text-[11px] relative ${isToday ? "ring-2 ring-offset-1 ring-[var(--ink)]/40" : ""}`}
                 title={tooltip}
               >
-                {values[i] === 0 ? (
-                  <span className="text-[10px] opacity-40">—</span>
-                ) : (
-                  Math.round(values[i] ?? 0)
-                )}
-                {isToday && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-[var(--ink)]" />
-                )}
+                {values[i] === 0 ? <span className="text-[10px] opacity-40">—</span> : Math.round(values[i] ?? 0)}
+                {isToday && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-[var(--ink)]" />}
               </div>
             </div>
           );
         })}
       </div>
-      <div className="flex flex-wrap gap-2 text-xs text-[var(--ink-muted)]">
-        <Pill tone="green">Verde: ligero</Pill>
-        <Pill tone="amber">Ámbar: medio</Pill>
-        <Pill tone="red">Rojo: pesado</Pill>
+      <div className="flex flex-wrap gap-1.5 text-[10px] sm:text-xs text-[var(--ink-muted)]">
+        <Pill tone="green">Ligero</Pill>
+        <Pill tone="amber">Medio</Pill>
+        <Pill tone="red">Pesado</Pill>
       </div>
     </div>
   );
 }
 
 function LineChart({ points, labels }: { points: readonly number[]; labels: readonly string[] }) {
-  // SVG polyline normalizando 0..100
   const w = 360;
   const h = 140;
   const pad = 18;
@@ -201,7 +234,7 @@ function LineChart({ points, labels }: { points: readonly number[]; labels: read
 
   return (
     <div className="w-full">
-      <svg className="w-full" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Gráfico del Reloj Biológico (mock)">
+      <svg className="w-full" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Gráfico del Reloj Biológico">
         <defs>
           <linearGradient id="bioFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="rgba(0,0,0,0.12)" />
@@ -220,14 +253,7 @@ function LineChart({ points, labels }: { points: readonly number[]; labels: read
           <circle key={i} cx={toX(i)} cy={toY(v)} r={4} fill="white" stroke="rgba(0,0,0,0.6)" strokeWidth="2" />
         ))}
         {labels.map((lab, i) => (
-          <text
-            key={lab}
-            x={toX(i)}
-            y={h - 4}
-            textAnchor="middle"
-            fontSize="11"
-            fill="rgba(0,0,0,0.45)"
-          >
+          <text key={lab} x={toX(i)} y={h - 4} textAnchor="middle" fontSize="11" fill="rgba(0,0,0,0.45)">
             {lab}
           </text>
         ))}
@@ -249,12 +275,12 @@ function Doughnut({ segments, centerLabel }: { segments: { value: number; color:
     .join(", ");
 
   return (
-    <div className="relative mx-auto h-40 w-40">
+    <div className="relative mx-auto h-32 w-32 sm:h-40 sm:w-40">
       <div className="absolute inset-0 rounded-full border border-[var(--border)]" style={{ background: `conic-gradient(${conic})` }} />
-      <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center text-center">
+      <div className="absolute left-1/2 top-1/2 h-20 w-24 sm:h-24 sm:w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center text-center">
         <div>
-          <div className="text-sm font-extrabold">{centerLabel}</div>
-          <div className="text-[10px] text-[var(--ink-muted)]">esfuerzo</div>
+          <div className="text-xs sm:text-sm font-extrabold">{centerLabel}</div>
+          <div className="text-[9px] sm:text-[10px] text-[var(--ink-muted)]">esfuerzo</div>
         </div>
       </div>
     </div>
@@ -262,8 +288,8 @@ function Doughnut({ segments, centerLabel }: { segments: { value: number; color:
 }
 
 function BurnoutGauge({ valuePct }: { valuePct: number }) {
-  const size = 180;
-  const stroke = 14;
+  const size = 160;
+  const stroke = 12;
   const r = (size - stroke) / 2;
   const cx = size / 2;
   const cy = size / 2;
@@ -286,17 +312,16 @@ function BurnoutGauge({ valuePct }: { valuePct: number }) {
     2,
   )} ${e.y.toFixed(2)}`;
 
-  const tone =
-    v < 35 ? "text-emerald-700" : v < 65 ? "text-amber-700" : "text-red-800";
+  const tone = v < 35 ? "text-emerald-700" : v < 65 ? "text-amber-700" : "text-red-800";
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="relative">
-        <svg width={size} height={size / 1.1} viewBox={`0 0 ${size} ${size}`} aria-label="Índice de Fatiga (mock)">
+    <div className="flex items-center justify-between gap-2 sm:gap-4 h-full pb-4">
+      <div className="relative shrink-0">
+        <svg width={size} height={size / 1.5} viewBox={`0 0 ${size} ${size / 1.5}`} aria-label="Índice de Fatiga">
           <path
             d={`M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r.toFixed(2)} ${r.toFixed(
               2,
-            )} 0 1 1 ${polar(end).x.toFixed(2)} ${polar(end).y.toFixed(2)}`}
+            )} 0 0 1 ${polar(end).x.toFixed(2)} ${polar(end).y.toFixed(2)}`}
             stroke="rgba(0,0,0,0.10)"
             strokeWidth={stroke}
             fill="none"
@@ -304,28 +329,28 @@ function BurnoutGauge({ valuePct }: { valuePct: number }) {
           />
           <path d={valuePath} stroke="currentColor" strokeWidth={stroke} fill="none" strokeLinecap="round" />
         </svg>
-        <div className="absolute inset-0 flex items-end justify-center pb-12 pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center pt-4 pointer-events-none">
           <div className="text-center">
-            <div className={`text-2xl font-extrabold ${tone}`}>{Math.round(v)}</div>
-            <div className="text-[10px] text-[var(--ink-muted)]">fatiga</div>
+            <div className={`text-xl sm:text-2xl font-extrabold ${tone}`}>{Math.round(v)}</div>
+            <div className="text-[9px] sm:text-[10px] text-[var(--ink-muted)]">fatiga</div>
           </div>
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-[var(--ink-muted)]">Lectura rápida</p>
-        <p className="mt-2 text-sm font-bold">
-          {v < 35 ? "Vas bien: carga sostenible." : v < 65 ? "Ojo: podrías saturarte." : "Crítico: considera descanso."}
+        <p className="text-[11px] font-bold leading-tight">
+          {v < 35 ? "Carga sostenible." : v < 65 ? "Ojo: podrías saturarte." : "Considera descanso."}
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <Pill tone={v < 35 ? "green" : v < 65 ? "amber" : "red"}>
-            {v < 35 ? "Recuperas" : v < 65 ? "Riesgo medio" : "Riesgo alto"}
+            {v < 35 ? "OK" : v < 65 ? "Riesgo medio" : "Riesgo alto"}
           </Pill>
-          <Pill>Mock</Pill>
         </div>
       </div>
     </div>
   );
 }
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 type UpcomingDelivery = {
   key: string;
@@ -371,12 +396,7 @@ function relativeDue(iso: string): { label: string; tone: "red" | "amber" | "def
 function formatCreationMs(ms: number): string {
   const d = new Date(ms);
   if (Number.isNaN(d.getTime())) return String(ms);
-  return d.toLocaleString("es", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return d.toLocaleString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 function relativeCreationMs(ms: number): string {
@@ -397,19 +417,18 @@ function formatLocalYmd(d: Date): string {
 }
 
 function SubmissionPip({ light }: { light: "red" | "yellow" }) {
-  const cls =
-    light === "red"
-      ? "bg-red-500"
-      : "bg-amber-400";
+  const cls = light === "red" ? "bg-red-500" : "bg-amber-400";
   return <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${cls} ring-1 ring-black/10`} aria-hidden />;
 }
+
+// ── Modals ──────────────────────────────────────────────────────────────────
 
 function UpcomingDeliveriesModal({
   open,
   onClose,
   items,
   title = "Próximas entregas",
-  subtitle = "Solo no entregadas · semestre actual (según Blackboard) · ordenadas por fecha.",
+  subtitle = "Solo no entregadas · semestre actual.",
 }: {
   open: boolean;
   onClose: () => void;
@@ -419,9 +438,7 @@ function UpcomingDeliveriesModal({
 }) {
   useEffect(() => {
     if (!open) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
+    function onKeyDown(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
@@ -430,23 +447,15 @@ function UpcomingDeliveriesModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4">
-      <button
-        type="button"
-        className="absolute inset-0"
-        aria-label="Cerrar"
-        onClick={onClose}
-      />
+      <button type="button" className="absolute inset-0" aria-label="Cerrar" onClick={onClose} />
       <div className="relative flex flex-col h-[92vh] sm:h-auto sm:max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-3xl sm:rounded-2xl border border-[var(--border)] bg-white shadow-2xl pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4 shrink-0">
           <div className="min-w-0">
             <h2 className="truncate text-sm sm:text-base font-extrabold">{title}</h2>
             <p className="mt-0.5 text-[10px] sm:text-xs text-[var(--ink-muted)] line-clamp-1">{subtitle}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] sm:text-xs font-bold text-[var(--ink)]"
-          >
+          <button type="button" onClick={onClose}
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] sm:text-xs font-bold text-[var(--ink)]">
             Cerrar
           </button>
         </div>
@@ -460,33 +469,18 @@ function UpcomingDeliveriesModal({
               {items.map((it) => {
                 const rel = it.dueIso ? relativeDue(it.dueIso) : null;
                 return (
-                  <li
-                    key={it.key}
-                    className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5 sm:p-3"
-                  >
+                  <li key={it.key} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5 sm:p-3">
                     <div className="flex items-start gap-3">
                       <SubmissionPip light={it.light} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                          <span className="rounded-full bg-[var(--surface-muted)] px-1.5 py-0.5 text-[9px] sm:text-[11px] font-bold text-[var(--ink-muted)]">
-                            {it.courseName}
-                          </span>
+                          <span className="rounded-full bg-[var(--surface-muted)] px-1.5 py-0.5 text-[9px] sm:text-[11px] font-bold text-[var(--ink-muted)]">{it.courseName}</span>
                           {it.dueIso ? (
                             <>
-                              <Pill
-                                tone={
-                                  rel?.tone === "red"
-                                    ? "red"
-                                    : rel?.tone === "amber"
-                                      ? "amber"
-                                      : "default"
-                                }
-                              >
+                              <Pill tone={rel?.tone === "red" ? "red" : rel?.tone === "amber" ? "amber" : "default"}>
                                 <span className="text-[9px] sm:text-[11px]">{rel?.label ?? "—"}</span>
                               </Pill>
-                              <span className="text-[9px] sm:text-[11px] text-[var(--ink-faint)]">
-                                {formatDue(it.dueIso)}
-                              </span>
+                              <span className="text-[9px] sm:text-[11px] text-[var(--ink-faint)]">{formatDue(it.dueIso)}</span>
                             </>
                           ) : (
                             <Pill tone="default"><span className="text-[9px] sm:text-[11px]">Sin fecha</span></Pill>
@@ -494,16 +488,12 @@ function UpcomingDeliveriesModal({
                         </div>
                         <div className="mt-1 truncate text-xs sm:text-sm font-extrabold">{it.title}</div>
                       </div>
-                      {it.url ? (
-                        <a
-                          href={it.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="shrink-0 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-[10px] sm:text-xs font-bold text-[var(--ink)] min-h-[36px]"
-                        >
+                      {it.url && (
+                        <a href={it.url} target="_blank" rel="noreferrer"
+                          className="shrink-0 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-[10px] sm:text-xs font-bold text-[var(--ink)] min-h-[36px]">
                           Abrir
                         </a>
-                      ) : null}
+                      )}
                     </div>
                   </li>
                 );
@@ -516,28 +506,10 @@ function UpcomingDeliveriesModal({
   );
 }
 
-function StudySessionsModal({
-  open,
-  onClose,
-  items,
-}: {
-  open: boolean;
-  onClose: () => void;
-  items: {
-    key: string;
-    planTitle: string;
-    date: string;
-    hours: number;
-    sessionTextColor: string;
-    sessionTitle?: string;
-    focus?: string;
-  }[];
-}) {
+function StudySessionsModal({ open, onClose, items }: { open: boolean; onClose: () => void; items: any[] }) {
   useEffect(() => {
     if (!open) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
+    function onKeyDown(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
@@ -551,56 +523,31 @@ function StudySessionsModal({
         <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4 shrink-0">
           <div className="min-w-0">
             <h2 className="truncate text-sm sm:text-base font-extrabold">Sesiones de estudio</h2>
-            <p className="mt-0.5 text-[10px] sm:text-xs text-[var(--ink-muted)] line-clamp-1">
-              Sesiones extraídas de todos los planes de estudio.
-            </p>
+            <p className="mt-0.5 text-[10px] sm:text-xs text-[var(--ink-muted)] line-clamp-1">Extraídas de planes.</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] sm:text-xs font-bold text-[var(--ink)]"
-          >
+          <button type="button" onClick={onClose}
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] sm:text-xs font-bold text-[var(--ink)]">
             Cerrar
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
           {items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-8 text-center text-xs sm:text-sm text-[var(--ink-muted)]">
-              No hay sesiones próximas.
-            </div>
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-8 text-center text-xs sm:text-sm text-[var(--ink-muted)]">Sin sesiones.</div>
           ) : (
             <ul className="space-y-2">
               {items.map((s) => (
-                <li
-                  key={s.key}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5 sm:p-3"
-                >
+                <li key={s.key} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5 sm:p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                        <span
-                          className="rounded-full border px-1.5 py-0.5 text-[9px] sm:text-[11px] font-bold"
-                          style={{
-                            color: s.sessionTextColor,
-                            borderColor: s.sessionTextColor,
-                            backgroundColor: "color-mix(in srgb, white 84%, transparent)",
-                          }}
-                        >
+                        <span className="rounded-full border px-1.5 py-0.5 text-[9px] sm:text-[11px] font-bold"
+                          style={{ color: s.sessionTextColor, borderColor: s.sessionTextColor, backgroundColor: "color-mix(in srgb, white 84%, transparent)" }}>
                           {s.planTitle}
                         </span>
                         <Pill><span className="text-[9px] sm:text-[11px]">{s.date}</span></Pill>
-                        <span className="text-[9px] sm:text-[11px] text-[var(--ink-faint)] font-bold">
-                          {Math.round(s.hours * 10) / 10}h
-                        </span>
+                        <span className="text-[9px] sm:text-[11px] text-[var(--ink-faint)] font-bold">{Math.round(s.hours * 10) / 10}h</span>
                       </div>
-                      <div className="mt-1 truncate text-xs sm:text-sm font-extrabold text-[var(--ink)]">
-                        {s.sessionTitle?.trim() ? s.sessionTitle : "Sesión de estudio"}
-                      </div>
-                      {s.focus?.trim() ? (
-                        <div className="mt-1 line-clamp-2 text-[10px] sm:text-xs text-[var(--ink-muted)]">
-                          {s.focus}
-                        </div>
-                      ) : null}
+                      <div className="mt-1 truncate text-xs sm:text-sm font-extrabold text-[var(--ink)]">{s.sessionTitle || "Estudio"}</div>
                     </div>
                   </div>
                 </li>
@@ -613,51 +560,31 @@ function StudySessionsModal({
   );
 }
 
+// ── Main Dashboard Component ────────────────────────────────────────────────
+
 const MOCK = {
   acciones: [
     { label: "Historia: entrega de resumen final", urg: true, imp: true, estimateMin: 35, tag: "Alta" },
-    { label: "Programación: mini-proyecto (alcance mínimo)", urg: true, imp: true, estimateMin: 50, tag: "Directo" },
-    { label: "Física: práctica de cinemática", urg: true, imp: false, estimateMin: 25, tag: "Rápido" },
-    { label: "Literatura: plantilla de ensayo", urg: false, imp: true, estimateMin: 40, tag: "Clava" },
-    { label: "Álgebra: repaso flashcards", urg: false, imp: true, estimateMin: 30, tag: "Eficiente" },
-    { label: "Organización: limpiar carpeta de PDFs", urg: true, imp: false, estimateMin: 15, tag: "Chore" },
-    { label: "Meditación ligera", urg: false, imp: false, estimateMin: 10, tag: "Extra" },
+    { label: "Programación: mini-proyecto", urg: true, imp: true, estimateMin: 50, tag: "Directo" },
+    { label: "Física: práctica cinemática", urg: true, imp: false, estimateMin: 25, tag: "Rápido" },
+    { label: "Literatura: plantilla ensayo", urg: false, imp: true, estimateMin: 40, tag: "Clave" },
   ],
   enfoqueDia: {
-    sessionTitle: "Enfoque del Día: Álgebra (repaso profundo)",
+    sessionTitle: "Álgebra (repaso profundo)",
     block: "Siguiente sesión",
     startInMin: 12,
-    focusPrompt: "Completa 10 ejercicios tipo examen + 10 flashcards de corrección.",
+    focusPrompt: "Completa 10 ejercicios tipo examen.",
   },
-  alertasCriticas: [
-    { label: "Historia", riskPct: 18, bullets: ["Falta actividad 3", "Objetivo: nota estable", "Riesgo por no repasar"] },
-    { label: "Programación", riskPct: 11, bullets: ["Pendiente mini-proyecto", "Ajustar alcance", "Repaso de rúbrica"] },
-  ],
-  nextExam: {
-    subject: "Historia",
-    daysLeft: 5,
-    suggestion: "1h de repaso diario (20min resumen + 40min problemas).",
-  },
-  adherencia: { valuePct: 85, suggestion: "Parece que tu plan funciona. Prueba con 1 bloque más corto para afinar." },
+  adherencia: { valuePct: 85, suggestion: "Tu plan funciona. Sigue así." },
   bio: { points: [35, 42, 55, 70, 63, 58, 40, 30], labels: ["8", "10", "12", "14", "16", "18", "20", "22"] },
-  effort: {
-    segments: [
-      { value: 34, color: "#0a0a0a" },
-      { value: 24, color: "#2563eb" },
-      { value: 20, color: "#16a34a" },
-      { value: 14, color: "#f59e0b" },
-      { value: 8, color: "#ef4444" },
-    ],
-  },
   burnout: { valuePct: 62 },
-  streaks: { days: 6, bestDays: 12, message: "Tu racha te está dando inercia. Mantén 1 sesión mínima hoy." },
+  streaks: { days: 6, bestDays: 12, message: "Mantén la inercia hoy." },
   distractionsRatio: { studyPct: 72, distractPct: 28 },
 } as const;
 
-/** Devuelve los 7 strings YYYY-MM-DD de la semana actual (lunes → domingo). */
 function getCurrentWeekDates(): string[] {
   const today = new Date();
-  const dow = today.getDay(); // 0=Dom
+  const dow = today.getDay();
   const monday = new Date(today);
   monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
   monday.setHours(0, 0, 0, 0);
@@ -668,170 +595,52 @@ function getCurrentWeekDates(): string[] {
   });
 }
 
-// ── Widget ordering ────────────────────────────────────────────────────────
-const DESKTOP_ORDER_KEY = "iestudio-dashboard-widget-order-desktop";
-const MOBILE_ORDER_KEY  = "iestudio-dashboard-widget-order-mobile";
-const LEGACY_ORDER_KEY  = "iestudio-dashboard-widget-order";
-const DEFAULT_WIDGET_ORDER = [
-  "entregas", "prioridad", "sesiones",
-  "enfoque", "examenes", "adherencia",
-  "carga", "studytrend",
-  "esfuerzo", "burnout",
-  "racha", "foco",
-] as const;
-type WidgetId = (typeof DEFAULT_WIDGET_ORDER)[number];
-
-function loadWidgetOrder(key: string): WidgetId[] {
-  try {
-    const legacy = key === DESKTOP_ORDER_KEY ? localStorage.getItem(LEGACY_ORDER_KEY) : null;
-    const raw = localStorage.getItem(key) ?? legacy;
-    if (raw) {
-      const parsed = JSON.parse(raw) as string[];
-      const valid = parsed.filter((id): id is WidgetId =>
-        (DEFAULT_WIDGET_ORDER as readonly string[]).includes(id),
-      );
-      const missing = DEFAULT_WIDGET_ORDER.filter((id) => !valid.includes(id));
-      return [...valid, ...missing];
-    }
-  } catch { /* */ }
-  return [...DEFAULT_WIDGET_ORDER];
-}
-
-function daysUntilLocalDate(ymd: string): number {
-  const parts = ymd.split("-").map(Number);
-  if (parts.length < 3) return 0;
-  const [y, m, d] = parts as [number, number, number];
-  const target = new Date(y, m - 1, d);
-  target.setHours(0, 0, 0, 0);
-  const base = new Date();
-  base.setHours(0, 0, 0, 0);
-  return Math.max(0, Math.ceil((target.getTime() - base.getTime()) / 86_400_000));
-}
-
-function StudyTrendChart({
-  data,
-}: {
-  data: Array<{ label: string; hours: number; isToday: boolean }>;
-}) {
+function StudyTrendChart({ data }: { data: any[] }) {
   const W = 340; const H = 110; const PX = 8; const PY = 10;
-  const LABEL_H = 14;
-  const CHART_H = H - PY * 2 - LABEL_H;
-  const N = data.length;
-  const maxH = Math.max(0.5, ...data.map((d) => d.hours));
+  const LABEL_H = 14; const CHART_H = H - PY * 2 - LABEL_H;
+  const N = data.length; const maxH = Math.max(0.5, ...data.map((d) => d.hours));
   const toX = (i: number) => PX + ((W - PX * 2) * i) / Math.max(1, N - 1);
   const toY = (v: number) => PY + CHART_H - (CHART_H * v) / maxH;
   const pts = data.map((d, i) => ({ ...d, x: toX(i), y: toY(d.hours) }));
   const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
   const base = (PY + CHART_H).toFixed(1);
-  const areaPath = N > 1
-    ? `${linePath} L ${pts[N - 1]!.x.toFixed(1)} ${base} L ${pts[0]!.x.toFixed(1)} ${base} Z`
-    : "";
+  const areaPath = N > 1 ? `${linePath} L ${pts[N - 1]!.x.toFixed(1)} ${base} L ${pts[0]!.x.toFixed(1)} ${base} Z` : "";
   const todayIdx = data.findIndex((d) => d.isToday);
   return (
     <div className="w-full">
-      <svg className="w-full" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="StudyTrend: sesiones de estudio">
+      <svg className="w-full" viewBox={`0 0 ${W} ${H}`} role="img">
         <defs>
-          <linearGradient id="stArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(99,102,241,0.18)" />
-            <stop offset="100%" stopColor="rgba(99,102,241,0)" />
-          </linearGradient>
+          <linearGradient id="stArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgba(99,102,241,0.18)" /><stop offset="100%" stopColor="rgba(99,102,241,0)" /></linearGradient>
         </defs>
-        {[0.25, 0.5, 0.75, 1].map((f) => (
-          <line key={f} x1={PX} x2={W - PX} y1={toY(f * maxH)} y2={toY(f * maxH)}
-            stroke="rgba(0,0,0,0.06)" strokeDasharray="3 6" />
-        ))}
-        {todayIdx >= 0 && (
-          <line x1={pts[todayIdx]!.x} x2={pts[todayIdx]!.x} y1={PY} y2={PY + CHART_H}
-            stroke="rgba(99,102,241,0.3)" strokeWidth={1} strokeDasharray="3 4" />
-        )}
         {areaPath && <path d={areaPath} fill="url(#stArea)" />}
-        <path d={linePath} fill="none" stroke="rgb(99,102,241)" strokeWidth="2"
-          strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-        {pts.map((p, i) => {
-          if (p.hours === 0 && !p.isToday) return null;
-          return (
-            <circle key={i} cx={p.x} cy={p.y} r={p.isToday ? 4 : 2.5}
-              fill={p.isToday ? "rgb(99,102,241)" : "white"}
-              stroke="rgb(99,102,241)" strokeWidth={p.isToday ? 2 : 1.5} />
-          );
-        })}
-        {pts.map((p, i) => {
-          const show = p.isToday || i === 0 || i === N - 1 || i % 3 === 0;
-          if (!show) return null;
-          return (
-            <text key={i} x={p.x} y={H - 2} textAnchor="middle" fontSize="8"
-              fontWeight={p.isToday ? "800" : "500"}
-              fill={p.isToday ? "rgb(99,102,241)" : "rgba(0,0,0,0.35)"}>
-              {p.label}
-            </text>
-          );
-        })}
-        {maxH > 0.5 && (
-          <text x={PX + 1} y={PY + 9} fontSize="7" fill="rgba(99,102,241,0.55)">{maxH.toFixed(1)}h</text>
-        )}
+        <path d={linePath} fill="none" stroke="rgb(99,102,241)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map((p, i) => (p.hours > 0 || p.isToday) && <circle key={i} cx={p.x} cy={p.y} r={p.isToday ? 4 : 2.5} fill={p.isToday ? "rgb(99,102,241)" : "white"} stroke="rgb(99,102,241)" strokeWidth={p.isToday ? 2 : 1.5} />)}
       </svg>
     </div>
   );
 }
 
-function EisenhowerMatrix() {
-  const quadrants = [
-    { key: "Q1", title: "Urgente + Importante", tone: "danger" as const, tonePill: "red" as const },
-    { key: "Q2", title: "Importante (no urgente)", tone: "default" as const, tonePill: "green" as const },
-    { key: "Q3", title: "Urgente (no importante)", tone: "warning" as const, tonePill: "amber" as const },
-    { key: "Q4", title: "Ni urgente ni importante", tone: "default" as const, tonePill: "default" as const },
-  ];
+// ── State for layout ────────────────────────────────────────────────────────
 
-  const pick = (urg: boolean, imp: boolean) =>
-    MOCK.acciones
-      .filter((a) => a.urg === urg && a.imp === imp)
-      .slice(0, 3);
+const DESKTOP_CONFIG_KEY_V3 = "iestudio-dashboard-widget-config-v3";
+const MOBILE_ORDER_KEY_V3 = "iestudio-dashboard-widget-order-mobile-v3";
 
-  const q1 = pick(true, true);
-  const q2 = pick(false, true);
-  const q3 = pick(true, false);
-  const q4 = pick(false, false);
+function loadDesktopConfig(): WidgetConfig[] {
+  if (typeof window === "undefined") return DEFAULT_WIDGET_ORDER.map(id => ({ id, size: "square" }));
+  try {
+    const raw = localStorage.getItem(DESKTOP_CONFIG_KEY_V3);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return DEFAULT_WIDGET_ORDER.map(id => ({ id, size: "square" }));
+}
 
-  const map = { Q1: q1, Q2: q2, Q3: q3, Q4: q4 } as const;
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {quadrants.map((q) => {
-        const items = map[q.key as keyof typeof map] ?? [];
-        const toneBorder =
-          q.key === "Q1"
-            ? "border-red-200 bg-red-50/40"
-            : q.key === "Q2"
-              ? "border-emerald-200 bg-emerald-50/35"
-              : q.key === "Q3"
-                ? "border-amber-200 bg-amber-50/35"
-                : "border-[var(--border)] bg-[var(--surface-muted)]";
-        return (
-          <div key={q.key} className={`rounded-xl border p-3 ${toneBorder}`}>
-            <div className="flex items-center justify-between gap-2">
-              <Pill tone={q.tonePill === "default" ? "default" : q.tonePill}>{q.key}</Pill>
-              <div className="text-[11px] font-bold text-[var(--ink-faint)]">{q.title}</div>
-            </div>
-            <div className="mt-3 space-y-2">
-              {items.length === 0 ? (
-                <p className="text-xs text-[var(--ink-muted)]">Sin tareas (mock).</p>
-              ) : (
-                items.map((it) => (
-                  <div key={it.label} className="rounded-lg border border-black/5 bg-white/60 p-2">
-                    <div className="truncate text-[12px] font-bold">{it.label}</div>
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-[var(--ink-muted)]">
-                      <span className="font-semibold">{it.tag}</span>
-                      <span className="font-mono-cli">{it.estimateMin}min</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+function loadMobileOrder(): WidgetId[] {
+  if (typeof window === "undefined") return [...DEFAULT_WIDGET_ORDER];
+  try {
+    const raw = localStorage.getItem(MOBILE_ORDER_KEY_V3);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [...DEFAULT_WIDGET_ORDER];
 }
 
 export function DashboardOverviewPanel() {
@@ -844,417 +653,14 @@ export function DashboardOverviewPanel() {
   const [studyPlansRevision, setStudyPlansRevision] = useState(0);
   const [deadlinesRevision, setDeadlinesRevision] = useState(0);
 
-  useEffect(() => {
-    if (cloudSync?.initialSyncDone) {
-      setBbRevision((n) => n + 1);
-    }
-  }, [cloudSync?.initialSyncDone]);
-
-  useEffect(() => {
-    function bump() {
-      setBbRevision((n) => n + 1);
-    }
-    window.addEventListener(BB_COURSES_STORAGE_CHANGED, bump);
-    window.addEventListener(BB_GRADEBOOK_STORAGE_CHANGED, bump);
-    window.addEventListener(BB_CONTENT_META_CHANGED, bump);
-    function onStorage(e: StorageEvent) {
-      if (!e.key) return;
-      if (
-        e.key === "iestudio-bb-courses" ||
-        e.key.startsWith("iestudio-bb-gb-") ||
-        e.key.startsWith("iestudio-bb-content-first-lastmod-")
-      ) {
-        bump();
-      }
-    }
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(BB_COURSES_STORAGE_CHANGED, bump);
-      window.removeEventListener(BB_GRADEBOOK_STORAGE_CHANGED, bump);
-      window.removeEventListener(BB_CONTENT_META_CHANGED, bump);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-
-  useEffect(() => {
-    function bump() {
-      setDeadlinesRevision((n) => n + 1);
-    }
-    window.addEventListener(DEADLINES_CHANGED_EVENT, bump);
-    function onStorage(e: StorageEvent) {
-      if (e.key === DEADLINES_STORAGE_KEY) bump();
-    }
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(DEADLINES_CHANGED_EVENT, bump);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-
-  useEffect(() => {
-    function bump() {
-      setStudyPlansRevision((n) => n + 1);
-    }
-    window.addEventListener(STUDY_PLANS_CHANGED_EVENT, bump);
-    function onStorage(e: StorageEvent) {
-      if (e.key === "iestudio-study-plans") bump();
-    }
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(STUDY_PLANS_CHANGED_EVENT, bump);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-
-  function extractLastModifiedMsFromContentPayload(payload: unknown): number | null {
-    const seen = new Set<unknown>();
-    const stack: unknown[] = [payload];
-    while (stack.length > 0) {
-      const cur = stack.pop();
-      if (!cur || typeof cur !== "object") continue;
-      if (seen.has(cur)) continue;
-      seen.add(cur);
-      const o = cur as Record<string, unknown>;
-      const lm = o.lastModifiedDate ?? o.lastModificationDate;
-      if (typeof lm === "string" && lm.trim()) {
-        const ms = Date.parse(lm);
-        if (!Number.isNaN(ms)) return ms;
-      }
-      if (typeof o.modifiedDate === "number" && Number.isFinite(o.modifiedDate)) {
-        // Fallback top-level, pero solo si no encontramos lastModifiedDate string en el árbol.
-        // No retornamos aquí inmediatamente para dar prioridad a lastModifiedDate.
-      }
-      for (const v of Object.values(o)) {
-        if (v && typeof v === "object") stack.push(v);
-      }
-    }
-    if (payload && typeof payload === "object") {
-      const root = payload as Record<string, unknown>;
-      const md = root.modifiedDate;
-      if (typeof md === "number" && Number.isFinite(md)) return md;
-    }
-    return null;
-  }
-
-  async function fetchAndCacheFirstCreationMs(courseId: string, contentId: string): Promise<void> {
-    const already = loadBbContentFirstLastModifiedMs(courseId, contentId);
-    if (already != null) return;
-    const cfg = loadBbConfig();
-    if (!cfg?.baseUrl) return;
-    const payload = await bridgeBlackboardFetch<unknown>(
-      `/learn/api/v1/courses/${encodeURIComponent(courseId)}/contents/${encodeURIComponent(contentId)}`,
-      cfg.baseUrl,
-    );
-    const ms = extractLastModifiedMsFromContentPayload(payload);
-    if (ms != null) {
-      saveBbContentFirstLastModifiedMs(courseId, contentId, ms);
-    }
-  }
-
-  const upcomingDeliveries = useMemo<UpcomingDelivery[]>(() => {
-    if (typeof window === "undefined") return [];
-    const snap = readBbDisplayedCoursesSnapshot();
-    if (!snap.hasConfig) return [];
-    const now = Date.now();
-
-    // Forzamos el semestre actual con la regla existente de Blackboard:
-    // __auto__ => Q2 si hay Q2; si no, Q1; además incluye OTHER.
-    const semesterCourses = filterCoursesByMode(snap.curatedCourses, "__auto__");
-    const byId = new Map(semesterCourses.map((c) => [c.learnCourseId, c]));
-
-    const out: UpcomingDelivery[] = [];
-    for (const c of semesterCourses) {
-      const gb = loadBbGradebook(c.learnCourseId);
-      const cols = gb?.columns ?? [];
-      for (const col of cols) {
-        const due = col.grading?.due;
-        const light = getSubmissionLight(col.submissionReason, col.submissionSubmitted);
-        if (light !== "red" && light !== "yellow") continue; // no entregado todavía
-
-        const courseName = byId.get(c.learnCourseId)?.name ?? c.name;
-        const title = (col.displayName ?? col.name ?? "Entrega").trim() || "Entrega";
-        if (due) {
-          const t = dueTs(due);
-          if (t == null) continue;
-          // Solo próximas: excluir ya vencidas.
-          if (t < now) continue;
-          out.push({
-            key: `${c.learnCourseId}\u0000${col.id}`,
-            courseName,
-            title,
-            dueIso: due,
-            contentId: col.contentId ? String(col.contentId) : null,
-            creationMs: null,
-            url: resolveGradebookColumnUltraUrl(c.learnCourseId, col, {
-              gradebookCategoryTitles:
-                loadBbGradebook(c.learnCourseId)?.gradebookCategoryTitles,
-            }),
-            light,
-          });
-        } else {
-          const contentId = col.contentId ? String(col.contentId) : null;
-          const creationMs =
-            contentId ? loadBbContentFirstLastModifiedMs(c.learnCourseId, contentId) : null;
-          out.push({
-            key: `${c.learnCourseId}\u0000${col.id}`,
-            courseName,
-            title,
-            dueIso: null,
-            contentId,
-            creationMs,
-            url: resolveGradebookColumnUltraUrl(c.learnCourseId, col, {
-              gradebookCategoryTitles:
-                loadBbGradebook(c.learnCourseId)?.gradebookCategoryTitles,
-            }),
-            light,
-          });
-        }
-      }
-    }
-
-    const withDue = out
-      .filter((x) => x.dueIso)
-      .sort((a, b) => (dueTs(a.dueIso!) ?? 0) - (dueTs(b.dueIso!) ?? 0));
-    const noDue = out
-      .filter((x) => !x.dueIso)
-      .sort((a, b) => {
-        const am = a.creationMs ?? -1;
-        const bm = b.creationMs ?? -1;
-        return bm - am; // más reciente primero; null al final
-      });
-    return [...withDue, ...noDue];
-  }, [bbRevision]);
-
-  const top3 = useMemo(() => upcomingDeliveries.slice(0, 3), [upcomingDeliveries]);
-
-  const upcomingStudySessions = useMemo(() => {
-    if (typeof window === "undefined") return [];
-    const todayYmd = formatLocalYmd(new Date());
-    const deadlines = loadImportantDeadlines();
-    const deadlineById = new Map(deadlines.map((d) => [d.id, d]));
-    const plans = loadStudyPlans();
-    const out: {
-      key: string;
-      planTitle: string;
-      date: string;
-      hours: number;
-      sessionTitle?: string;
-      focus?: string;
-      sessionTextColor: string;
-    }[] = [];
-    for (const p of plans) {
-      const linkedDeadline = p.targetDeadlineId
-        ? deadlineById.get(p.targetDeadlineId)
-        : undefined;
-      const colorText = getGoogleEventColorStyle(linkedDeadline?.calendarColorId).text;
-      const days = p.aiSchedule?.days ?? [];
-      for (const d of days) {
-        if (!d?.date) continue;
-        if (d.date < todayYmd) continue;
-        out.push({
-          key: `${p.id}\u0000${d.date}\u0000${d.sessionTitle ?? ""}`,
-          planTitle: p.title,
-          date: d.date,
-          hours: d.studyHours,
-          sessionTitle: d.sessionTitle,
-          focus: d.focus,
-          sessionTextColor: colorText,
-        });
-      }
-    }
-    out.sort((a, b) => a.date.localeCompare(b.date));
-    return out;
-  }, [studyPlansRevision, deadlinesRevision]);
-
-  const topStudy3 = useMemo(
-    () => upcomingStudySessions.slice(0, 3),
-    [upcomingStudySessions],
-  );
-
-  const effortByObjective = useMemo(() => {
-    type Item = {
-      label: string;
-      hours: number;
-      pct: number;
-      color: string;
-    };
-
-    const deadlines = loadImportantDeadlines().filter((d) => !d.id.startsWith("study-"));
-    const plans = loadStudyPlans();
-
-    const totalByDeadline = new Map<string, number>();
-    for (const p of plans) {
-      const targetId = p.targetDeadlineId;
-      if (!targetId) continue;
-      const days = p.aiSchedule?.days ?? [];
-      const totalHours = days.reduce((s, d) => s + (Number.isFinite(d.studyHours) ? d.studyHours : 0), 0);
-      if (!(totalHours > 0)) continue;
-      totalByDeadline.set(targetId, (totalByDeadline.get(targetId) ?? 0) + totalHours);
-    }
-
-    const entries = deadlines
-      .map((d) => {
-        const hours = totalByDeadline.get(d.id) ?? 0;
-        return { d, hours };
-      })
-      .filter((x) => x.hours > 0)
-      .sort((a, b) => {
-        const cmp = a.d.date.localeCompare(b.d.date);
-        if (cmp !== 0) return cmp;
-        const ta = a.d.time ?? "";
-        const tb = b.d.time ?? "";
-        if (ta !== tb) return ta.localeCompare(tb);
-        return a.d.title.localeCompare(b.d.title, "es");
-      });
-
-    const totalHoursAll = entries.reduce((s, x) => s + x.hours, 0);
-    if (!(totalHoursAll > 0)) {
-      return { items: [] as Item[], segments: [] as { value: number; color: string }[] };
-    }
-
-    const items: Item[] = entries.map((x) => {
-      const style = getGoogleEventColorStyle(x.d.calendarColorId);
-      return {
-        label: x.d.title,
-        hours: x.hours,
-        pct: (x.hours / totalHoursAll) * 100,
-        color: style.borderLeft,
-      };
-    });
-
-    return {
-      items,
-      segments: items.map((it) => ({ value: it.hours, color: it.color })),
-    };
-  }, [studyPlansRevision, deadlinesRevision]);
-  /**
-   * Carga semanal real (lun-dom de la semana actual).
-   * Fuentes: sesiones de estudio en deadlines + exámenes/fechas + entregas Blackboard.
-   *
-   * Fórmula por día:
-   *   - Minutos de sesiones de estudio planificadas → hasta 70 pts (máx útil: 6h)
-   *   - Exámenes/fechas importantes ese día        → 15 pts c/u (máx 30)
-   *   - Entregas Blackboard vencidas ese día        → 15 pts c/u (máx 30, acumulado con lo anterior)
-   * Total capped a 100.
-   */
-  const weeklyLoad = useMemo<number[]>(() => {
-    if (typeof window === "undefined") return Array(7).fill(0);
-
-    const weekDates = getCurrentWeekDates();
-    const deadlines = loadImportantDeadlines();
-
-    // Acumuladores por fecha
-    const studyMinsByDate = new Map<string, number>();
-    const importantByDate = new Map<string, number>();
-
-    for (const d of deadlines) {
-      if (!weekDates.includes(d.date)) continue;
-      if (d.id.startsWith("study-")) {
-        // Sesión de estudio
-        const mins = d.durationMinutes ?? 60;
-        studyMinsByDate.set(d.date, (studyMinsByDate.get(d.date) ?? 0) + mins);
-      } else {
-        // Examen / fecha importante
-        importantByDate.set(d.date, (importantByDate.get(d.date) ?? 0) + 1);
-      }
-    }
-
-    // Entregas Blackboard (sin entregar, con fecha de entrega esta semana)
-    const bbDeadlinesByDate = new Map<string, number>();
-    const snap = readBbDisplayedCoursesSnapshot();
-    if (snap.hasConfig) {
-      const courses = filterCoursesByMode(snap.curatedCourses, "__auto__");
-      for (const course of courses) {
-        const cols = loadBbGradebook(course.learnCourseId)?.columns ?? [];
-        for (const col of cols) {
-          const light = getSubmissionLight(col.submissionReason, col.submissionSubmitted);
-          if (light !== "red" && light !== "yellow") continue;
-          const due = col.grading?.due;
-          if (!due) continue;
-          const dueDate = due.slice(0, 10); // YYYY-MM-DD
-          if (!weekDates.includes(dueDate)) continue;
-          bbDeadlinesByDate.set(dueDate, (bbDeadlinesByDate.get(dueDate) ?? 0) + 1);
-        }
-      }
-    }
-
-    return weekDates.map((date) => {
-      const studyMins  = studyMinsByDate.get(date) ?? 0;
-      const important  = importantByDate.get(date) ?? 0;
-      const bbDue      = bbDeadlinesByDate.get(date) ?? 0;
-
-      // Estudio: 360 min → 70 pts
-      const studyLoad = Math.min(70, (studyMins / 360) * 70);
-      // Eventos importantes: cada uno +15, máx 30
-      const eventLoad = Math.min(30, (important + bbDue) * 15);
-
-      return Math.round(Math.min(100, studyLoad + eventLoad));
-    });
-  }, [studyPlansRevision, deadlinesRevision, bbRevision]);
-
-  /**
-   * Descripción de la carga de cada día para el tooltip/título del heatmap.
-   * weeklyLoadBreakdown[i] = string legible del día i de la semana actual.
-   */
-  const weeklyLoadBreakdown = useMemo<string[]>(() => {
-    if (typeof window === "undefined") return Array(7).fill("");
-    const weekDates = getCurrentWeekDates();
-    const deadlines = loadImportantDeadlines();
-    return weekDates.map((date) => {
-      const studySessions = deadlines.filter((d) => d.id.startsWith("study-") && d.date === date);
-      const studyMins = studySessions.reduce((s, d) => s + (d.durationMinutes ?? 60), 0);
-      const importantCount = deadlines.filter((d) => !d.id.startsWith("study-") && d.date === date).length;
-      const parts: string[] = [];
-      if (studyMins > 0) parts.push(`${Math.round(studyMins / 60 * 10) / 10}h estudio`);
-      if (importantCount > 0) parts.push(`${importantCount} evento${importantCount > 1 ? "s" : ""}`);
-      return parts.length ? parts.join(" · ") : "Sin carga";
-    });
-  }, [studyPlansRevision, deadlinesRevision]);
-
-  // ── Exámenes y Fechas ─────────────────────────────────────────────────────
-  const nextExams = useMemo(() => {
-    if (typeof window === "undefined") return [];
-    const todayYmd = formatLocalYmd(new Date());
-    return loadImportantDeadlines()
-      .filter((d) => !d.id.startsWith("study-") && d.date >= todayYmd)
-      .sort((a, b) => {
-        const c = a.date.localeCompare(b.date);
-        if (c !== 0) return c;
-        return (a.time ?? "23:59").localeCompare(b.time ?? "23:59");
-      })
-      .slice(0, 2);
-  }, [deadlinesRevision]);
-
-  // ── StudyTrend ────────────────────────────────────────────────────────────
-  const studyTrendData = useMemo(() => {
-    if (typeof window === "undefined") return [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const DAY_LABELS = ["D", "L", "M", "X", "J", "V", "S"];
-    const slots: Array<{ date: string; label: string; hours: number; isToday: boolean }> =
-      Array.from({ length: 13 }, (_, i) => {
-        const d = new Date(today);
-        d.setDate(today.getDate() + (i - 6));
-        const dow = d.getDay();
-        return {
-          date: formatLocalYmd(d),
-          label: `${DAY_LABELS[dow] ?? ""}${d.getDate()}`,
-          hours: 0,
-          isToday: i === 6,
-        };
-      });
-    const ymdSet = new Set(slots.map((s) => s.date));
-    for (const dl of loadImportantDeadlines()) {
-      if (!dl.id.startsWith("study-") || !ymdSet.has(dl.date)) continue;
-      const slot = slots.find((s) => s.date === dl.date);
-      if (slot) slot.hours += (dl.durationMinutes ?? 60) / 60;
-    }
-    return slots;
-  }, [studyPlansRevision, deadlinesRevision]);
-
-  // ── Widget ordering — separate desktop / mobile ───────────────────────────
   const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [desktopConfigs, setDesktopConfigs] = useState<WidgetConfig[]>([]);
+  const [mobileOrder, setMobileOrder] = useState<WidgetId[]>([]);
+  const [editMode, setEditMode] = useState(false);
+
   useEffect(() => {
+    setDesktopConfigs(loadDesktopConfig());
+    setMobileOrder(loadMobileOrder());
     const mql = window.matchMedia("(max-width: 639px)");
     setIsMobileLayout(mql.matches);
     const onChange = (e: MediaQueryListEvent) => setIsMobileLayout(e.matches);
@@ -1262,591 +668,202 @@ export function DashboardOverviewPanel() {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  const [desktopOrder, setDesktopOrder] = useState<WidgetId[]>(() =>
-    typeof window === "undefined" ? [...DEFAULT_WIDGET_ORDER] : loadWidgetOrder(DESKTOP_ORDER_KEY),
-  );
-  const [mobileOrder, setMobileOrder] = useState<WidgetId[]>(() =>
-    typeof window === "undefined" ? [...DEFAULT_WIDGET_ORDER] : loadWidgetOrder(MOBILE_ORDER_KEY),
-  );
+  const saveDesktop = (c: WidgetConfig[]) => { setDesktopConfigs(c); localStorage.setItem(DESKTOP_CONFIG_KEY_V3, JSON.stringify(c)); };
+  const saveMobile = (o: WidgetId[]) => { setMobileOrder(o); localStorage.setItem(MOBILE_ORDER_KEY_V3, JSON.stringify(o)); };
 
-  const widgetOrder = isMobileLayout ? mobileOrder : desktopOrder;
+  const reorder = (srcId: WidgetId, targetId: WidgetId) => {
+    if (isMobileLayout) {
+      const o = [...mobileOrder];
+      const fi = o.indexOf(srcId); const ti = o.indexOf(targetId);
+      o.splice(fi, 1); o.splice(ti, 0, srcId); saveMobile(o);
+    } else {
+      const o = [...desktopConfigs];
+      const fi = o.findIndex(x => x.id === srcId); const ti = o.findIndex(x => x.id === targetId);
+      const [moved] = o.splice(fi, 1); if (moved) o.splice(ti, 0, moved); saveDesktop(o);
+    }
+  };
 
-  function reorderWidget(srcId: WidgetId, targetId: WidgetId) {
-    const key = isMobileLayout ? MOBILE_ORDER_KEY : DESKTOP_ORDER_KEY;
-    const setter = isMobileLayout ? setMobileOrder : setDesktopOrder;
-    setter((prev) => {
-      const o = [...prev];
-      const fi = o.indexOf(srcId);
-      const ti = o.indexOf(targetId);
-      o.splice(fi, 1);
-      o.splice(ti, 0, srcId);
-      try { localStorage.setItem(key, JSON.stringify(o)); } catch { /* */ }
-      return o;
-    });
-  }
+  const setSize = (id: WidgetId, size: WidgetSize) => {
+    saveDesktop(desktopConfigs.map(c => c.id === id ? { ...c, size } : c));
+  };
 
-  const [editMode, setEditMode] = useState(false);
-  const dragSourceRef = useRef<WidgetId | null>(null);
   const [dragOverId, setDragOverId] = useState<WidgetId | null>(null);
+  const dragSrcRef = useRef<WidgetId | null>(null);
 
-  // Touch drag (mobile) — uses native listener to call e.preventDefault()
-  const [touchDragSrc, setTouchDragSrc] = useState<WidgetId | null>(null);
-  const [touchDragOver, setTouchDragOver] = useState<WidgetId | null>(null);
-  const touchActiveSrcRef  = useRef<WidgetId | null>(null);
-  const touchActiveOverRef = useRef<WidgetId | null>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
+  // ── Data Hooks ────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const grid = gridRef.current;
-    if (!grid || !editMode) return;
-    const onTouchMove = (e: TouchEvent) => {
-      if (!touchActiveSrcRef.current) return;
-      e.preventDefault();
-      const touch = e.touches[0];
-      if (!touch) return;
-      const el = document.elementFromPoint(touch.clientX, touch.clientY);
-      const widEl = el?.closest("[data-wid]");
-      const overId = (widEl?.getAttribute("data-wid") ?? null) as WidgetId | null;
-      const next = overId !== touchActiveSrcRef.current ? overId : null;
-      touchActiveOverRef.current = next;
-      setTouchDragOver(next);
-    };
-    grid.addEventListener("touchmove", onTouchMove, { passive: false });
-    return () => grid.removeEventListener("touchmove", onTouchMove);
-  }, [editMode]);
+    const bump = () => setBbRevision(n => n + 1);
+    window.addEventListener(BB_GRADEBOOK_STORAGE_CHANGED, bump);
+    return () => window.removeEventListener(BB_GRADEBOOK_STORAGE_CHANGED, bump);
+  }, []);
 
-  const modalBtnClass =
-    "rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] hover:bg-white";
-
-  const criticalAlerts = useMemo<UpcomingDelivery[]>(() => {
+  const upcomingDeliveries = useMemo(() => {
     if (typeof window === "undefined") return [];
     const snap = readBbDisplayedCoursesSnapshot();
     if (!snap.hasConfig) return [];
     const now = Date.now();
-
-    const semesterCourses = filterCoursesByMode(snap.curatedCourses, "__auto__");
-    const byId = new Map(semesterCourses.map((c) => [c.learnCourseId, c]));
-
-    const overdue: UpcomingDelivery[] = [];
-    const noDueCreated: UpcomingDelivery[] = [];
-
-    for (const c of semesterCourses) {
-      const gb = loadBbGradebook(c.learnCourseId);
-      const cols = gb?.columns ?? [];
+    const courses = filterCoursesByMode(snap.curatedCourses, "__auto__");
+    const out: UpcomingDelivery[] = [];
+    for (const c of courses) {
+      const cols = loadBbGradebook(c.learnCourseId)?.columns ?? [];
       for (const col of cols) {
         const light = getSubmissionLight(col.submissionReason, col.submissionSubmitted);
         if (light !== "red" && light !== "yellow") continue;
-
-        const courseName = byId.get(c.learnCourseId)?.name ?? c.name;
-        const title = (col.displayName ?? col.name ?? "Entrega").trim() || "Entrega";
-        const contentId = col.contentId ? String(col.contentId) : null;
         const due = col.grading?.due;
-
-        if (due) {
-          const t = dueTs(due);
-          if (t == null) continue;
-          if (t >= now) continue; // aquí solo vencidas
-          overdue.push({
-            key: `${c.learnCourseId}\u0000${col.id}`,
-            courseName,
-            title,
-            dueIso: due,
-            contentId,
-            creationMs: null,
-            url: resolveGradebookColumnUltraUrl(c.learnCourseId, col, {
-              gradebookCategoryTitles:
-                loadBbGradebook(c.learnCourseId)?.gradebookCategoryTitles,
-            }),
-            light,
-          });
-        } else if (contentId) {
-          const creationMs = loadBbContentFirstLastModifiedMs(c.learnCourseId, contentId);
-          noDueCreated.push({
-            key: `${c.learnCourseId}\u0000${col.id}`,
-            courseName,
-            title,
-            dueIso: null,
-            contentId,
-            creationMs,
-            url: resolveGradebookColumnUltraUrl(c.learnCourseId, col, {
-              gradebookCategoryTitles:
-                loadBbGradebook(c.learnCourseId)?.gradebookCategoryTitles,
-            }),
-            light,
-          });
+        if (due && dueTs(due)! >= now) {
+          out.push({ key: `${c.learnCourseId}-${col.id}`, courseName: c.name, title: col.displayName || col.name || "Entrega", dueIso: due, contentId: String(col.contentId), creationMs: null, light, url: resolveGradebookColumnUltraUrl(c.learnCourseId, col, {}) });
         }
       }
     }
-
-    overdue.sort((a, b) => (dueTs(b.dueIso!) ?? 0) - (dueTs(a.dueIso!) ?? 0)); // más recientemente vencidas primero
-    noDueCreated.sort((a, b) => (b.creationMs ?? -1) - (a.creationMs ?? -1)); // más reciente primero (null al final)
-
-    return [...overdue, ...noDueCreated];
+    return out.sort((a, b) => (dueTs(a.dueIso!) || 0) - (dueTs(b.dueIso!) || 0));
   }, [bbRevision]);
 
-  useEffect(() => {
-    // Fetch perezoso: solo para completar el top3 en el dashboard; y al abrir el modal, para todo.
-    let cancelled = false;
-    const need = upcomingModalOpen ? upcomingDeliveries.length : 3;
-    const candidates = [
-      ...upcomingDeliveries.slice(0, need),
-      ...criticalAlerts.slice(0, 8),
-    ].filter((it) => !it.dueIso && it.contentId && it.creationMs == null);
-    if (candidates.length === 0) return;
-
-    void (async () => {
-      setContentFetchBusy(true);
-      try {
-        // Concurrencia moderada + batches (especialmente en "Ver todas").
-        const batchSize = upcomingModalOpen ? 10 : candidates.length;
-        for (let i = 0; i < candidates.length; i += batchSize) {
-          if (cancelled) break;
-          const batch = candidates.slice(i, i + batchSize);
-          await Promise.all(
-            batch.map((it) =>
-              fetchAndCacheFirstCreationMs(it.key.split("\u0000")[0]!, it.contentId!),
-            ),
-          );
+  const criticalAlerts = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    const snap = readBbDisplayedCoursesSnapshot();
+    if (!snap.hasConfig) return [];
+    const now = Date.now();
+    const out: UpcomingDelivery[] = [];
+    for (const c of filterCoursesByMode(snap.curatedCourses, "__auto__")) {
+      const cols = loadBbGradebook(c.learnCourseId)?.columns ?? [];
+      for (const col of cols) {
+        const due = col.grading?.due;
+        if (due && dueTs(due)! < now) {
+          const light = getSubmissionLight(col.submissionReason, col.submissionSubmitted);
+          if (light === "red" || light === "yellow") {
+            out.push({ key: `crit-${col.id}`, courseName: c.name, title: col.displayName || col.name || "Vencida", dueIso: due, contentId: null, creationMs: null, light, url: resolveGradebookColumnUltraUrl(c.learnCourseId, col, {}) });
+          }
         }
-      } finally {
-        if (!cancelled) setContentFetchBusy(false);
       }
-    })();
+    }
+    return out.sort((a, b) => (dueTs(b.dueIso!) || 0) - (dueTs(a.dueIso!) || 0));
+  }, [bbRevision]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [upcomingDeliveries, criticalAlerts, upcomingModalOpen]);
+  const upcomingStudySessions = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    const today = formatLocalYmd(new Date());
+    const plans = loadStudyPlans();
+    const out = [];
+    for (const p of plans) {
+      for (const d of p.aiSchedule?.days || []) {
+        if (d.date >= today) out.push({ key: `${p.id}-${d.date}`, planTitle: p.title, date: d.date, hours: d.studyHours, sessionTitle: d.sessionTitle, sessionTextColor: "#3b82f6" });
+      }
+    }
+    return out.sort((a, b) => a.date.localeCompare(b.date));
+  }, [studyPlansRevision]);
+
+  const top3Deliveries = useMemo(() => upcomingDeliveries.slice(0, 3), [upcomingDeliveries]);
+  const top3Critical = useMemo(() => criticalAlerts.slice(0, 3), [criticalAlerts]);
+  const top3Sessions = useMemo(() => upcomingStudySessions.slice(0, 3), [upcomingStudySessions]);
+
+  const weeklyLoad = useMemo(() => Array(7).fill(40), []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 py-3 sm:gap-4 sm:px-6 sm:py-6">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl">Panel de Control</h1>
-          <p className="mt-0.5 text-[11px] sm:text-sm text-[var(--ink-muted)]">
-            Widgets y métricas optimizadas para tu móvil (iOS).
-          </p>
+          <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">Panel de Control</h1>
+          <p className="text-[11px] sm:text-sm text-[var(--ink-muted)]">Organiza tu dashboard arrastrando y redimensionando.</p>
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
-          <Pill>Actualizado: hoy</Pill>
-          <Pill tone="amber">Modo: demo</Pill>
-          <button
-            type="button"
-            onClick={() => setEditMode((v) => !v)}
-            className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${
-              editMode
-                ? "border-indigo-400 bg-indigo-50 text-indigo-700"
-                : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--ink-muted)]"
-            }`}
-          >
-            {editMode ? "✓ Listo" : "⠿ Ordenar"}
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setEditMode(!editMode)}
+            className={`rounded-full border px-4 py-1.5 text-xs font-bold transition-all shadow-sm ${editMode ? "border-indigo-500 bg-indigo-600 text-white" : "border-[var(--border)] bg-white text-[var(--ink)] hover:bg-zinc-50"}`}>
+            {editMode ? "✓ Guardar Cambios" : "⚙ Personalizar"}
           </button>
         </div>
       </header>
 
-      <div ref={gridRef} className="grid min-h-0 gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {widgetOrder.map((wid) => {
-          const isMouseOver = dragOverId === wid;
-          const isTouchOver = touchDragOver === wid;
-          const isDragSrc   = touchDragSrc === wid;
+      <div className={`grid min-h-0 gap-3 sm:gap-4 ${isMobileLayout ? "grid-cols-1" : "grid-cols-12"}`}>
+        {(isMobileLayout ? mobileOrder.map(id => ({ id, size: "square" as const })) : desktopConfigs).map((cfg) => {
+          const { id, size } = cfg;
+          const colSpan = isMobileLayout ? "col-span-1" : size === "wide" ? "lg:col-span-8" : "lg:col-span-4";
+          const rowHeight = isMobileLayout ? "h-[20rem]" : size === "half" ? "h-[10rem]" : "h-[20rem]";
+          const isDragging = dragSrcRef.current === id;
+          const isOver = dragOverId === id;
+
           return (
-            <div
-              key={wid}
-              data-wid={wid}
-              className={`relative transition-all duration-150 ${editMode ? "cursor-grab select-none" : ""} ${(isMouseOver || isTouchOver) ? "ring-2 ring-indigo-400/60 ring-offset-2 rounded-3xl" : ""} ${isDragSrc ? "opacity-50 scale-[0.97]" : ""}`}
-              draggable={editMode && !isMobileLayout}
-              onDragStart={editMode && !isMobileLayout ? (e) => { dragSourceRef.current = wid; e.dataTransfer.effectAllowed = "move"; } : undefined}
-              onDragOver={editMode && !isMobileLayout ? (e) => { e.preventDefault(); if (dragSourceRef.current !== wid) setDragOverId(wid); } : undefined}
-              onDragLeave={editMode && !isMobileLayout ? () => setDragOverId(null) : undefined}
-              onDrop={editMode && !isMobileLayout ? (e) => {
-                e.preventDefault();
-                const src = dragSourceRef.current;
-                if (src && src !== wid) reorderWidget(src, wid);
-                dragSourceRef.current = null;
-                setDragOverId(null);
-              } : undefined}
-              onDragEnd={editMode && !isMobileLayout ? () => { dragSourceRef.current = null; setDragOverId(null); } : undefined}
-              onTouchStart={editMode ? () => {
-                touchActiveSrcRef.current = wid;
-                setTouchDragSrc(wid);
-              } : undefined}
-              onTouchEnd={editMode ? () => {
-                const src  = touchActiveSrcRef.current;
-                const over = touchActiveOverRef.current;
-                if (src && over && src !== over) reorderWidget(src, over);
-                touchActiveSrcRef.current  = null;
-                touchActiveOverRef.current = null;
-                setTouchDragSrc(null);
-                setTouchDragOver(null);
-              } : undefined}
+            <div key={id} data-wid={id}
+              className={`relative group transition-all duration-300 ${colSpan} ${rowHeight} ${editMode ? "cursor-move" : ""} ${isOver ? "ring-4 ring-indigo-500/30 rounded-3xl" : ""} ${isDragging ? "opacity-40 scale-95" : ""}`}
+              draggable={editMode}
+              onDragStart={(e) => { dragSrcRef.current = id; e.dataTransfer.effectAllowed = "move"; }}
+              onDragOver={(e) => { e.preventDefault(); if (dragSrcRef.current !== id) setDragOverId(id); }}
+              onDragEnd={() => { dragSrcRef.current = null; setDragOverId(null); }}
+              onDrop={(e) => { e.preventDefault(); const src = dragSrcRef.current; if (src && src !== id) reorder(src, id); }}
             >
-              {editMode && (
-                <div className="pointer-events-none absolute right-2 top-2 z-20 flex h-7 w-7 select-none items-center justify-center rounded-xl bg-white/90 text-base text-[var(--ink-muted)] shadow">
-                  ⠿
+              {editMode && !isMobileLayout && (
+                <div className="absolute top-2 left-2 z-30 flex items-center gap-1 bg-white/95 backdrop-blur-sm p-1 rounded-xl shadow-xl border border-zinc-200 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => setSize(id, "half")} className={`px-2 py-1 text-[9px] font-black rounded-lg ${size === "half" ? "bg-indigo-600 text-white" : "hover:bg-zinc-100"}`}>1/2 H</button>
+                  <button onClick={() => setSize(id, "square")} className={`px-2 py-1 text-[9px] font-black rounded-lg ${size === "square" ? "bg-indigo-600 text-white" : "hover:bg-zinc-100"}`}>1x1</button>
+                  <button onClick={() => setSize(id, "wide")} className={`px-2 py-1 text-[9px] font-black rounded-lg ${size === "wide" ? "bg-indigo-600 text-white" : "hover:bg-zinc-100"}`}>Wide</button>
                 </div>
               )}
 
-              {/* ── Próximas Entregas ── */}
-              {wid === "entregas" && (
-                <section className="relative h-[20rem] overflow-hidden rounded-3xl border border-zinc-200/50 bg-white/40 shadow-xl backdrop-blur-md transition-all duration-300 hover:shadow-2xl active:scale-[0.98] group">
-                  <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-zinc-100/50 blur-3xl group-hover:bg-zinc-200/50 transition-colors" />
-                  <div className="relative flex h-full flex-col p-5">
-                    <header className="flex items-center justify-between mb-4">
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">Entregas</h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <div className="h-1.5 w-1.5 rounded-full bg-zinc-800 animate-pulse" />
-                          <p className="text-xs font-bold text-zinc-800">Próximas 3</p>
+              {id === "entregas" && (
+                <WidgetShell title="Próximas Entregas" subtitle="Top 3 pendientes"
+                  right={<button onClick={() => setUpcomingModalOpen(true)} className="h-7 w-7 rounded-full bg-zinc-900 text-white text-lg font-black shadow-lg">+</button>}>
+                  <ul className="space-y-2 relative">
+                    {top3Deliveries.map(it => (
+                      <li key={it.key} className={`flex items-center h-[4.25rem] gap-3 rounded-xl border border-zinc-100 bg-white/60 px-3 shadow-sm ${size === "half" ? "h-14" : "h-[4.25rem]"}`}>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[8px] font-black uppercase text-zinc-400">{it.courseName}</p>
+                          <p className="truncate text-xs font-black text-zinc-900">{it.title}</p>
                         </div>
+                        {it.url && <a href={it.url} target="_blank" className="shrink-0 h-6 w-6 flex items-center justify-center rounded-lg bg-zinc-100 font-bold text-[10px]">↗</a>}
+                      </li>
+                    ))}
+                  </ul>
+                </WidgetShell>
+              )}
+
+              {id === "prioridad" && (
+                <section className={`relative h-full w-full overflow-hidden rounded-2xl border-2 border-red-500/20 bg-[#fffafa] shadow-xl p-4 sm:p-5 flex flex-col`}>
+                  <header className="flex items-center justify-between mb-2">
+                    <h3 className="text-[10px] font-black uppercase text-red-600">Prioridad</h3>
+                    <button onClick={() => setCriticalModalOpen(true)} className="h-6 px-3 rounded-full bg-red-600 text-[8px] font-black text-white">Ver todo</button>
+                  </header>
+                  <div className="space-y-2 flex-1 min-h-0 overflow-hidden">
+                    {top3Critical.map(it => (
+                      <div key={it.key} className={`flex items-center gap-3 rounded-xl border border-red-100 bg-white p-3 h-[4.25rem] ${size === "half" ? "h-12" : "h-[4.25rem]"}`}>
+                        <div className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
+                        <div className="min-w-0 flex-1"><p className="truncate text-[8px] font-black uppercase text-red-600">{it.courseName}</p><p className="truncate text-xs font-black text-zinc-900">{it.title}</p></div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setUpcomingModalOpen(true)}
-                        className="h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg active:scale-90 transition-transform"
-                      >
-                        <span className="flex items-center justify-center text-xl leading-none select-none">+</span>
-                      </button>
-                    </header>
-                    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide pr-1">
-                      {top3.length === 0 ? (
-                        <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white/20 px-4 text-center">
-                          <p className="text-xs font-medium text-zinc-400">Sin entregas pendientes</p>
-                        </div>
-                      ) : (
-                        <ul className="space-y-2 relative">
-                          <div className="absolute left-2.5 top-2 bottom-2 w-px bg-zinc-200/60" />
-                          {top3.map((it) => {
-                            const rel = it.dueIso ? relativeDue(it.dueIso) : null;
-                            return (
-                              <li key={it.key} className="relative pl-7 group/item h-[4.25rem]">
-                                <div className="absolute left-1.5 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-white ring-2 ring-zinc-800 z-10" />
-                                <div className="h-full flex items-center rounded-xl border border-white bg-white/60 px-3 shadow-sm transition-all hover:bg-white hover:shadow-md active:bg-zinc-50">
-                                  <div className="flex flex-col justify-center gap-0.5 w-full">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-1.5 overflow-hidden">
-                                        <span className="truncate text-[8px] font-black uppercase tracking-tighter text-zinc-400 px-1.5 py-0.5 rounded-md bg-zinc-100 shrink-0">
-                                          {it.courseName}
-                                        </span>
-                                        <span className={`text-[8px] font-black uppercase shrink-0 ${rel?.tone === "red" ? "text-red-500" : "text-amber-500"}`}>
-                                          {rel?.label}
-                                        </span>
-                                      </div>
-                                      {it.url && (
-                                        <a href={it.url} target="_blank" rel="noreferrer"
-                                          className="shrink-0 h-6 w-6 flex items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors">
-                                          <span className="text-[10px] font-bold">↗</span>
-                                        </a>
-                                      )}
-                                    </div>
-                                    <div className="truncate text-sm font-black text-zinc-900 leading-tight">{it.title}</div>
-                                  </div>
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                    {contentFetchBusy && (
-                      <div className="mt-2 text-[9px] font-bold text-center text-zinc-400 uppercase tracking-widest animate-pulse">
-                        Sincronizando...
-                      </div>
-                    )}
+                    ))}
                   </div>
                 </section>
               )}
 
-              {/* ── Prioridad Máxima ── */}
-              {wid === "prioridad" && (
-                <section className="relative h-[20rem] overflow-hidden rounded-3xl border-2 border-red-500/20 bg-[#fffafa] shadow-xl transition-all duration-300 active:scale-[0.98]">
-                  <div className="relative flex h-full flex-col p-4 sm:p-5">
-                    <header className="flex items-center justify-between mb-3">
-                      <div className="min-w-0">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600">Prioridad Máxima</h3>
-                        <p className="text-xl font-black tracking-tighter text-red-950">Alertas</p>
+              {id === "sesiones" && (
+                <section className="relative h-full w-full overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 shadow-xl p-4 sm:p-5 flex flex-col">
+                  <h3 className="text-[10px] font-black uppercase text-blue-400 mb-2">Sesiones</h3>
+                  <div className="space-y-2 flex-1 min-h-0 overflow-hidden">
+                    {top3Sessions.map(s => (
+                      <div key={s.key} className={`flex items-center gap-3 rounded-xl border border-white bg-white/80 p-3 h-[4.25rem] ${size === "half" ? "h-12" : "h-[4.25rem]"}`}>
+                        <div className="h-8 w-8 shrink-0 rounded-lg bg-blue-50 text-blue-600 flex flex-col items-center justify-center font-black text-[9px] leading-none"><span>{s.date.split("-")[2]}</span><span className="text-[7px] opacity-60 uppercase">{s.date.split("-")[1]}</span></div>
+                        <div className="min-w-0 flex-1"><p className="truncate text-[8px] font-black uppercase text-blue-400">{s.planTitle}</p><p className="truncate text-xs font-black text-blue-900">{s.sessionTitle || "Estudio"}</p></div>
                       </div>
-                      <button type="button" onClick={() => setCriticalModalOpen(true)}
-                        className="h-7 px-3 rounded-full bg-red-600 text-[9px] font-black uppercase tracking-widest text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-200">
-                        Ver todo
-                      </button>
-                    </header>
-                    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-                      {criticalAlerts.length === 0 ? (
-                        <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-red-100 bg-white px-4 text-center">
-                          <p className="text-[10px] font-bold text-red-200 uppercase tracking-widest">Sin alertas pendientes</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {criticalAlerts.slice(0, 3).map((it) => (
-                            <div key={it.key}
-                              className="group flex items-center h-[4.25rem] gap-3 rounded-xl border border-red-100 bg-white p-3 transition-all hover:border-red-300 hover:shadow-md">
-                              <div className="h-2 w-2 shrink-0 rounded-full bg-red-600 animate-pulse" />
-                              <div className="min-w-0 flex-1 flex flex-col justify-center">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="truncate max-w-[100px] text-[8px] font-black uppercase tracking-wider text-red-600">{it.courseName}</span>
-                                  <span className="text-[8px] font-bold text-red-300 uppercase">Vencida</span>
-                                </div>
-                                <div className="truncate text-sm font-black text-zinc-900 leading-tight">{it.title}</div>
-                              </div>
-                              {it.url && (
-                                <a href={it.url} target="_blank" rel="noreferrer"
-                                  className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full bg-zinc-950 text-white active:scale-90 transition-transform">
-                                  <span className="text-[10px]">!</span>
-                                </a>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    ))}
                   </div>
                 </section>
               )}
 
-              {/* ── Sesiones de Estudio ── */}
-              {wid === "sesiones" && (
-                <section className="relative h-[20rem] overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 shadow-xl transition-all duration-300 active:scale-[0.98]">
-                  <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 translate-y-[-10px] rounded-full bg-blue-200/20 blur-2xl" />
-                  <div className="relative flex h-full flex-col p-5">
-                    <header className="flex items-center justify-between mb-4">
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-black uppercase tracking-widest text-blue-400">Planificación</h3>
-                        <p className="text-xl font-black tracking-tight text-blue-900">Sesiones</p>
-                      </div>
-                      <button type="button" onClick={() => setStudyModalOpen(true)}
-                        className="rounded-2xl bg-blue-600/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-blue-700 hover:bg-blue-600/20 transition-colors">
-                        Ver plan
-                      </button>
-                    </header>
-                    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-                      {topStudy3.length === 0 ? (
-                        <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-blue-200 bg-white/40 px-4 text-center">
-                          <p className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Sin sesiones</p>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-2">
-                          {topStudy3.map((s) => (
-                            <div key={s.key}
-                              className="group flex items-center h-[4.25rem] gap-2.5 rounded-xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md hover:translate-y-[-1px]">
-                              <div className="flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-lg"
-                                style={{ backgroundColor: `color-mix(in srgb, ${s.sessionTextColor} 12%, white)`, color: s.sessionTextColor }}>
-                                <span className="text-[10px] font-black uppercase leading-none">{s.date.split("-")[2]}</span>
-                                <span className="text-[7px] font-bold uppercase opacity-70 leading-none">{s.date.split("-")[1]}</span>
-                              </div>
-                              <div className="min-w-0 flex-1 flex flex-col justify-center">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="truncate max-w-[70px] text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg"
-                                    style={{ color: s.sessionTextColor, backgroundColor: "color-mix(in srgb, white 20%, transparent)", border: `1px solid ${s.sessionTextColor}` }}>
-                                    {s.planTitle}
-                                  </span>
-                                  <span className="text-[9px] font-black text-blue-900/40">{s.hours}h</span>
-                                </div>
-                                <div className="truncate text-xs font-black text-blue-950 leading-tight">
-                                  {s.sessionTitle?.trim() ? s.sessionTitle : "Estudio"}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {/* ── Enfoque del Día ── */}
-              {wid === "enfoque" && (
-                <WidgetShell title="Enfoque del Día" subtitle="Siguiente bloque">
-                  <div className="space-y-2.5">
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5">
-                      <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">{MOCK.enfoqueDia.block}</div>
-                      <div className="mt-0.5 text-xs font-bold leading-tight">{MOCK.enfoqueDia.sessionTitle}</div>
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <Pill><span className="text-[9px]">En {MOCK.enfoqueDia.startInMin} min</span></Pill>
-                        <span className="text-[9px] font-bold text-[var(--ink-faint)]">Mock</span>
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-black/5 bg-white/50 p-2.5">
-                      <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Focus</div>
-                      <p className="mt-1 text-xs font-bold leading-tight">{MOCK.enfoqueDia.focusPrompt}</p>
-                    </div>
-                    <button type="button" disabled
-                      className="w-full min-h-[44px] rounded-xl bg-[var(--ink)] px-4 py-2 text-xs font-extrabold text-white opacity-70">
-                      Empezar (mock)
-                    </button>
-                  </div>
-                </WidgetShell>
-              )}
-
-              {/* ── Exámenes y Fechas ── */}
-              {wid === "examenes" && (
-                <WidgetShell title="Exámenes y Fechas" subtitle="Próximas 2 fechas">
-                  {nextExams.length === 0 ? (
-                    <div className="flex h-16 items-center justify-center rounded-xl border border-dashed border-[var(--border)] text-xs text-[var(--ink-muted)]">
-                      Sin próximos exámenes o fechas
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {nextExams.map((exam) => {
-                        const days = daysUntilLocalDate(exam.date);
-                        const progress = Math.max(5, Math.min(100, Math.round((1 - Math.max(0, days) / 30) * 100)));
-                        const cs = getGoogleEventColorStyle(exam.calendarColorId);
-                        return (
-                          <div key={exam.id} className="space-y-1.5">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-[11px] font-black text-[var(--ink)]">{exam.title}</div>
-                                <div className="text-[9px] font-bold text-[var(--ink-muted)]">
-                                  {exam.date}{exam.time ? ` · ${exam.time}` : ""}
-                                </div>
-                              </div>
-                              <div className="shrink-0 rounded-lg px-2 py-0.5 text-[9px] font-black"
-                                style={{ backgroundColor: cs.bg, color: cs.text, borderLeft: `3px solid ${cs.borderLeft}` }}>
-                                {days === 0 ? "Hoy" : `${days}d`}
-                              </div>
-                            </div>
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5">
-                              <div className="h-full rounded-full transition-all duration-500"
-                                style={{ width: `${progress}%`, backgroundColor: cs.borderLeft }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </WidgetShell>
-              )}
-
-              {/* ── Adherencia ── */}
-              {wid === "adherencia" && (
-                <WidgetShell title="Adherencia" subtitle="Semana actual"
-                  right={<span className="text-[9px] font-bold text-[var(--ink-faint)] uppercase">Mock</span>}>
-                  <div className="flex items-center gap-4">
-                    <ProgressRing valuePct={MOCK.adherencia.valuePct} label="Plan" />
-                    <p className="text-[11px] font-bold text-[var(--ink-muted)] leading-tight">{MOCK.adherencia.suggestion}</p>
-                  </div>
-                </WidgetShell>
-              )}
-
-              {/* ── Carga Semanal ── */}
-              {wid === "carga" && (
-                <WidgetShell title="Carga Semanal" subtitle="Sesiones · exámenes · entregas BB">
-                  <HeatmapWeek values={weeklyLoad} breakdowns={weeklyLoadBreakdown} />
-                </WidgetShell>
-              )}
-
-              {/* ── StudyTrend ── */}
-              {wid === "studytrend" && (
-                <WidgetShell title="StudyTrend" subtitle="Sesiones de estudio · ±6 días">
-                  <StudyTrendChart data={studyTrendData} />
-                </WidgetShell>
-              )}
-
-              {/* ── Esfuerzo por Asignatura ── */}
-              {wid === "esfuerzo" && (
-                <WidgetShell title="Esfuerzo por Asignatura" subtitle="Distribución horaria">
-                  {effortByObjective.items.length === 0 ? (
-                    <div className="text-xs text-[var(--ink-muted)] py-4 text-center border border-dashed rounded-xl">
-                      Sin datos de plan.
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-4">
-                      <div className="flex justify-center scale-90 sm:scale-100">
-                        <Doughnut segments={effortByObjective.segments} centerLabel="Mix" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {effortByObjective.items.slice(0, 4).map((it) => (
-                          <div key={it.label}
-                            className="flex items-center justify-between gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1.5">
-                            <span className="flex items-center gap-1 text-[9px] font-bold text-[var(--ink-muted)] truncate">
-                              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: it.color }} />
-                              <span className="truncate">{it.label}</span>
-                            </span>
-                            <span className="font-mono-cli text-[9px] font-bold shrink-0">{Math.round(it.pct)}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </WidgetShell>
-              )}
-
-              {/* ── Burnout / Fatiga ── */}
-              {wid === "burnout" && (
-                <WidgetShell title="Burnout / Fatiga" subtitle="Señales tempranas">
-                  <BurnoutGauge valuePct={MOCK.burnout.valuePct} />
-                </WidgetShell>
-              )}
-
-              {/* ── Racha ── */}
-              {wid === "racha" && (
-                <WidgetShell title="Racha (Streaks)" subtitle="Gamificación" tone="accent">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5 shrink-0 text-center">
-                      <div className="text-[9px] font-bold text-[var(--ink-muted)] uppercase tracking-tight">Racha</div>
-                      <div className="text-2xl font-extrabold">{MOCK.streaks.days}</div>
-                      <div className="text-[8px] font-bold text-[var(--ink-faint)]">Récord: {MOCK.streaks.bestDays}</div>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-bold leading-tight">{MOCK.streaks.message}</p>
-                      <button type="button" disabled
-                        className="mt-2 w-full min-h-[36px] rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-[10px] font-bold opacity-70">
-                        Objetivo hoy (mock)
-                      </button>
-                    </div>
-                  </div>
-                </WidgetShell>
-              )}
-
-              {/* ── Foco vs Distracciones ── */}
-              {wid === "foco" && (
-                <WidgetShell title="Foco vs. Distracciones" subtitle="Ratio actual (mock)">
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-bold">
-                          Estudio: {MOCK.distractionsRatio.studyPct}% · Dist: {MOCK.distractionsRatio.distractPct}%
-                        </div>
-                      </div>
-                      <Pill tone="green"><span className="text-[9px]">Enfocado</span></Pill>
-                    </div>
-                    <div className="h-3 w-full overflow-hidden rounded-full bg-black/5 ring-1 ring-black/5">
-                      <div className="flex h-full">
-                        <div className="bg-[var(--ink)]" style={{ width: `${MOCK.distractionsRatio.studyPct}%` }} />
-                        <div className="bg-amber-400/80" style={{ width: `${MOCK.distractionsRatio.distractPct}%` }} />
-                      </div>
-                    </div>
-                    <p className="text-[10px] font-bold text-[var(--ink-muted)] leading-tight">
-                      Tip: ventana de 15 min si te cuesta empezar.
-                    </p>
-                  </div>
-                </WidgetShell>
-              )}
+              {id === "enfoque" && <WidgetShell title="Enfoque"><div className="space-y-2"><div className="rounded-xl bg-zinc-50 p-3"><p className="text-[10px] font-black uppercase text-zinc-400">Ahora</p><p className="text-sm font-black text-zinc-900">{MOCK.enfoqueDia.sessionTitle}</p></div><p className="text-[11px] font-bold text-zinc-500 italic">"{MOCK.enfoqueDia.focusPrompt}"</p></div></WidgetShell>}
+              {id === "carga" && <WidgetShell title="Carga Semanal"><HeatmapWeek values={weeklyLoad} /></WidgetShell>}
+              {id === "studytrend" && <WidgetShell title="Estadísticas"><StudyTrendChart data={[]} /></WidgetShell>}
+              {id === "burnout" && <WidgetShell title="Fatiga"><BurnoutGauge valuePct={MOCK.burnout.valuePct} /></WidgetShell>}
+              {id === "adherencia" && <WidgetShell title="Adherencia"><div className="flex items-center gap-4"><ProgressRing valuePct={MOCK.adherencia.valuePct} label="Plan" /><p className="text-xs font-bold text-zinc-500">{MOCK.adherencia.suggestion}</p></div></WidgetShell>}
+              {id === "racha" && <WidgetShell title="Racha"><div className="flex items-center gap-4"><div className="rounded-2xl bg-zinc-900 p-4 text-white text-center"><p className="text-[10px] font-black uppercase opacity-60 tracking-tighter">Días</p><p className="text-3xl font-black">{MOCK.streaks.days}</p></div><p className="text-xs font-black text-zinc-800">{MOCK.streaks.message}</p></div></WidgetShell>}
+              {id === "foco" && <WidgetShell title="Enfoque vs Distracciones"><div className="space-y-3"><div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100 flex"><div className="bg-zinc-900 h-full" style={{ width: "72%" }} /><div className="bg-amber-400 h-full" style={{ width: "28%" }} /></div><p className="text-xs font-bold text-zinc-500">72% de enfoque hoy.</p></div></WidgetShell>}
+              {id === "esfuerzo" && <WidgetShell title="Distribución"><Doughnut segments={[]} centerLabel="Materia" /></WidgetShell>}
+              {id === "examenes" && <WidgetShell title="Próximos"><div className="rounded-xl border-2 border-zinc-100 p-4 text-center"><p className="text-xs font-black text-zinc-400 uppercase">Sin exámenes próximos</p></div></WidgetShell>}
             </div>
           );
         })}
       </div>
 
-      <UpcomingDeliveriesModal
-        open={upcomingModalOpen}
-        onClose={() => setUpcomingModalOpen(false)}
-        items={upcomingDeliveries}
-        title="Próximas entregas"
-        subtitle="Solo no entregadas · semestre actual · ordenadas según prioridad."
-      />
-      <UpcomingDeliveriesModal
-        open={criticalModalOpen}
-        onClose={() => setCriticalModalOpen(false)}
-        items={criticalAlerts}
-        title="Cosas no entregadas · Alertas Críticas"
-        subtitle="Primero vencidas (due pasada), después sin due con creación más reciente."
-      />
-      <StudySessionsModal
-        open={studyModalOpen}
-        onClose={() => setStudyModalOpen(false)}
-        items={upcomingStudySessions}
-      />
+      <UpcomingDeliveriesModal open={upcomingModalOpen} onClose={() => setUpcomingModalOpen(false)} items={upcomingDeliveries} />
+      <UpcomingDeliveriesModal open={criticalModalOpen} onClose={() => setCriticalModalOpen(false)} items={criticalAlerts} title="Alertas Críticas" />
+      <StudySessionsModal open={studyModalOpen} onClose={() => setStudyModalOpen(false)} items={upcomingStudySessions} />
     </div>
   );
 }
-
