@@ -1269,6 +1269,18 @@ export function DashboardOverviewPanel() {
     return [...DEFAULT_LAYOUT];
   });
 
+  const [currentBreakpoint, setCurrentBreakpoint] = useState<string>("lg");
+
+  // Mobile layout: derive widget order from desktop (sorted by y then x), all full-width, static
+  const mobileLayout = useMemo<LayoutItem[]>(() =>
+    [...layout]
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+      .map((item, idx) => ({ i: item.i, x: 0, y: idx * item.h, w: 1, h: item.h, static: true })),
+    [layout],
+  );
+
+  const isDesktop = currentBreakpoint === "lg";
+
   const [editMode, setEditMode] = useState(false);
 
   const modalBtnClass =
@@ -1402,21 +1414,21 @@ export function DashboardOverviewPanel() {
 
       <GridLayout
         className="layout"
-        layouts={{ lg: layout }}
+        layouts={{ lg: layout, sm: mobileLayout }}
         breakpoints={{ lg: 768, sm: 0 }}
         cols={{ lg: 12, sm: 1 }}
         rowHeight={ROW_H}
-        isDraggable={editMode}
-        isResizable={editMode}
+        isDraggable={editMode && isDesktop}
+        isResizable={editMode && isDesktop}
         compactType={null}
         preventCollision={false}
         margin={[12, 12]}
-        onLayoutChange={(_cur: Layout, allLayouts: ResponsiveLayouts) => {
-          const lg = allLayouts.lg;
-          if (lg) {
-            setLayout([...lg]);
-            try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(lg)); } catch { /* */ }
-          }
+        onBreakpointChange={(bp: string) => setCurrentBreakpoint(bp)}
+        onLayoutChange={(cur: Layout) => {
+          if (currentBreakpoint !== "lg") return;
+          const items = [...cur];
+          setLayout(items);
+          try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(items)); } catch { /* */ }
         }}
       >
         {WIDGET_IDS.map((wid) => (
