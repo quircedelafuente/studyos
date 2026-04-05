@@ -673,7 +673,6 @@ function getCurrentWeekDates(): string[] {
 
 // ── Widget grid (react-grid-layout) ───────────────────────────────────────
 const LAYOUT_KEY = "iestudio-dashboard-layout-v3";
-const MOBILE_HEIGHTS_KEY = "iestudio-dashboard-mobile-heights-v1";
 const WIDGET_IDS = [
   "entregas", "prioridad", "sesiones",
   "enfoque", "examenes", "adherencia",
@@ -685,18 +684,6 @@ type WidgetId = (typeof WIDGET_IDS)[number];
 
 // rowHeight = 32px → h:8 ≈ 256 px (one "normal" card)
 const ROW_H = 32;
-const MOBILE_LAYOUT_KEY = "iestudio-dashboard-mobile-layout-v1";
-
-function defaultMobileLayout(desktopLayout: LayoutItem[]): LayoutItem[] {
-  const sorted = [...desktopLayout].sort((a, b) => a.y - b.y || a.x - b.x);
-  let y = 0;
-  return sorted.map((item) => {
-    const h = item.h;
-    const li: LayoutItem = { i: item.i, x: 0, y, w: 1, h, minH: 3, minW: 1, maxW: 1 };
-    y += h;
-    return li;
-  });
-}
 
 const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "entregas",   x: 0, y: 0,  w: 4, h: 8, minW: 2, minH: 3 },
@@ -1282,34 +1269,17 @@ export function DashboardOverviewPanel() {
     return [...DEFAULT_LAYOUT];
   });
 
-  // Initialize breakpoint from actual window width so first onLayoutChange save is correct
-  const [currentBreakpoint, setCurrentBreakpoint] = useState<string>(() =>
-    typeof window !== "undefined" && window.innerWidth < 768 ? "sm" : "lg",
+  const [currentBreakpoint, setCurrentBreakpoint] = useState<string>("lg");
+
+  // Mobile layout: derive widget order from desktop (sorted by y then x), all full-width, static
+  const mobileLayout = useMemo<LayoutItem[]>(() =>
+    [...layout]
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+      .map((item, idx) => ({ i: item.i, x: 0, y: idx * item.h, w: 1, h: item.h, static: true })),
+    [layout],
   );
 
-  // Mobile layout — fully independent from desktop (order + heights)
-  const [mobileLayout, setMobileLayout] = useState<LayoutItem[]>(() => {
-    if (typeof window === "undefined") return defaultMobileLayout(DEFAULT_LAYOUT);
-    try {
-      const saved = localStorage.getItem(MOBILE_LAYOUT_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as LayoutItem[];
-        const savedById = new Map(parsed.map((l) => [l.i, l]));
-        // Add any new widgets not in saved layout
-        const existing = parsed.filter((l) => (WIDGET_IDS as readonly string[]).includes(l.i));
-        const missing = WIDGET_IDS.filter((wid) => !savedById.has(wid));
-        let y = existing.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-        const extras = missing.map((wid) => {
-          const def = DEFAULT_LAYOUT.find((d) => d.i === wid)!;
-          const li: LayoutItem = { i: wid, x: 0, y, w: 1, h: def.h, minH: 3, minW: 1, maxW: 1 };
-          y += def.h;
-          return li;
-        });
-        return [...existing, ...extras];
-      }
-    } catch { /* */ }
-    return defaultMobileLayout(DEFAULT_LAYOUT);
-  });
+  const isDesktop = currentBreakpoint === "lg";
 
   const [editMode, setEditMode] = useState(false);
 
@@ -1448,23 +1418,17 @@ export function DashboardOverviewPanel() {
         breakpoints={{ lg: 768, sm: 0 }}
         cols={{ lg: 12, sm: 1 }}
         rowHeight={ROW_H}
-        isDraggable={currentBreakpoint === "lg" ? editMode : true}
-        isResizable={currentBreakpoint === "lg" ? editMode : true}
-        resizeHandles={currentBreakpoint === "lg" ? ["se"] : ["s"]}
-        compactType={currentBreakpoint === "lg" ? null : "vertical"}
-        preventCollision={currentBreakpoint !== "lg"}
+        isDraggable={editMode && isDesktop}
+        isResizable={editMode && isDesktop}
+        compactType={null}
+        preventCollision={false}
         margin={[12, 12]}
         onBreakpointChange={(bp: string) => setCurrentBreakpoint(bp)}
         onLayoutChange={(cur: Layout) => {
-          if (currentBreakpoint === "lg") {
-            const items = [...cur];
-            setLayout(items);
-            try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(items)); } catch { /* */ }
-          } else {
-            const items = [...cur].map((l) => ({ ...l, x: 0, w: 1, minW: 1, maxW: 1 }));
-            setMobileLayout(items);
-            try { localStorage.setItem(MOBILE_LAYOUT_KEY, JSON.stringify(items)); } catch { /* */ }
-          }
+          if (currentBreakpoint !== "lg") return;
+          const items = [...cur];
+          setLayout(items);
+          try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(items)); } catch { /* */ }
         }}
       >
         {WIDGET_IDS.map((wid) => (
