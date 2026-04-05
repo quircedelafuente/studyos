@@ -669,7 +669,9 @@ function getCurrentWeekDates(): string[] {
 }
 
 // ── Widget ordering ────────────────────────────────────────────────────────
-const WIDGET_ORDER_KEY = "iestudio-dashboard-widget-order";
+const DESKTOP_ORDER_KEY = "iestudio-dashboard-widget-order-desktop";
+const MOBILE_ORDER_KEY  = "iestudio-dashboard-widget-order-mobile";
+const LEGACY_ORDER_KEY  = "iestudio-dashboard-widget-order";
 const DEFAULT_WIDGET_ORDER = [
   "entregas", "prioridad", "sesiones",
   "enfoque", "examenes", "adherencia",
@@ -678,20 +680,22 @@ const DEFAULT_WIDGET_ORDER = [
   "racha", "foco",
 ] as const;
 type WidgetId = (typeof DEFAULT_WIDGET_ORDER)[number];
-const WIDGET_COL_CLASSES: Record<WidgetId, string> = {
-  entregas:   "lg:col-span-4",
-  prioridad:  "lg:col-span-4",
-  sesiones:   "lg:col-span-4",
-  enfoque:    "lg:col-span-5",
-  examenes:   "lg:col-span-4",
-  adherencia: "lg:col-span-3",
-  carga:      "lg:col-span-7",
-  studytrend: "lg:col-span-5",
-  esfuerzo:   "lg:col-span-6",
-  burnout:    "lg:col-span-6",
-  racha:      "lg:col-span-4",
-  foco:       "lg:col-span-8",
-};
+
+function loadWidgetOrder(key: string): WidgetId[] {
+  try {
+    const legacy = key === DESKTOP_ORDER_KEY ? localStorage.getItem(LEGACY_ORDER_KEY) : null;
+    const raw = localStorage.getItem(key) ?? legacy;
+    if (raw) {
+      const parsed = JSON.parse(raw) as string[];
+      const valid = parsed.filter((id): id is WidgetId =>
+        (DEFAULT_WIDGET_ORDER as readonly string[]).includes(id),
+      );
+      const missing = DEFAULT_WIDGET_ORDER.filter((id) => !valid.includes(id));
+      return [...valid, ...missing];
+    }
+  } catch { /* */ }
+  return [...DEFAULT_WIDGET_ORDER];
+}
 
 function daysUntilLocalDate(ymd: string): number {
   const parts = ymd.split("-").map(Number);
@@ -1248,26 +1252,68 @@ export function DashboardOverviewPanel() {
     return slots;
   }, [studyPlansRevision, deadlinesRevision]);
 
-  // ── Widget ordering ───────────────────────────────────────────────────────
-  const [widgetOrder, setWidgetOrder] = useState<WidgetId[]>(() => {
-    if (typeof window === "undefined") return [...DEFAULT_WIDGET_ORDER];
-    try {
-      const saved = localStorage.getItem(WIDGET_ORDER_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as string[];
-        const valid = parsed.filter((id): id is WidgetId =>
-          (DEFAULT_WIDGET_ORDER as readonly string[]).includes(id),
-        );
-        const missing = DEFAULT_WIDGET_ORDER.filter((id) => !valid.includes(id));
-        return [...valid, ...missing];
-      }
-    } catch { /* */ }
-    return [...DEFAULT_WIDGET_ORDER];
-  });
+  // ── Widget ordering — separate desktop / mobile ───────────────────────────
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 639px)");
+    setIsMobileLayout(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobileLayout(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  const [desktopOrder, setDesktopOrder] = useState<WidgetId[]>(() =>
+    typeof window === "undefined" ? [...DEFAULT_WIDGET_ORDER] : loadWidgetOrder(DESKTOP_ORDER_KEY),
+  );
+  const [mobileOrder, setMobileOrder] = useState<WidgetId[]>(() =>
+    typeof window === "undefined" ? [...DEFAULT_WIDGET_ORDER] : loadWidgetOrder(MOBILE_ORDER_KEY),
+  );
+
+  const widgetOrder = isMobileLayout ? mobileOrder : desktopOrder;
+
+  function reorderWidget(srcId: WidgetId, targetId: WidgetId) {
+    const key = isMobileLayout ? MOBILE_ORDER_KEY : DESKTOP_ORDER_KEY;
+    const setter = isMobileLayout ? setMobileOrder : setDesktopOrder;
+    setter((prev) => {
+      const o = [...prev];
+      const fi = o.indexOf(srcId);
+      const ti = o.indexOf(targetId);
+      o.splice(fi, 1);
+      o.splice(ti, 0, srcId);
+      try { localStorage.setItem(key, JSON.stringify(o)); } catch { /* */ }
+      return o;
+    });
+  }
 
   const [editMode, setEditMode] = useState(false);
   const dragSourceRef = useRef<WidgetId | null>(null);
   const [dragOverId, setDragOverId] = useState<WidgetId | null>(null);
+
+  // Touch drag (mobile) — uses native listener to call e.preventDefault()
+  const [touchDragSrc, setTouchDragSrc] = useState<WidgetId | null>(null);
+  const [touchDragOver, setTouchDragOver] = useState<WidgetId | null>(null);
+  const touchActiveSrcRef  = useRef<WidgetId | null>(null);
+  const touchActiveOverRef = useRef<WidgetId | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid || !editMode) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (!touchActiveSrcRef.current) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const widEl = el?.closest("[data-wid]");
+      const overId = (widEl?.getAttribute("data-wid") ?? null) as WidgetId | null;
+      const next = overId !== touchActiveSrcRef.current ? overId : null;
+      touchActiveOverRef.current = next;
+      setTouchDragOver(next);
+    };
+    grid.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => grid.removeEventListener("touchmove", onTouchMove);
+  }, [editMode]);
 
   const modalBtnClass =
     "rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] hover:bg-white";
@@ -1398,36 +1444,41 @@ export function DashboardOverviewPanel() {
         </div>
       </header>
 
-      <div className="grid min-h-0 gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-12">
+      <div ref={gridRef} className="grid min-h-0 gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {widgetOrder.map((wid) => {
-          const colClass = WIDGET_COL_CLASSES[wid] ?? "lg:col-span-4";
-          const isOver = dragOverId === wid;
+          const isMouseOver = dragOverId === wid;
+          const isTouchOver = touchDragOver === wid;
+          const isDragSrc   = touchDragSrc === wid;
           return (
             <div
               key={wid}
-              className={`${colClass} relative transition-all duration-150 ${editMode ? "cursor-grab select-none" : ""} ${isOver ? "ring-2 ring-indigo-400/60 ring-offset-2 rounded-3xl" : ""}`}
-              draggable={editMode}
-              onDragStart={editMode ? (e) => { dragSourceRef.current = wid; e.dataTransfer.effectAllowed = "move"; } : undefined}
-              onDragOver={editMode ? (e) => { e.preventDefault(); if (dragSourceRef.current !== wid) setDragOverId(wid); } : undefined}
-              onDragLeave={editMode ? () => setDragOverId(null) : undefined}
-              onDrop={editMode ? (e) => {
+              data-wid={wid}
+              className={`relative transition-all duration-150 ${editMode ? "cursor-grab select-none" : ""} ${(isMouseOver || isTouchOver) ? "ring-2 ring-indigo-400/60 ring-offset-2 rounded-3xl" : ""} ${isDragSrc ? "opacity-50 scale-[0.97]" : ""}`}
+              draggable={editMode && !isMobileLayout}
+              onDragStart={editMode && !isMobileLayout ? (e) => { dragSourceRef.current = wid; e.dataTransfer.effectAllowed = "move"; } : undefined}
+              onDragOver={editMode && !isMobileLayout ? (e) => { e.preventDefault(); if (dragSourceRef.current !== wid) setDragOverId(wid); } : undefined}
+              onDragLeave={editMode && !isMobileLayout ? () => setDragOverId(null) : undefined}
+              onDrop={editMode && !isMobileLayout ? (e) => {
                 e.preventDefault();
                 const src = dragSourceRef.current;
-                if (src && src !== wid) {
-                  setWidgetOrder((prev) => {
-                    const o = [...prev];
-                    const fi = o.indexOf(src);
-                    const ti = o.indexOf(wid);
-                    o.splice(fi, 1);
-                    o.splice(ti, 0, src);
-                    try { localStorage.setItem(WIDGET_ORDER_KEY, JSON.stringify(o)); } catch { /* */ }
-                    return o;
-                  });
-                }
+                if (src && src !== wid) reorderWidget(src, wid);
                 dragSourceRef.current = null;
                 setDragOverId(null);
               } : undefined}
-              onDragEnd={editMode ? () => { dragSourceRef.current = null; setDragOverId(null); } : undefined}
+              onDragEnd={editMode && !isMobileLayout ? () => { dragSourceRef.current = null; setDragOverId(null); } : undefined}
+              onTouchStart={editMode ? () => {
+                touchActiveSrcRef.current = wid;
+                setTouchDragSrc(wid);
+              } : undefined}
+              onTouchEnd={editMode ? () => {
+                const src  = touchActiveSrcRef.current;
+                const over = touchActiveOverRef.current;
+                if (src && over && src !== over) reorderWidget(src, over);
+                touchActiveSrcRef.current  = null;
+                touchActiveOverRef.current = null;
+                setTouchDragSrc(null);
+                setTouchDragOver(null);
+              } : undefined}
             >
               {editMode && (
                 <div className="pointer-events-none absolute right-2 top-2 z-20 flex h-7 w-7 select-none items-center justify-center rounded-xl bg-white/90 text-base text-[var(--ink-muted)] shadow">
