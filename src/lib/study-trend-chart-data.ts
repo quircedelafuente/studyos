@@ -16,14 +16,27 @@ function finiteHour(h: number): number {
   return Math.round(h * 100) / 100;
 }
 
+/** `study-<planId>-<YYYY-MM-DD>` → planId; cualquier otro formato → null. */
+function studyDeadlinePlanId(deadlineId: string): string | null {
+  if (!deadlineId.startsWith("study-")) return null;
+  const m = deadlineId.match(/-(\d{4}-\d{2}-\d{2})$/);
+  if (!m) return null;
+  const ymd = m[1]!;
+  const planId = deadlineId.slice("study-".length, deadlineId.length - ymd.length - 1);
+  return planId.length ? planId : null;
+}
+
 /**
- * 13 días (±6) centrados en hoy: horas de estudio como en el calendario.
- * - Suma deadlines `study-<planId>-<YYYY-MM-DD>` (tras «Añadir al calendario» o equivalente).
- * - Añade horas de `aiSchedule.days` de cada plan cuando ese día aún no tiene deadline
- *   con el mismo id (plan guardado en la app con `savedAt`).
+ * 13 días (±6) centrados en hoy: solo planes de estudio activos (Study Planner).
+ * - Deadlines `study-<planId>-<fecha>` solo si existe ese plan (no reservas huérfanas ni
+ *   bloques que no vienen del planner).
+ * - Eventos añadidos solo en «Exámenes y fechas» (sin prefijo study-*) no entran aquí.
+ * - Sesiones Arena completadas: solo si el `planId` sigue existiendo.
  */
 export function buildStudyTrendChartData(): StudyTrendChartPoint[] {
   if (typeof window === "undefined") return [];
+
+  const activePlanIds = new Set(loadStudyPlans().map((p) => p.id));
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -49,6 +62,8 @@ export function buildStudyTrendChartData(): StudyTrendChartPoint[] {
   const deadlines = loadImportantDeadlines();
   for (const dl of deadlines) {
     if (!dl.id.startsWith("study-") || !ymdSet.has(dl.date)) continue;
+    const sid = studyDeadlinePlanId(dl.id);
+    if (!sid || !activePlanIds.has(sid)) continue;
     const slot = slots.find((s) => s.date === dl.date);
     if (slot) {
       slot.hours += (dl.durationMinutes ?? 60) / 60;
@@ -59,10 +74,18 @@ export function buildStudyTrendChartData(): StudyTrendChartPoint[] {
   const completedByDate = new Map<string, number>();
   for (const cs of loadCompletedSessions()) {
     if (!ymdSet.has(cs.date)) continue;
+    if (!activePlanIds.has(cs.planId)) continue;
     completedByDate.set(cs.date, (completedByDate.get(cs.date) ?? 0) + cs.elapsedActiveMs / 3600000);
   }
 
-  const coveredIds = new Set(deadlines.map((d) => d.id));
+  const coveredIds = new Set(
+    deadlines
+      .filter((d) => {
+        const pid = studyDeadlinePlanId(d.id);
+        return pid != null && activePlanIds.has(pid);
+      })
+      .map((d) => d.id),
+  );
   for (const p of loadStudyPlans()) {
     const sched = p.aiSchedule;
     if (!sched?.days?.length) continue;

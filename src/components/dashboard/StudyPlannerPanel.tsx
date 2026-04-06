@@ -6,6 +6,7 @@ import {
   DEADLINES_CHANGED_EVENT,
   DEADLINES_STORAGE_KEY,
   loadImportantDeadlines,
+  saveImportantDeadlines,
 } from "@/lib/deadlines-storage";
 import {
   loadStudyPlans,
@@ -158,11 +159,16 @@ export function StudyPlannerPanel() {
   function deletePlan(plan: StudyPlan) {
     if (
       !window.confirm(
-        `¿Eliminar el plan «${plan.title}»? Se borrará el chat y el calendario guardado en este plan.`,
+        `¿Eliminar el plan «${plan.title}»? Se borrará el chat, el calendario IA del plan y las sesiones de estudio asociadas en «Exámenes y fechas».`,
       )
     ) {
       return;
     }
+    const studyPrefix = `study-${plan.id}-`;
+    const withoutPlanSessions = loadImportantDeadlines().filter(
+      (d) => !d.id.startsWith(studyPrefix),
+    );
+    saveImportantDeadlines(withoutPlanSessions);
     saveStudyPlans(loadStudyPlans().filter((p) => p.id !== plan.id));
     refresh();
     if (chatPlanId === plan.id) setChatPlanId(null);
