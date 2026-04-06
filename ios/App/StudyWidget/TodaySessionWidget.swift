@@ -159,12 +159,13 @@ struct TodaySessionWidget: Widget {
     let kind = "TodaySessionWidget"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodaySessionProvider()) { entry in
-            TodaySessionEntryView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
+            TodaySessionEntryView(entry: entry)
+                .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(URL(string: "iestudio://study-arena"))
         }
         .configurationDisplayName("Sesión de Hoy")
         .description("Tus sesiones de estudio programadas para hoy.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()
-        .widgetURL(URL(string: "iestudio://study-arena"))
     }
 }

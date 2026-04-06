@@ -166,12 +166,13 @@ struct BBDeliveriesWidget: Widget {
     let kind = "BBDeliveriesWidget"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: BBDeliveriesProvider()) { entry in
-            BBDeliveriesEntryView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
+            BBDeliveriesEntryView(entry: entry)
+                .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(URL(string: "iestudio://assignments"))
         }
         .configurationDisplayName("Entregas Blackboard")
         .description("Tus próximas entregas pendientes de Blackboard.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()
-        .widgetURL(URL(string: "iestudio://assignments"))
     }
 }

@@ -296,11 +296,11 @@ struct DeadlinesWidget: Widget {
         StaticConfiguration(kind: kind, provider: DeadlinesProvider()) { entry in
             DeadlinesEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(URL(string: "iestudio://deadlines"))
         }
         .configurationDisplayName("Exámenes y Fechas")
         .description("Tus próximas fechas de exámenes y entregas.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()
-        .widgetURL(URL(string: "iestudio://deadlines"))
     }
 }

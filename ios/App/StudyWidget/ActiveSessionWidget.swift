@@ -244,12 +244,13 @@ struct ActiveSessionWidget: Widget {
     let kind = "ActiveSessionWidget"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: ActiveSessionProvider()) { entry in
-            ActiveSessionEntryView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
+            ActiveSessionEntryView(entry: entry)
+                .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(URL(string: "iestudio://study-arena"))
         }
         .configurationDisplayName("Study Arena")
         .description("Sesión de estudio activa con temporizador y focus score.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()
-        .widgetURL(URL(string: "iestudio://study-arena"))
     }
 }
