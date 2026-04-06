@@ -168,11 +168,21 @@ function ProgressRing({
   );
 }
 
-/** Escala la puntuación solo para el color del heatmap (más contraste sin inflar el número mostrado). */
-function weeklyLoadHeatmapLevel(raw: number): number {
-  const v = Math.max(0, Math.min(100, raw));
-  const amplified = Math.min(100, v * 2.75);
-  return Math.max(0, Math.min(4, Math.floor((amplified / 100) * 5)));
+/**
+ * Niveles 0–4 solo para color del heatmap: relativos a la semana (mismo valor numérico mostrado).
+ * Día con menos carga en la semana → verde; el más cargado → rojo; el resto interpolado.
+ */
+function weeklyLoadRelativeLevels(scores: readonly number[]): number[] {
+  const slice = scores.slice(0, 7);
+  if (slice.length === 0) return [];
+  const min = Math.min(...slice);
+  const max = Math.max(...slice);
+  if (max <= 0) return slice.map(() => 0);
+  if (min === max) return slice.map(() => 2);
+  return slice.map((v) => {
+    const t = (v - min) / (max - min);
+    return Math.min(4, Math.floor(t * 4.999 + 1e-9));
+  });
 }
 
 function HeatmapWeek({
@@ -182,10 +192,7 @@ function HeatmapWeek({
   values: readonly number[];
   breakdowns?: readonly string[];
 }) {
-  const levels = useMemo(
-    () => values.slice(0, 7).map((v) => weeklyLoadHeatmapLevel(v)),
-    [values],
-  );
+  const levels = useMemo(() => weeklyLoadRelativeLevels(values), [values]);
   const today = new Date();
   const todayDow = today.getDay(); // 0=Dom
   const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Lun…6=Dom
@@ -205,8 +212,8 @@ function HeatmapWeek({
         {levels.map((lvl, i) => {
           const isToday = i === todayIdx;
           const tooltip = breakdowns?.[i]
-            ? `${breakdowns[i]} (${values[i] ?? 0}/100)`
-            : `Carga ${values[i] ?? 0}/100`;
+            ? `${breakdowns[i]} · índice ${values[i] ?? 0}/100 (color vs resto de la semana)`
+            : `Índice ${values[i] ?? 0}/100 · color relativo a esta semana`;
           return (
             <div key={i} className="flex flex-col items-center gap-1">
               <div
@@ -231,11 +238,9 @@ function HeatmapWeek({
           );
         })}
       </div>
-      <div className="flex flex-wrap gap-2 text-xs text-[var(--ink-muted)]">
-        <Pill tone="green">Verde: ligero</Pill>
-        <Pill tone="amber">Ámbar: medio</Pill>
-        <Pill tone="red">Rojo: pesado</Pill>
-      </div>
+      <p className="text-[10px] font-medium leading-snug text-[var(--ink-muted)]">
+        Color relativo a esta semana: verde = día menos cargado, rojo = más cargado. El número es el índice absoluto (0–100).
+      </p>
     </div>
   );
 }
@@ -727,16 +732,8 @@ function getCurrentWeekDates(): string[] {
   });
 }
 
-/**
- * Minutos de bloques (clase + estudio) para llegar al tope de la franja temporal (~70 pts).
- * Valor bajo = el índice sube muy rápido (p. ej. ~36 min de bloques ya marcan carga alta).
- */
-const WEEKLY_LOAD_TIMED_MINS_FOR_MAX = 36;
-
-/** Máx. puntos por entregas BB + fechas sin duración (antes 30; más bajo = menos “verde gratis”). */
-const WEEKLY_LOAD_EVENT_CAP = 36;
-/** Puntos por cada entrega/fecha contable hacia ese cap. */
-const WEEKLY_LOAD_EVENT_POINTS = 18;
+/** Minutos de bloques (clase + estudio) para cubrir la franja temporal (~70 pts); misma escala que el diseño original (~6 h). */
+const WEEKLY_LOAD_TIMED_MINS_FOR_MAX = 360;
 
 // ── Widget grid (react-grid-layout) ───────────────────────────────────────
 const LAYOUT_KEY = "iestudio-dashboard-layout-v4";
@@ -1216,15 +1213,8 @@ export function DashboardOverviewPanel() {
   }, [studyPlansRevision, deadlinesRevision]);
 
   /**
-   * Carga semanal real (lun-dom de la semana actual).
-   * Fuentes: sesiones de estudio + bloques con duración (p. ej. clase en calendario),
-   * fechas “importantes” sin horario bloqueado, entregas Blackboard.
-   *
-   * Fórmula por día:
-   *   - Minutos de estudio (`study-*`) y de otros eventos con duración (clase) → hasta 70 pts
-   *     (máx a ~2h30 de bloques; umbral bajo para que ámbar/rojo aparezcan antes)
-   *   - Fechas sin duración / BB → pts configurables (ver WEEKLY_LOAD_EVENT_*)
-   * Total capped a 100.
+   * Carga semanal real (lun-dom): índice 0–100 absoluto por día (estudio+clase en minutos, eventos, BB).
+   * El color del heatmap no usa estos umbrales: es relativo al min/max de la semana.
    */
   const weeklyLoad = useMemo<number[]>(() => {
     if (typeof window === "undefined") return Array(7).fill(0);
@@ -1278,10 +1268,7 @@ export function DashboardOverviewPanel() {
         70,
         (timedMins / WEEKLY_LOAD_TIMED_MINS_FOR_MAX) * 70,
       );
-      const eventLoad = Math.min(
-        WEEKLY_LOAD_EVENT_CAP,
-        (bareImp + bbDue) * WEEKLY_LOAD_EVENT_POINTS,
-      );
+      const eventLoad = Math.min(30, (bareImp + bbDue) * 15);
 
       return Math.round(Math.min(100, timedLoad + eventLoad));
     });
