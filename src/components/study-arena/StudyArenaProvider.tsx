@@ -448,23 +448,23 @@ export function StudyArenaProvider({ children }: { children: React.ReactNode }) 
     const elapsed = computeElapsedActiveMs(cur, nowMs);
     const shortSession = elapsed < FALSE_SESSION_TOO_SHORT_MS;
     setFalseSessionPrompt(null);
-    if (!shortSession) {
-      saveCompletedSession({
-        arenaRunId: cur.arenaRunId,
-        key: cur.key,
-        planId: cur.planId,
-        planTitle: cur.planTitle,
-        date: cur.date,
-        studyHours: cur.studyHours,
-        focus: cur.focus,
-        sessionTitle: cur.sessionTitle,
-        focusScore: cur.focusScore,
-        distractionCount: cur.distractionCount,
-        elapsedActiveMs: elapsed,
-        totalDurationMs: cur.totalDurationMs,
-        startedAtMs: cur.startedAtMs,
-      });
-    }
+    // Always save — short sessions show a confirmation modal first;
+    // non-short sessions end immediately.
+    saveCompletedSession({
+      arenaRunId: cur.arenaRunId,
+      key: cur.key,
+      planId: cur.planId,
+      planTitle: cur.planTitle,
+      date: cur.date,
+      studyHours: cur.studyHours,
+      focus: cur.focus,
+      sessionTitle: cur.sessionTitle,
+      focusScore: cur.focusScore,
+      distractionCount: cur.distractionCount,
+      elapsedActiveMs: elapsed,
+      totalDurationMs: cur.totalDurationMs,
+      startedAtMs: cur.startedAtMs,
+    });
     setActiveSession((prev) => {
       if (!prev) return prev;
       if (!shortSession) return null;
