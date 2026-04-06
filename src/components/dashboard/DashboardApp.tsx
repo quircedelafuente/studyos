@@ -8,7 +8,6 @@ import type { MainTabId } from "@/types/dashboard";
 import { AssignmentsPanel } from "./AssignmentsPanel";
 import { CalendarPanel } from "./CalendarPanel";
 import { NotebookLMPanel } from "./NotebookLMPanel";
-import { CoursesPanel } from "./CoursesPanel";
 import { DeadlinesPanel } from "./DeadlinesPanel";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { DashboardOverviewPanel } from "./DashboardOverviewPanel";
@@ -22,7 +21,6 @@ import {
   IconCalendar,
   IconChecklist,
   IconClassNotes,
-  IconCourses,
   IconDeadlines,
   IconFolder,
   IconMenu,
@@ -44,7 +42,6 @@ const BASE_TABS: {
 }[] = [
   { id: "dashboard",     label: "Dashboard",        Icon: IconDashboard },
   { id: "calendario",    label: "Calendario",        Icon: IconCalendar },
-  { id: "courses",       label: "Courses",           Icon: IconCourses },
   { id: "class-notes",   label: "Class Notes",       Icon: IconClassNotes },
   { id: "fechas",        label: "Exámenes y fechas", Icon: IconDeadlines },
   { id: "daily-tasks",   label: "Tareas",            Icon: IconChecklist },
@@ -329,11 +326,6 @@ export function DashboardApp() {
           ) : null}
           {mainTab === "calendario" ? (
             <CalendarPanel />
-          ) : null}
-          {mainTab === "courses" ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-              <CoursesPanel />
-            </div>
           ) : null}
           {mainTab === "class-notes" ? (
             <div className="min-h-0 flex-1 overflow-y-auto md:flex md:flex-col md:overflow-hidden">

@@ -1,7 +1,6 @@
 export type MainTabId =
   | "dashboard"
   | "calendario"
-  | "courses"
   | "class-notes"
   | "fechas"
   | "daily-tasks"
