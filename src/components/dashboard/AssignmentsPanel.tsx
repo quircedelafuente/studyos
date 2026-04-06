@@ -940,8 +940,8 @@ export function AssignmentsPanel() {
           {/* Two-column: course list + gradebook */}
           {displayedCourses.length > 0 ? (
             <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-              {/* Course sidebar */}
-              <aside className="flex min-h-0 shrink-0 flex-col lg:w-72">
+              {/* Course sidebar — capped height on small screens so gradebook below keeps space */}
+              <aside className="flex max-h-[min(48vh,22rem)] min-h-0 shrink-0 flex-col lg:max-h-none lg:w-72">
                 <div className="mb-2 flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-muted)]">
@@ -1040,8 +1040,8 @@ export function AssignmentsPanel() {
                 </nav>
               </aside>
 
-              {/* Gradebook area */}
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              {/* Gradebook area — min height on mobile so flex-shrink cannot collapse it */}
+              <div className="flex min-h-[min(52vh,26rem)] min-w-0 flex-1 flex-col lg:min-h-0">
                 {selectedCourseId ? (
                   <>
                     <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -1102,7 +1102,7 @@ export function AssignmentsPanel() {
 
                     {gradebook.length > 0 ? (
                       <div className="min-h-0 flex-1 overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_16px_40px_-18px_rgba(2,6,23,0.35)] ring-1 ring-black/[0.02]">
-                        <div className="min-h-0 h-full w-full overflow-y-auto overflow-x-hidden">
+                        <div className="min-h-0 h-full w-full overflow-x-auto overflow-y-auto">
                           <table className="table-fixed w-full min-w-0 text-[13px]">
                             <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[color:color-mix(in_srgb,var(--surface-muted)_84%,white)]/95 backdrop-blur">
                               <tr>
