@@ -74,6 +74,13 @@ export function ClassSessionDetailView({
     const content = notesContentRef.current?.innerHTML;
     if (!content) return;
     const title = `${sessionLabel} — ${courseName}`;
+    // Limpiar clases de Tailwind/CSS-vars del innerHTML para que el PDF sea legible
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${content}</div>`, "text/html");
+    doc.querySelectorAll("[class]").forEach((el) => el.removeAttribute("class"));
+    doc.querySelectorAll("[style]").forEach((el) => el.removeAttribute("style"));
+    const cleanContent = doc.body.firstElementChild?.innerHTML ?? content;
+
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -81,19 +88,31 @@ export function ClassSessionDetailView({
 <title>${title}</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <style>
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:800px;margin:40px auto;padding:0 24px;color:#111;line-height:1.65;font-size:15px}
-  h1,h2,h3,h4{margin-top:1.4em;margin-bottom:.4em}
-  p{margin:.5em 0}
-  ul,ol{padding-left:1.4em}
-  code{background:#f3f3f3;padding:2px 5px;border-radius:4px;font-size:.88em}
-  pre{background:#f3f3f3;padding:.8em 1em;border-radius:6px;overflow-x:auto}
-  blockquote{border-left:3px solid #ccc;margin:0;padding-left:1em;color:#555}
-  table{border-collapse:collapse;width:100%}
-  td,th{border:1px solid #ddd;padding:6px 10px}
-  @media print{body{margin:0}}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:820px;margin:40px auto;padding:0 28px;color:#111;line-height:1.7;font-size:15px}
+  h1{font-size:1.6em;margin:1.4em 0 .5em;border-bottom:1px solid #e5e5e5;padding-bottom:.3em}
+  h2{font-size:1.35em;margin:1.3em 0 .4em}
+  h3{font-size:1.15em;margin:1.1em 0 .3em}
+  h4{font-size:1em;margin:1em 0 .3em}
+  p{margin:.6em 0}
+  ul,ol{padding-left:1.5em;margin:.5em 0}
+  li{margin:.25em 0}
+  code{background:#f4f4f4;padding:2px 6px;border-radius:4px;font-size:.88em;font-family:monospace}
+  pre{background:#f4f4f4;padding:.9em 1.1em;border-radius:6px;overflow-x:auto;margin:.8em 0}
+  pre code{background:none;padding:0}
+  blockquote{border-left:3px solid #ccc;margin:.8em 0;padding:.2em 1em;color:#555}
+  strong{font-weight:600}
+  table{border-collapse:collapse;width:100%;margin:.8em 0}
+  td,th{border:1px solid #ddd;padding:7px 12px;text-align:left}
+  th{background:#f8f8f8;font-weight:600}
+  hr{border:none;border-top:1px solid #e5e5e5;margin:1.2em 0}
+  a{color:#0066cc}
+  @media print{body{margin:0;padding:16px}}
 </style>
 </head>
-<body>${content}</body>
+<body>
+<h1 style="font-size:1.4em;border-bottom:2px solid #111;padding-bottom:.4em;margin-bottom:1em">${title}</h1>
+${cleanContent}
+</body>
 </html>`;
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
@@ -227,7 +246,7 @@ export function ClassSessionDetailView({
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
             {hasNotes ? (
               <>
-                <div className="max-h-[min(70vh,40rem)] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--canvas)] p-3">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--canvas)] p-3">
                   <MarkdownMathContent content={saved!.markdown} />
                 </div>
                 {saved!.generatedAt ? (
@@ -269,7 +288,7 @@ export function ClassSessionDetailView({
                     </button>
                   </div>
                 </div>
-                <div className="max-h-[min(55vh,32rem)] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--canvas)] p-3">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--canvas)] p-3">
                   <div ref={notesContentRef}>
                     <MarkdownMathContent content={saved!.markdown} />
                   </div>
