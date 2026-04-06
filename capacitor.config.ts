@@ -3,6 +3,9 @@ import type { CapacitorConfig } from "@capacitor/cli";
 /**
  * Shell iOS: WKWebView carga la misma instancia que la web (Vercel).
  * No sustituye al build de Next; `webDir` es solo el mínimo que exige Capacitor.
+ *
+ * Tareas / checklist y el resto de prefs `iestudio-*` se sincronizan con Neon
+ * vía `/api/user-sync` (PUT/GET) cuando la sesión NextAuth está activa en la web.
  */
 const config: CapacitorConfig = {
   appId: "com.agustmun.iestudio",

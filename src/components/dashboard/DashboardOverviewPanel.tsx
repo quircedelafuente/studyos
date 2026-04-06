@@ -26,6 +26,11 @@ import {
   DEADLINES_STORAGE_KEY,
   loadImportantDeadlines,
 } from "@/lib/deadlines-storage";
+import {
+  DAILY_CHECKLIST_CHANGED_EVENT,
+  DAILY_CHECKLIST_STORAGE_KEY,
+  loadChecklistTasks,
+} from "@/lib/daily-checklist-storage";
 
 type WidgetShellProps = {
   title: string;
@@ -87,7 +92,47 @@ function Pill({ children, tone = "default" }: { children: ReactNode; tone?: "def
   );
 }
 
-function ProgressRing({ valuePct, label }: { valuePct: number; label: string }) {
+/** Rojo (0%) → verde (100%). Si `empty`, gris neutro. */
+function rgbForAdherencePct(pct: number, empty: boolean): string {
+  if (empty) return "rgb(148, 163, 184)";
+  const p = Math.max(0, Math.min(100, pct)) / 100;
+  const r = Math.round(239 * (1 - p) + 34 * p);
+  const g = Math.round(68 * (1 - p) + 197 * p);
+  const b = Math.round(68 * (1 - p) + 94 * p);
+  return `rgb(${r},${g},${b})`;
+}
+
+function completionMeta(tasks: readonly { done: boolean }[]): {
+  pct: number;
+  empty: boolean;
+  done: number;
+  total: number;
+} {
+  const total = tasks.length;
+  if (total === 0) {
+    return { pct: 0, empty: true, done: 0, total: 0 };
+  }
+  const done = tasks.filter((t) => t.done).length;
+  return {
+    pct: Math.round((100 * done) / total),
+    empty: false,
+    done,
+    total,
+  };
+}
+
+function ProgressRing({
+  valuePct,
+  label,
+  detail,
+  accentColor,
+}: {
+  valuePct: number;
+  label: string;
+  /** Ej. "3/5" debajo del label */
+  detail?: string;
+  accentColor?: string;
+}) {
   const r = 22;
   const cx = 28;
   const cy = 28;
@@ -95,6 +140,7 @@ function ProgressRing({ valuePct, label }: { valuePct: number; label: string }) 
   const pct = Math.max(0, Math.min(100, valuePct));
   const dash = (pct / 100) * c;
   const rest = c - dash;
+  const stroke = accentColor ?? "currentColor";
 
   return (
     <div className="flex items-center gap-3">
@@ -104,7 +150,7 @@ function ProgressRing({ valuePct, label }: { valuePct: number; label: string }) 
           cx={cx}
           cy={cy}
           r={r}
-          stroke="currentColor"
+          stroke={stroke}
           strokeWidth="7"
           fill="none"
           strokeLinecap="round"
@@ -113,8 +159,18 @@ function ProgressRing({ valuePct, label }: { valuePct: number; label: string }) 
         />
       </svg>
       <div className="min-w-0">
-        <div className="text-lg font-extrabold leading-tight">{Math.round(pct)}%</div>
+        <div
+          className="text-lg font-extrabold leading-tight"
+          style={accentColor ? { color: accentColor } : undefined}
+        >
+          {Math.round(pct)}%
+        </div>
         <div className="text-xs text-[var(--ink-muted)]">{label}</div>
+        {detail ? (
+          <div className="text-[10px] font-semibold tabular-nums text-[var(--ink-faint)]">
+            {detail}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -641,7 +697,6 @@ const MOCK = {
     daysLeft: 5,
     suggestion: "1h de repaso diario (20min resumen + 40min problemas).",
   },
-  adherencia: { valuePct: 85, suggestion: "Parece que tu plan funciona. Prueba con 1 bloque más corto para afinar." },
   bio: { points: [35, 42, 55, 70, 63, 58, 40, 30], labels: ["8", "10", "12", "14", "16", "18", "20", "22"] },
   effort: {
     segments: [
@@ -692,13 +747,13 @@ const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "sesiones",   x: 8, y: 0,  w: 4, h: 8, minW: 2, minH: 3 },
   { i: "enfoque",    x: 0, y: 8,  w: 4, h: 8, minW: 2, minH: 3 },
   { i: "examenes",   x: 4, y: 8,  w: 4, h: 8, minW: 2, minH: 3 },
-  { i: "adherencia", x: 8, y: 8,  w: 4, h: 8, minW: 2, minH: 3 },
-  { i: "carga",      x: 0, y: 16, w: 8, h: 8, minW: 2, minH: 3 },
-  { i: "studytrend", x: 8, y: 16, w: 4, h: 8, minW: 2, minH: 3 },
-  { i: "esfuerzo",   x: 0, y: 24, w: 6, h: 8, minW: 2, minH: 3 },
-  { i: "burnout",    x: 6, y: 24, w: 6, h: 8, minW: 2, minH: 3 },
-  { i: "racha",      x: 0, y: 32, w: 4, h: 8, minW: 2, minH: 3 },
-  { i: "foco",       x: 4, y: 32, w: 8, h: 8, minW: 2, minH: 3 },
+  { i: "adherencia", x: 8, y: 8,  w: 4, h: 11, minW: 2, minH: 5 },
+  { i: "carga",      x: 0, y: 19, w: 8, h: 8, minW: 2, minH: 3 },
+  { i: "studytrend", x: 8, y: 19, w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "esfuerzo",   x: 0, y: 27, w: 6, h: 8, minW: 2, minH: 3 },
+  { i: "burnout",    x: 6, y: 27, w: 6, h: 8, minW: 2, minH: 3 },
+  { i: "racha",      x: 0, y: 35, w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "foco",       x: 4, y: 35, w: 8, h: 8, minW: 2, minH: 3 },
 ];
 
 function daysUntilLocalDate(ymd: string): number {
@@ -847,6 +902,7 @@ export function DashboardOverviewPanel() {
   const [contentFetchBusy, setContentFetchBusy] = useState(false);
   const [studyPlansRevision, setStudyPlansRevision] = useState(0);
   const [deadlinesRevision, setDeadlinesRevision] = useState(0);
+  const [checklistRevision, setChecklistRevision] = useState(0);
 
   useEffect(() => {
     if (cloudSync?.initialSyncDone) {
@@ -906,6 +962,21 @@ export function DashboardOverviewPanel() {
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(STUDY_PLANS_CHANGED_EVENT, bump);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    function bump() {
+      setChecklistRevision((n) => n + 1);
+    }
+    window.addEventListener(DAILY_CHECKLIST_CHANGED_EVENT, bump);
+    function onStorage(e: StorageEvent) {
+      if (e.key === DAILY_CHECKLIST_STORAGE_KEY) bump();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(DAILY_CHECKLIST_CHANGED_EVENT, bump);
       window.removeEventListener("storage", onStorage);
     };
   }, []);
@@ -1255,6 +1326,73 @@ export function DashboardOverviewPanel() {
     }
     return slots;
   }, [studyPlansRevision, deadlinesRevision]);
+
+  const taskAdherence = useMemo(() => {
+    if (typeof window === "undefined") {
+      return {
+        today: { pct: 0, empty: true, done: 0, total: 0 },
+        weekDaily: { pct: 0, empty: true, done: 0, total: 0 },
+        weekScope: { pct: 0, empty: true, done: 0, total: 0 },
+      };
+    }
+    const all = loadChecklistTasks();
+    const todayYmd = formatLocalYmd(new Date());
+    const weekDates = getCurrentWeekDates();
+    const weekMonday = weekDates[0] ?? todayYmd;
+
+    const todayList = all.filter(
+      (t) => t.scope === "day" && t.periodKey === todayYmd,
+    );
+    const weekDailyList = all.filter(
+      (t) => t.scope === "day" && weekDates.includes(t.periodKey),
+    );
+    const weekScopeList = all.filter(
+      (t) => t.scope === "week" && t.periodKey === weekMonday,
+    );
+
+    return {
+      today: completionMeta(todayList),
+      weekDaily: completionMeta(weekDailyList),
+      weekScope: completionMeta(weekScopeList),
+    };
+  }, [checklistRevision]);
+
+  const taskAdherenceHint = useMemo(() => {
+    const { today: t, weekDaily: w, weekScope: s } = taskAdherence;
+    if (t.empty && w.empty && s.empty) {
+      return "Añade tareas en la sección Tareas (Diaria o Semanal) para ver tu adherencia aquí.";
+    }
+    const parts: string[] = [];
+    if (!t.empty) {
+      if (t.pct >= 100) parts.push("Hoy completaste todas las tareas diarias.");
+      else if (t.pct >= 70) {
+        parts.push(`Hoy vas bien: ${t.done}/${t.total} diarias hechas.`);
+      } else {
+        parts.push(
+          t.total > 0
+            ? `Hoy quedan ${t.total - t.done} tareas diarias por cerrar.`
+            : "Revisa tus tareas diarias.",
+        );
+      }
+    }
+    if (!w.empty && w.total > 0) {
+      if (w.pct >= 100) {
+        parts.push("Esta semana todas las diarias están hechas.");
+      } else {
+        parts.push(
+          `Diarias de la semana: ${w.done}/${w.total} completadas (lunes–domingo).`,
+        );
+      }
+    }
+    if (!s.empty && s.total > 0) {
+      if (s.pct >= 100) {
+        parts.push("Lista semanal completada.");
+      } else {
+        parts.push(`Semanales: ${s.done}/${s.total} hechas.`);
+      }
+    }
+    return parts.join(" ");
+  }, [taskAdherence]);
 
   // ── Widget layout (react-grid-layout) ────────────────────────────────────
   const [layout, setLayout] = useState<LayoutItem[]>(() => {
@@ -1692,13 +1830,70 @@ export function DashboardOverviewPanel() {
                 </WidgetShell>
               )}
 
-              {/* ── Adherencia ── */}
+              {/* ── Adherencia (tareas reales) ── */}
               {wid === "adherencia" && (
-                <WidgetShell title="Adherencia" subtitle="Semana actual"
-                  right={<span className="text-[9px] font-bold text-[var(--ink-faint)] uppercase">Mock</span>}>
-                  <div className="flex items-center gap-4">
-                    <ProgressRing valuePct={MOCK.adherencia.valuePct} label="Plan" />
-                    <p className="text-[11px] font-bold text-[var(--ink-muted)] leading-tight">{MOCK.adherencia.suggestion}</p>
+                <WidgetShell title="Adherencia" subtitle="% completadas · rojo → verde">
+                  <div className="flex flex-col gap-4">
+                    <ProgressRing
+                      valuePct={
+                        taskAdherence.today.empty
+                          ? 0
+                          : taskAdherence.today.pct
+                      }
+                      label="Hoy (diarias)"
+                      detail={
+                        taskAdherence.today.empty
+                          ? "Sin tareas hoy"
+                          : `${taskAdherence.today.done}/${taskAdherence.today.total} hechas`
+                      }
+                      accentColor={rgbForAdherencePct(
+                        taskAdherence.today.empty
+                          ? 0
+                          : taskAdherence.today.pct,
+                        taskAdherence.today.empty,
+                      )}
+                    />
+                    <ProgressRing
+                      valuePct={
+                        taskAdherence.weekDaily.empty
+                          ? 0
+                          : taskAdherence.weekDaily.pct
+                      }
+                      label="Diarias · esta semana"
+                      detail={
+                        taskAdherence.weekDaily.empty
+                          ? "Sin diarias en la semana"
+                          : `${taskAdherence.weekDaily.done}/${taskAdherence.weekDaily.total} hechas (lun–dom)`
+                      }
+                      accentColor={rgbForAdherencePct(
+                        taskAdherence.weekDaily.empty
+                          ? 0
+                          : taskAdherence.weekDaily.pct,
+                        taskAdherence.weekDaily.empty,
+                      )}
+                    />
+                    <ProgressRing
+                      valuePct={
+                        taskAdherence.weekScope.empty
+                          ? 0
+                          : taskAdherence.weekScope.pct
+                      }
+                      label="Lista semanal"
+                      detail={
+                        taskAdherence.weekScope.empty
+                          ? "Sin tareas semanales"
+                          : `${taskAdherence.weekScope.done}/${taskAdherence.weekScope.total} hechas`
+                      }
+                      accentColor={rgbForAdherencePct(
+                        taskAdherence.weekScope.empty
+                          ? 0
+                          : taskAdherence.weekScope.pct,
+                        taskAdherence.weekScope.empty,
+                      )}
+                    />
+                    <p className="text-[10px] font-semibold leading-snug text-[var(--ink-muted)]">
+                      {taskAdherenceHint}
+                    </p>
                   </div>
                 </WidgetShell>
               )}

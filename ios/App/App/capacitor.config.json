@@ -9,6 +9,9 @@
 	},
 	"packageClassList": [
 		"AppPlugin",
-		"CAPBrowserPlugin"
+		"CAPBrowserPlugin",
+		"LiveActivityPlugin",
+		"ScreenTimePlugin",
+		"WidgetDataPlugin"
 	]
 }

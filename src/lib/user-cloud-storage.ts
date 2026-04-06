@@ -14,6 +14,7 @@ import { BB_COURSE_CURATION_CHANGED } from "@/lib/bb-course-curation";
 import { BB_CONFIG_CHANGED } from "@/lib/blackboard-config";
 import { STUDY_ARENA_CHANGED_EVENT } from "@/lib/study-arena-storage";
 import { STUDY_ARENA_COMPLETED_CHANGED_EVENT } from "@/lib/study-arena-completed-storage";
+import { DAILY_CHECKLIST_CHANGED_EVENT } from "@/lib/daily-checklist-storage";
 
 const SYNC_PREFIX = "iestudio-";
 
@@ -169,4 +170,5 @@ export function dispatchCloudRefreshEvents(): void {
   window.dispatchEvent(new Event(BB_CONFIG_CHANGED));
   window.dispatchEvent(new Event(STUDY_ARENA_CHANGED_EVENT));
   window.dispatchEvent(new CustomEvent(STUDY_ARENA_COMPLETED_CHANGED_EVENT));
+  window.dispatchEvent(new CustomEvent(DAILY_CHECKLIST_CHANGED_EVENT));
 }

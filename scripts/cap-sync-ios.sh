@@ -18,7 +18,8 @@ cfg.packageClassList = [
   'AppPlugin',
   'CAPBrowserPlugin',
   'LiveActivityPlugin',
-  'ScreenTimePlugin'
+  'ScreenTimePlugin',
+  'WidgetDataPlugin'
 ];
 fs.writeFileSync('$CONFIG', JSON.stringify(cfg, null, '\t') + '\n');
 console.log('✅  packageClassList restored:', cfg.packageClassList);

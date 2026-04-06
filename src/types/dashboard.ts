@@ -4,6 +4,7 @@ export type MainTabId =
   | "courses"
   | "class-notes"
   | "fechas"
+  | "daily-tasks"
   | "documentos"
   | "assignments"
   | "study-arena"
@@ -11,6 +12,22 @@ export type MainTabId =
   | "notas"
   | "notebooklm"
   | "app-blocking";
+
+/** Prioridad visual de una tarea (punto de color). */
+export type ChecklistPriority = "green" | "orange" | "red";
+
+/** Ítem de checklist diario o semanal (persistido en localStorage / nube). */
+export type ChecklistTaskItem = {
+  id: string;
+  title: string;
+  done: boolean;
+  createdAt: string;
+  /** `day`: {@link ChecklistTaskItem.periodKey} es YYYY-MM-DD local. `week`: lunes de esa semana (YYYY-MM-DD). */
+  scope: "day" | "week";
+  periodKey: string;
+  /** Verde = baja, naranja = media, roja = alta. */
+  priority: ChecklistPriority;
+};
 
 /** Mensaje en el chat de planificación (modelo vía OpenRouter). */
 export type StudyPlanChatTurn = {
