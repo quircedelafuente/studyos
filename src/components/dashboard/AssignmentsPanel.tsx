@@ -623,7 +623,7 @@ export function AssignmentsPanel() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6 px-4 py-6 md:px-10 md:py-8">
+    <div className="flex w-full min-w-0 flex-col gap-6 px-4 py-6 md:min-h-0 md:flex-1 md:px-10 md:py-8">
       {/* Header */}
       <header className="flex shrink-0 flex-row items-start justify-between gap-4">
         <div>
@@ -872,7 +872,7 @@ export function AssignmentsPanel() {
 
       {/* ─── Gradebook (config local o solo caché sincronizada) ─── */}
       {showAssignmentsMain ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-5">
+        <div className="flex flex-col gap-5 md:min-h-0 md:flex-1">
           {waitingCloudHydration ? (
             <div className="flex min-h-[18rem] flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-14">
               <p className="text-sm font-medium text-[var(--ink)]">
@@ -939,9 +939,9 @@ export function AssignmentsPanel() {
 
           {/* Two-column: course list + gradebook */}
           {displayedCourses.length > 0 ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-              {/* Course sidebar — capped height on small screens so gradebook below keeps space */}
-              <aside className="flex max-h-[min(48vh,22rem)] min-h-0 shrink-0 flex-col lg:max-h-none lg:w-72">
+            <div className="flex w-full flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row">
+              {/* Course sidebar — scroll interno en móvil; en lg comparte alto con gradebook */}
+              <aside className="flex max-h-[min(50vh,20rem)] min-h-0 shrink-0 flex-col lg:max-h-none lg:w-72 lg:self-stretch">
                 <div className="mb-2 flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-muted)]">
@@ -1040,8 +1040,8 @@ export function AssignmentsPanel() {
                 </nav>
               </aside>
 
-              {/* Gradebook area — min height on mobile so flex-shrink cannot collapse it */}
-              <div className="flex min-h-[min(52vh,26rem)] min-w-0 flex-1 flex-col lg:min-h-0">
+              {/* Gradebook: alto natural en móvil (scroll página); flex en lg */}
+              <div className="flex min-w-0 flex-col lg:min-h-0 lg:min-w-0 lg:flex-1">
                 {selectedCourseId ? (
                   <>
                     <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -1101,8 +1101,8 @@ export function AssignmentsPanel() {
                     ) : null}
 
                     {gradebook.length > 0 ? (
-                      <div className="min-h-0 flex-1 overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_16px_40px_-18px_rgba(2,6,23,0.35)] ring-1 ring-black/[0.02]">
-                        <div className="min-h-0 h-full w-full overflow-x-auto overflow-y-auto">
+                      <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_16px_40px_-18px_rgba(2,6,23,0.35)] ring-1 ring-black/[0.02] lg:min-h-0 lg:flex-1">
+                        <div className="w-full overflow-x-auto lg:min-h-0 lg:h-full lg:overflow-y-auto">
                           <table className="table-fixed w-full min-w-0 text-[13px]">
                             <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[color:color-mix(in_srgb,var(--surface-muted)_84%,white)]/95 backdrop-blur">
                               <tr>
