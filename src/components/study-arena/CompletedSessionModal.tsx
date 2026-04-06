@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { type CompletedSession } from "@/lib/study-arena-completed-storage";
+import { type CompletedSession, deleteCompletedSession } from "@/lib/study-arena-completed-storage";
 import { getParkingNotesForRun, formatParkingNoteTime, type ParkingLotNote } from "@/lib/parking-lot-storage";
 import { splitFocusIntoItems } from "@/lib/study-plan-loose-parse";
 import { type StudyArenaSessionOption } from "@/components/study-arena/StudyArenaProvider";
@@ -47,9 +47,10 @@ type Props = {
   session: CompletedSession | null;
   onClose: () => void;
   onRedo: (option: StudyArenaSessionOption) => void;
+  onDeleted: () => void;
 };
 
-export function CompletedSessionModal({ session, onClose, onRedo }: Props) {
+export function CompletedSessionModal({ session, onClose, onRedo, onDeleted }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const parkingNotes: ParkingLotNote[] = useMemo(() => {
@@ -237,20 +238,33 @@ export function CompletedSessionModal({ session, onClose, onRedo }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 border-t border-[var(--border)] px-5 py-4 flex gap-3">
+        <div className="shrink-0 border-t border-[var(--border)] px-5 py-4 flex flex-col gap-2">
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleRedo}
+              className="flex-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3 text-sm font-extrabold text-[var(--ink)] transition hover:bg-[var(--canvas)]"
+            >
+              Rehacer sesión
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-2xl bg-[var(--ink)] px-4 py-3 text-sm font-extrabold text-white transition hover:opacity-90"
+            >
+              Cerrar
+            </button>
+          </div>
           <button
             type="button"
-            onClick={handleRedo}
-            className="flex-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3 text-sm font-extrabold text-[var(--ink)] transition hover:bg-[var(--canvas)]"
+            onClick={() => {
+              if (!session) return;
+              deleteCompletedSession(session.completionId);
+              onDeleted();
+            }}
+            className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100"
           >
-            Rehacer sesión
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-2xl bg-[var(--ink)] px-4 py-3 text-sm font-extrabold text-white transition hover:opacity-90"
-          >
-            Cerrar
+            Eliminar sesión completada
           </button>
         </div>
       </div>

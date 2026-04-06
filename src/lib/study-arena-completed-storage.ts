@@ -85,6 +85,11 @@ function saveCompletedSessionsList(sessions: CompletedSession[]): void {
   }, 2500);
 }
 
+export function deleteCompletedSession(completionId: string): void {
+  const existing = loadCompletedSessions();
+  saveCompletedSessionsList(existing.filter((s) => s.completionId !== completionId));
+}
+
 export function saveCompletedSession(session: Omit<CompletedSession, "completionId" | "completedAt">): void {
   const record: CompletedSession = {
     ...session,

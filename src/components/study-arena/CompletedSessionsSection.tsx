@@ -59,6 +59,7 @@ export function CompletedSessionsSection({ onRedo }: Props) {
         session={selected}
         onClose={() => setSelected(null)}
         onRedo={onRedo}
+        onDeleted={() => setSelected(null)}
       />
 
       <div className="mt-6">

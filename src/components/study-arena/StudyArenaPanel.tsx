@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadStudyPlans, STUDY_PLANS_CHANGED_EVENT, STUDY_PLANS_STORAGE_KEY } from "@/lib/study-plans-storage";
+import {
+  loadCompletedSessions,
+  STUDY_ARENA_COMPLETED_CHANGED_EVENT,
+} from "@/lib/study-arena-completed-storage";
 import { formatLocalYmd, splitFocusIntoItems } from "@/lib/study-plan-loose-parse";
 import { useStudyArena, type StudyArenaSessionOption } from "@/components/study-arena/StudyArenaProvider";
 import { ParkingLotSessionReviewModal } from "@/components/study-arena/ParkingLotSessionReviewModal";
@@ -146,6 +150,9 @@ export function StudyArenaPanel() {
 
   const todayYmd = useMemo(() => formatLocalYmd(new Date()), []);
   const [options, setOptions] = useState<StudyArenaSessionOption[]>([]);
+  const [completedKeys, setCompletedKeys] = useState<Set<string>>(() => {
+    return new Set(loadCompletedSessions().map((s) => s.key));
+  });
 
   const [parkingDraft, setParkingDraft] = useState("");
   const [parkingReviewOpen, setParkingReviewOpen] = useState(false);
@@ -256,6 +263,14 @@ export function StudyArenaPanel() {
     };
   }, [todayYmd]);
 
+  useEffect(() => {
+    function refreshCompleted() {
+      setCompletedKeys(new Set(loadCompletedSessions().map((s) => s.key)));
+    }
+    window.addEventListener(STUDY_ARENA_COMPLETED_CHANGED_EVENT, refreshCompleted);
+    return () => window.removeEventListener(STUDY_ARENA_COMPLETED_CHANGED_EVENT, refreshCompleted);
+  }, []);
+
   function submitParkingQuick() {
     if (!activeSessionKey || !activeSession) return;
     const raw = parkingDraft.replace(/\r\n/g, "\n");
@@ -315,7 +330,7 @@ export function StudyArenaPanel() {
               </p>
             </div>
 
-            {options.length === 0 ? (
+            {options.filter((o) => !completedKeys.has(o.key)).length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] px-4 py-8 text-center">
                 <p className="text-sm font-medium text-[var(--ink)]">No hay sesiones para hoy</p>
                 <p className="mx-auto mt-1 max-w-[20rem] text-xs text-[var(--ink-muted)]">
@@ -324,7 +339,7 @@ export function StudyArenaPanel() {
               </div>
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2">
-                {options.map((o) => {
+                {options.filter((o) => !completedKeys.has(o.key)).map((o) => {
                   const focusItems = splitFocusIntoItems(o.focus);
                   const summary = focusItems.slice(0, 2).join(" · ");
                   return (
