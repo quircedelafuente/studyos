@@ -2,7 +2,7 @@ import SwiftUI
 import WidgetKit
 
 struct ActiveSessionEntry: TimelineEntry {
-    let date:   Date
+    let date:    Date
     let session: IEWidgetActiveSession?
 }
 
@@ -22,15 +22,14 @@ struct ActiveSessionProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<ActiveSessionEntry>) -> Void) {
         let data  = IEWidgetData.load()
         let entry = ActiveSessionEntry(date: Date(), session: data.activeSession)
-        // Refresh every 5 min when active, hourly otherwise
-        let interval: Int = data.activeSession != nil ? 5 : 60
-        let next = Calendar.current.date(byAdding: .minute, value: interval, to: Date()) ?? Date()
+        let mins  = data.activeSession != nil ? 5 : 60
+        let next  = Calendar.current.date(byAdding: .minute, value: mins, to: Date()) ?? Date()
         completion(Timeline(entries: [entry], policy: .after(next)))
     }
 }
 
-private let brandColor  = Color(red: 0.39, green: 0.40, blue: 0.95)
-private let bgDark      = Color(red: 0.06, green: 0.09, blue: 0.16)
+private let brandColor = Color(red: 0.39, green: 0.40, blue: 0.95)
+private let bgDark     = Color(red: 0.06, green: 0.09, blue: 0.16)
 
 private func focusColor(_ score: Int) -> Color {
     switch score {
@@ -39,6 +38,8 @@ private func focusColor(_ score: Int) -> Color {
     default:       return Color(red: 0.93, green: 0.27, blue: 0.27)
     }
 }
+
+// MARK: - Small
 
 struct ActiveSessionSmallView: View {
     let session: IEWidgetActiveSession?
@@ -93,6 +94,8 @@ struct ActiveSessionSmallView: View {
     }
 }
 
+// MARK: - Medium
+
 struct ActiveSessionMediumView: View {
     let session: IEWidgetActiveSession?
     var body: some View {
@@ -100,7 +103,6 @@ struct ActiveSessionMediumView: View {
             ZStack {
                 bgDark.ignoresSafeArea()
                 HStack(spacing: 16) {
-                    // Timer circle
                     ZStack {
                         Circle().stroke(Color.white.opacity(0.1), lineWidth: 6)
                         Circle()
@@ -124,15 +126,12 @@ struct ActiveSessionMediumView: View {
                         .frame(maxWidth: .infinity)
                     }
                     .frame(width: 72, height: 72)
-
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 4) {
                             Image(systemName: "brain.head.profile").font(.system(size: 10, weight: .semibold)).foregroundColor(brandColor)
                             Text("Study Arena").font(.system(size: 10, weight: .bold)).foregroundColor(brandColor)
                             Spacer()
-                            if s.isPaused {
-                                Text("PAUSADO").font(.system(size: 9, weight: .heavy)).foregroundColor(.yellow).kerning(1)
-                            }
+                            if s.isPaused { Text("PAUSADO").font(.system(size: 9, weight: .heavy)).foregroundColor(.yellow).kerning(1) }
                         }
                         Text(s.sessionTitle).font(.system(size: 13, weight: .semibold)).foregroundColor(.white).lineLimit(2)
                         Spacer()
@@ -165,6 +164,8 @@ struct ActiveSessionMediumView: View {
         }
     }
 }
+
+// MARK: - Large
 
 struct ActiveSessionLargeView: View {
     let session: IEWidgetActiveSession?
@@ -227,6 +228,8 @@ struct ActiveSessionLargeView: View {
     }
 }
 
+// MARK: - Entry View
+
 struct ActiveSessionEntryView: View {
     var entry: ActiveSessionEntry
     @Environment(\.widgetFamily) var family
@@ -240,12 +243,14 @@ struct ActiveSessionEntryView: View {
     }
 }
 
+// MARK: - Widget
+
 struct ActiveSessionWidget: Widget {
     let kind = "ActiveSessionWidget"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: ActiveSessionProvider()) { entry in
             ActiveSessionEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .ieWidgetBackground()
                 .widgetURL(URL(string: "iestudio://study-arena"))
         }
         .configurationDisplayName("Study Arena")

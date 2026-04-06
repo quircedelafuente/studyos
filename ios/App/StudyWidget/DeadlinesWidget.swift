@@ -295,7 +295,7 @@ struct DeadlinesWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DeadlinesProvider()) { entry in
             DeadlinesEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .ieWidgetBackground()
                 .widgetURL(URL(string: "iestudio://deadlines"))
         }
         .configurationDisplayName("Exámenes y Fechas")

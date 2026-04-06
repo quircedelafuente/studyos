@@ -167,7 +167,7 @@ struct BBDeliveriesWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: BBDeliveriesProvider()) { entry in
             BBDeliveriesEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .ieWidgetBackground()
                 .widgetURL(URL(string: "iestudio://assignments"))
         }
         .configurationDisplayName("Entregas Blackboard")

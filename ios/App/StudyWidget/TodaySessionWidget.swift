@@ -160,7 +160,7 @@ struct TodaySessionWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodaySessionProvider()) { entry in
             TodaySessionEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .ieWidgetBackground()
                 .widgetURL(URL(string: "iestudio://study-arena"))
         }
         .configurationDisplayName("Sesión de Hoy")
