@@ -205,7 +205,9 @@ export function DashboardApp() {
             </div>
           ) : null}
           {mainTab === "class-notes" ? (
-            <ClassNotesPanel />
+            <div className="min-h-0 flex-1 overflow-y-auto md:flex md:flex-col md:overflow-hidden">
+              <ClassNotesPanel />
+            </div>
           ) : null}
           {mainTab === "fechas" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">

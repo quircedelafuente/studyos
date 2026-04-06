@@ -342,7 +342,7 @@ export function ClassNotesPanel() {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col md:overflow-hidden bg-[var(--canvas)]">
+    <div className="bg-[var(--canvas)] md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-hidden">
       <div className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-4 md:shrink-0 md:px-6">
         <h1 className="text-xl font-black tracking-tight text-[var(--ink)] md:text-2xl">
           Class Notes
@@ -402,7 +402,7 @@ export function ClassNotesPanel() {
         </div>
       </div>
 
-      <div className="px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:min-h-0 md:flex-1 md:overflow-y-auto md:px-6">
+      <div className="px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:min-h-0 md:flex-1 md:overflow-y-auto md:overflow-x-hidden md:px-6">
         {sessionDetail ? (
           <ClassSessionDetailView
             courseKey={sessionDetail.courseKey}

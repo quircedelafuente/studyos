@@ -229,7 +229,7 @@ ${cleanContent}
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={onBack}
             className="min-h-[44px] rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--ink)] hover:bg-[var(--surface-muted)]">
