@@ -17,9 +17,10 @@ import {
   googleEventKey,
   isTimedClassNotesEvent,
   loadClassNotes,
+  parseSessionNumberFromSummary,
   removeSessions,
   saveClassNotes,
-  seedCoursesFromGoogleEvents,
+  syncClassNotesBucketsFromGoogleEvents,
   updateSessionLabel,
   type ClassNotesState,
 } from "@/lib/class-notes-storage";
@@ -141,6 +142,7 @@ export function ClassNotesPanel() {
     return () => window.removeEventListener(CLASS_NOTES_CHANGED_EVENT, onNotes);
   }, []);
 
+  /** Rango fijo para Class Notes: 1 ene → 30 jun (año en curso), todas las sesiones con hora. */
   const loadEvents = useCallback(async () => {
     if (status !== "authenticated" || session?.error === "RefreshAccessTokenError") {
       return;
@@ -149,8 +151,11 @@ export function ClassNotesPanel() {
     setFetchError(null);
     try {
       const params = new URLSearchParams();
-      params.set("year", String(viewYear));
-      params.set("month", String(viewMonthIndex + 1));
+      const y = new Date().getFullYear();
+      const from = new Date(y, 0, 1, 0, 0, 0, 0);
+      const to = new Date(y, 5, 30, 23, 59, 59, 999);
+      params.set("from", from.toISOString());
+      params.set("to", to.toISOString());
       const res = await fetch(`/api/calendar/events?${params}`, {
         credentials: "include",
       });
@@ -166,7 +171,7 @@ export function ClassNotesPanel() {
     } finally {
       setLoading(false);
     }
-  }, [status, session?.error, viewYear, viewMonthIndex]);
+  }, [status, session?.error]);
 
   useEffect(() => {
     if (status === "authenticated") void loadEvents();
@@ -220,7 +225,7 @@ export function ClassNotesPanel() {
   useEffect(() => {
     if (status !== "authenticated" || !googleEvents.length) return;
     const prev = loadClassNotes();
-    const { state: next, changed } = seedCoursesFromGoogleEvents(
+    const { state: next, changed } = syncClassNotesBucketsFromGoogleEvents(
       prev,
       googleEvents,
       displayedCourses.map((c) => ({
@@ -310,9 +315,10 @@ export function ClassNotesPanel() {
           Class Notes
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-[var(--ink-muted)]">
-          Sesiones con hora en Google Calendar, organizadas por día o por curso.
-          Los títulos de curso deben aparecer en el nombre del evento para
-          asignarlos automáticamente.
+          Carga eventos con hora desde el 1 de enero hasta el 30 de junio del
+          año actual. Por curso, las sesiones siguen el número en el título
+          (p. ej. «Sesión 3», «S3») y luego la fecha. El nombre del curso debe
+          aparecer en el título del evento para asignarlo.
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--canvas)] p-1">
@@ -451,7 +457,8 @@ export function ClassNotesPanel() {
                           {section.name}
                         </span>
                         <span className="text-xs text-[var(--ink-muted)]">
-                          {sessions.length} / {CLASS_NOTES_MAX_SESSIONS} sesiones
+                          {sessions.length} sesión{sessions.length === 1 ? "" : "es"}
+                          {sessions.length >= CLASS_NOTES_MAX_SESSIONS ? " (tope)" : ""}
                         </span>
                       </div>
                       <span className="text-[var(--ink-muted)]">
@@ -515,6 +522,9 @@ export function ClassNotesPanel() {
                         ) : (
                           <ul className="space-y-2">
                             {sessions.map((row, idx) => {
+                              const displayNum =
+                                parseSessionNumberFromSummary(row.label) ??
+                                idx + 1;
                               const ev = row.googleEventKey
                                 ? timedInMonth.find(
                                     (e) => googleEventKey(e) === row.googleEventKey,
@@ -550,11 +560,11 @@ export function ClassNotesPanel() {
                                     <span className="sr-only">Seleccionar</span>
                                   </label>
                                   <span className="w-8 shrink-0 text-center text-xs font-bold text-[var(--ink-faint)]">
-                                    {idx + 1}
+                                    {displayNum}
                                   </span>
                                   <SessionLabelInput
                                     label={row.label}
-                                    idx={idx}
+                                    idx={displayNum - 1}
                                     onCommit={(next) =>
                                       patchNotes((s) =>
                                         updateSessionLabel(

@@ -6,7 +6,8 @@ export const CLASS_NOTES_STORAGE_KEY = "iestudio-class-notes";
 
 export const CLASS_NOTES_CHANGED_EVENT = "iestudio-class-notes-changed";
 
-export const CLASS_NOTES_MAX_SESSIONS = 30;
+/** Tope de sesiones por curso (calendario + manuales); el rango de fechas es amplio (p. ej. hasta junio). */
+export const CLASS_NOTES_MAX_SESSIONS = 1000;
 
 export type ClassNoteSessionRow = {
   id: string;
@@ -50,6 +51,43 @@ function eventStartMs(ev: GoogleCalendarEventItem): number {
 
 export function isTimedClassNotesEvent(ev: GoogleCalendarEventItem): boolean {
   return Boolean(ev.start?.dateTime?.trim());
+}
+
+/**
+ * Extrae el número de sesión del título del evento (p. ej. "Sesión 3", "S3", "Session 12", "3ª sesión").
+ * Si no hay número reconocible, devuelve null (van al final al ordenar).
+ */
+export function parseSessionNumberFromSummary(summary: string): number | null {
+  const s = summary.trim().toLowerCase();
+  if (!s) return null;
+
+  const patterns: RegExp[] = [
+    /(?:sesi[oó]n|session)\s*(?:n[oº°.]?\s*|número\s*|numero\s*)?(?:#|:|\.)?\s*(\d{1,3})\b/,
+    /(?:clase|class)\s*(?:#|:|\.)?\s*(\d{1,3})\b/,
+    /\b(\d{1,3})\s*(?:ª|a|er|o|º|°)?\s*(?:sesi[oó]n|session)\b/,
+    /\bs\s*(\d{1,3})\b/,
+  ];
+
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 1 && n <= 999) return n;
+    }
+  }
+  return null;
+}
+
+function compareClassNotesEventsBySessionNumberThenTime(
+  a: GoogleCalendarEventItem,
+  b: GoogleCalendarEventItem,
+): number {
+  const na =
+    parseSessionNumberFromSummary(a.summary ?? "") ?? Number.MAX_SAFE_INTEGER;
+  const nb =
+    parseSessionNumberFromSummary(b.summary ?? "") ?? Number.MAX_SAFE_INTEGER;
+  if (na !== nb) return na - nb;
+  return eventStartMs(a) - eventStartMs(b);
 }
 
 export function eventMatchesCourseName(
@@ -134,7 +172,61 @@ export function saveClassNotes(state: ClassNotesState): void {
 /** Curso virtual para eventos que no encajan con ningún nombre de curso. */
 export const UNASSIGNED_COURSE_KEY = "__unassigned__";
 
-export function seedCoursesFromGoogleEvents(
+function buildCalendarRowsFromEvents(
+  matching: GoogleCalendarEventItem[],
+  prevSessions: ClassNoteSessionRow[],
+): ClassNoteSessionRow[] {
+  const sorted = [...matching].sort(compareClassNotesEventsBySessionNumberThenTime);
+  const prevByKey = new Map(
+    prevSessions
+      .filter((r) => r.googleEventKey)
+      .map((r) => [r.googleEventKey!, r] as const),
+  );
+
+  return sorted.map((ev) => {
+    const key = googleEventKey(ev);
+    const prevRow = prevByKey.get(key);
+    const labelDefault = (ev.summary ?? "").trim() || "Sesión";
+    if (prevRow) {
+      return {
+        id: prevRow.id,
+        label: prevRow.label.trim() ? prevRow.label : labelDefault,
+        googleEventKey: key,
+      };
+    }
+    return {
+      id: newRowId(),
+      label: labelDefault,
+      googleEventKey: key,
+    };
+  });
+}
+
+function sessionsListShallowEqual(
+  a: ClassNoteSessionRow[],
+  b: ClassNoteSessionRow[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (
+      x.id !== y.id ||
+      x.label !== y.label ||
+      x.googleEventKey !== y.googleEventKey
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Actualiza los buckets por curso a partir de **todo** el rango de eventos cargado:
+ * orden por número de sesión en el título y luego por fecha.
+ * Mantiene filas manuales (sin `googleEventKey`) al final y conserva id/label si el evento ya existía.
+ */
+export function syncClassNotesBucketsFromGoogleEvents(
   state: ClassNotesState,
   events: GoogleCalendarEventItem[],
   displayedCourses: { learnCourseId: string; name: string }[],
@@ -146,39 +238,42 @@ export function seedCoursesFromGoogleEvents(
 
   for (const c of courseList) {
     const courseKey = c.learnCourseId;
-    if (Object.prototype.hasOwnProperty.call(next.byCourse, courseKey)) continue;
+    const matching = timed.filter((ev) => eventMatchesCourseName(ev, c.name));
+    const prevSessions = next.byCourse[courseKey]?.sessions ?? [];
+    const manual = prevSessions.filter((s) => !s.googleEventKey);
+    const calendarRows = buildCalendarRowsFromEvents(matching, prevSessions);
+    const sessions = [...calendarRows, ...manual].slice(
+      0,
+      CLASS_NOTES_MAX_SESSIONS,
+    );
 
-    const matching = timed
-      .filter((ev) => eventMatchesCourseName(ev, c.name))
-      .sort((a, b) => eventStartMs(a) - eventStartMs(b))
-      .slice(0, CLASS_NOTES_MAX_SESSIONS);
-
-    if (matching.length === 0) continue;
-
-    next.byCourse[courseKey] = {
-      sessions: matching.map((ev) => ({
-        id: newRowId(),
-        label: (ev.summary ?? "").trim() || "Sesión",
-        googleEventKey: googleEventKey(ev),
-      })),
-    };
-    changed = true;
+    if (!sessionsListShallowEqual(sessions, prevSessions)) {
+      next.byCourse[courseKey] = { sessions };
+      changed = true;
+    }
   }
 
-  if (!Object.prototype.hasOwnProperty.call(next.byCourse, UNASSIGNED_COURSE_KEY)) {
-    const unmatched = timed
-      .filter((ev) => assignEventToLearnCourseId(ev, courseList) === null)
-      .sort((a, b) => eventStartMs(a) - eventStartMs(b))
-      .slice(0, CLASS_NOTES_MAX_SESSIONS);
+  const unmatched = timed.filter(
+    (ev) => assignEventToLearnCourseId(ev, courseList) === null,
+  );
+  const prevU = next.byCourse[UNASSIGNED_COURSE_KEY]?.sessions ?? [];
+  const manualU = prevU.filter((s) => !s.googleEventKey);
+  const calendarRowsU = buildCalendarRowsFromEvents(unmatched, prevU);
+  const sessionsU = [...calendarRowsU, ...manualU].slice(
+    0,
+    CLASS_NOTES_MAX_SESSIONS,
+  );
 
-    if (unmatched.length > 0) {
-      next.byCourse[UNASSIGNED_COURSE_KEY] = {
-        sessions: unmatched.map((ev) => ({
-          id: newRowId(),
-          label: (ev.summary ?? "").trim() || "Sesión",
-          googleEventKey: googleEventKey(ev),
-        })),
-      };
+  if (!sessionsListShallowEqual(sessionsU, prevU)) {
+    if (sessionsU.length > 0) {
+      next.byCourse[UNASSIGNED_COURSE_KEY] = { sessions: sessionsU };
+      changed = true;
+    } else if (
+      Object.prototype.hasOwnProperty.call(next.byCourse, UNASSIGNED_COURSE_KEY)
+    ) {
+      const nextBuckets = { ...next.byCourse };
+      delete nextBuckets[UNASSIGNED_COURSE_KEY];
+      next.byCourse = nextBuckets;
       changed = true;
     }
   }
