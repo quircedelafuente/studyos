@@ -30,14 +30,30 @@
   border: 2px dashed rgba(99, 102, 241, 0.4);
   border-radius: 16px;
 }
+/* Sin sombra en celdas del grid; grip sin dibujo hasta hover/redimensión */
+.react-grid-item {
+  box-shadow: none !important;
+}
 .react-grid-item > .react-resizable-handle {
   opacity: 0;
   transition: opacity 0.15s;
+  background: none !important;
+  background-image: none !important;
+}
+.react-grid-item > .react-resizable-handle::after {
+  opacity: 0;
 }
 .react-grid-item:hover > .react-resizable-handle,
 .react-grid-item.react-draggable-dragging > .react-resizable-handle,
 .react-grid-item.resizing > .react-resizable-handle {
   opacity: 1;
+}
+.react-grid-item:hover > .react-resizable-handle::after,
+.react-grid-item.react-draggable-dragging > .react-resizable-handle::after,
+.react-grid-item.resizing > .react-resizable-handle::after {
+  opacity: 1;
+  border-right-color: rgba(99, 102, 241, 0.45);
+  border-bottom-color: rgba(99, 102, 241, 0.45);
 }
 
 :root {

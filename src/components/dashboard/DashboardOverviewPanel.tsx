@@ -52,7 +52,7 @@ function WidgetShell({ title, subtitle, right, tone = "default", children }: Wid
 
   return (
     <section
-      className={`relative h-full overflow-hidden rounded-2xl border ${toneStyles} transition-all duration-200 active:scale-[0.98] sm:active:scale-100`}
+      className={`relative h-full overflow-hidden rounded-2xl border shadow-none ring-0 ${toneStyles} transition-colors duration-200`}
     >
       <div className="relative p-3 sm:p-4">
         <div className="flex items-start gap-3">
@@ -168,6 +168,13 @@ function ProgressRing({
   );
 }
 
+/** Escala la puntuación solo para el color del heatmap (más contraste sin inflar el número mostrado). */
+function weeklyLoadHeatmapLevel(raw: number): number {
+  const v = Math.max(0, Math.min(100, raw));
+  const amplified = Math.min(100, v * 2.75);
+  return Math.max(0, Math.min(4, Math.floor((amplified / 100) * 5)));
+}
+
 function HeatmapWeek({
   values,
   breakdowns,
@@ -175,8 +182,10 @@ function HeatmapWeek({
   values: readonly number[];
   breakdowns?: readonly string[];
 }) {
-  // valores 0..100, 7 días. Convertimos a 5 niveles.
-  const levels = useMemo(() => values.slice(0, 7).map((v) => Math.max(0, Math.min(4, Math.floor((v / 100) * 5)))), [values]);
+  const levels = useMemo(
+    () => values.slice(0, 7).map((v) => weeklyLoadHeatmapLevel(v)),
+    [values],
+  );
   const today = new Date();
   const todayDow = today.getDay(); // 0=Dom
   const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Lun…6=Dom
@@ -718,8 +727,16 @@ function getCurrentWeekDates(): string[] {
   });
 }
 
-/** Minutos de bloques (clase + estudio) para cubrir toda la franja temporal del score (~70 pts). */
-const WEEKLY_LOAD_TIMED_MINS_FOR_MAX = 150;
+/**
+ * Minutos de bloques (clase + estudio) para llegar al tope de la franja temporal (~70 pts).
+ * Valor bajo = el índice sube muy rápido (p. ej. ~36 min de bloques ya marcan carga alta).
+ */
+const WEEKLY_LOAD_TIMED_MINS_FOR_MAX = 36;
+
+/** Máx. puntos por entregas BB + fechas sin duración (antes 30; más bajo = menos “verde gratis”). */
+const WEEKLY_LOAD_EVENT_CAP = 36;
+/** Puntos por cada entrega/fecha contable hacia ese cap. */
+const WEEKLY_LOAD_EVENT_POINTS = 18;
 
 // ── Widget grid (react-grid-layout) ───────────────────────────────────────
 const LAYOUT_KEY = "iestudio-dashboard-layout-v4";
@@ -1206,8 +1223,7 @@ export function DashboardOverviewPanel() {
    * Fórmula por día:
    *   - Minutos de estudio (`study-*`) y de otros eventos con duración (clase) → hasta 70 pts
    *     (máx a ~2h30 de bloques; umbral bajo para que ámbar/rojo aparezcan antes)
-   *   - Fechas importantes sin duración ese día → 15 pts c/u (máx 30)
-   *   - Entregas BB pendientes ese día → 15 pts c/u (máx 30)
+   *   - Fechas sin duración / BB → pts configurables (ver WEEKLY_LOAD_EVENT_*)
    * Total capped a 100.
    */
   const weeklyLoad = useMemo<number[]>(() => {
@@ -1262,7 +1278,10 @@ export function DashboardOverviewPanel() {
         70,
         (timedMins / WEEKLY_LOAD_TIMED_MINS_FOR_MAX) * 70,
       );
-      const eventLoad = Math.min(30, (bareImp + bbDue) * 15);
+      const eventLoad = Math.min(
+        WEEKLY_LOAD_EVENT_CAP,
+        (bareImp + bbDue) * WEEKLY_LOAD_EVENT_POINTS,
+      );
 
       return Math.round(Math.min(100, timedLoad + eventLoad));
     });
@@ -1606,7 +1625,7 @@ export function DashboardOverviewPanel() {
         }}
       >
         {WIDGET_IDS.map((wid) => (
-          <div key={wid} className="relative overflow-hidden">
+          <div key={wid} className="relative overflow-hidden shadow-none">
             {editMode && (
               <div className="pointer-events-none absolute left-2 top-2 z-30 flex h-6 w-6 select-none items-center justify-center rounded-lg bg-indigo-600/90 text-sm text-white shadow">
                 ⠿
@@ -1615,7 +1634,7 @@ export function DashboardOverviewPanel() {
 
             {/* ── Próximas Entregas ── */}
               {wid === "entregas" && (
-                <section className="relative h-full overflow-hidden rounded-3xl border border-zinc-200/50 bg-white/40 shadow-xl backdrop-blur-md transition-all duration-300 hover:shadow-2xl active:scale-[0.98] group">
+                <section className="relative h-full overflow-hidden rounded-3xl border border-zinc-200/50 bg-white/40 backdrop-blur-md transition-colors duration-300 group">
                   <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-zinc-100/50 blur-3xl group-hover:bg-zinc-200/50 transition-colors" />
                   <div className="relative flex h-full flex-col p-5">
                     <header className="flex items-center justify-between mb-4">
@@ -1685,7 +1704,7 @@ export function DashboardOverviewPanel() {
 
               {/* ── Prioridad Máxima ── */}
               {wid === "prioridad" && (
-                <section className="relative h-full overflow-hidden rounded-3xl border-2 border-red-500/20 bg-[#fffafa] shadow-xl transition-all duration-300 active:scale-[0.98]">
+                <section className="relative h-full overflow-hidden rounded-3xl border-2 border-red-500/20 bg-[#fffafa] transition-colors duration-300">
                   <div className="relative flex h-full flex-col p-4 sm:p-5">
                     <header className="flex items-center justify-between mb-3">
                       <div className="min-w-0">
@@ -1732,7 +1751,7 @@ export function DashboardOverviewPanel() {
 
               {/* ── Sesiones de Estudio ── */}
               {wid === "sesiones" && (
-                <section className="relative h-full overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 shadow-xl transition-all duration-300 active:scale-[0.98]">
+                <section className="relative h-full overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 transition-colors duration-300">
                   <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 translate-y-[-10px] rounded-full bg-blue-200/20 blur-2xl" />
                   <div className="relative flex h-full flex-col p-5">
                     <header className="flex items-center justify-between mb-4">
