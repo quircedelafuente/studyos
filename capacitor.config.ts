@@ -25,6 +25,7 @@ const config: CapacitorConfig = {
     "CAPBrowserPlugin",
     "LiveActivityPlugin",
     "ScreenTimePlugin",
+    "WidgetDataPlugin",
   ],
 };
 
