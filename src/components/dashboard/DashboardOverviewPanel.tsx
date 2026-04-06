@@ -50,18 +50,10 @@ function WidgetShell({ title, subtitle, right, tone = "default", children }: Wid
           ? "border-zinc-200/90 bg-[var(--surface)]"
           : "border-[var(--border)] bg-[var(--surface)]";
 
-  const accentRing =
-    tone === "danger"
-      ? "shadow-[0_0_0_4px_rgba(239,68,68,0.08)]"
-      : tone === "warning"
-        ? "shadow-[0_0_0_4px_rgba(245,158,11,0.08)]"
-        : "shadow-[0_0_0_4px_rgba(0,0,0,0.03)]";
-
   return (
     <section
-      className={`relative h-full overflow-hidden rounded-2xl border ${toneStyles} ${accentRing} transition-all duration-200 active:scale-[0.98] sm:active:scale-100`}
+      className={`relative h-full overflow-hidden rounded-2xl border ${toneStyles} transition-all duration-200 active:scale-[0.98] sm:active:scale-100`}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(0,0,0,0.05),transparent_45%)]" />
       <div className="relative p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -726,6 +718,9 @@ function getCurrentWeekDates(): string[] {
   });
 }
 
+/** Minutos de bloques (clase + estudio) para cubrir toda la franja temporal del score (~70 pts). */
+const WEEKLY_LOAD_TIMED_MINS_FOR_MAX = 150;
+
 // ── Widget grid (react-grid-layout) ───────────────────────────────────────
 const LAYOUT_KEY = "iestudio-dashboard-layout-v4";
 const MOBILE_HEIGHTS_KEY = "iestudio-dashboard-mobile-heights-v1";
@@ -1202,14 +1197,17 @@ export function DashboardOverviewPanel() {
       segments: items.map((it) => ({ value: it.hours, color: it.color })),
     };
   }, [studyPlansRevision, deadlinesRevision]);
+
   /**
    * Carga semanal real (lun-dom de la semana actual).
-   * Fuentes: sesiones de estudio en deadlines + exámenes/fechas + entregas Blackboard.
+   * Fuentes: sesiones de estudio + bloques con duración (p. ej. clase en calendario),
+   * fechas “importantes” sin horario bloqueado, entregas Blackboard.
    *
    * Fórmula por día:
-   *   - Minutos de sesiones de estudio planificadas → hasta 70 pts (máx útil: 6h)
-   *   - Exámenes/fechas importantes ese día        → 15 pts c/u (máx 30)
-   *   - Entregas Blackboard vencidas ese día        → 15 pts c/u (máx 30, acumulado con lo anterior)
+   *   - Minutos de estudio (`study-*`) y de otros eventos con duración (clase) → hasta 70 pts
+   *     (máx a ~2h30 de bloques; umbral bajo para que ámbar/rojo aparezcan antes)
+   *   - Fechas importantes sin duración ese día → 15 pts c/u (máx 30)
+   *   - Entregas BB pendientes ese día → 15 pts c/u (máx 30)
    * Total capped a 100.
    */
   const weeklyLoad = useMemo<number[]>(() => {
@@ -1218,19 +1216,21 @@ export function DashboardOverviewPanel() {
     const weekDates = getCurrentWeekDates();
     const deadlines = loadImportantDeadlines();
 
-    // Acumuladores por fecha
-    const studyMinsByDate = new Map<string, number>();
-    const importantByDate = new Map<string, number>();
+    const timedMinsByDate = new Map<string, number>();
+    const importantBareByDate = new Map<string, number>();
 
     for (const d of deadlines) {
       if (!weekDates.includes(d.date)) continue;
       if (d.id.startsWith("study-")) {
-        // Sesión de estudio
         const mins = d.durationMinutes ?? 60;
-        studyMinsByDate.set(d.date, (studyMinsByDate.get(d.date) ?? 0) + mins);
+        timedMinsByDate.set(d.date, (timedMinsByDate.get(d.date) ?? 0) + mins);
+        continue;
+      }
+      const dm = d.durationMinutes;
+      if (dm != null && dm > 0) {
+        timedMinsByDate.set(d.date, (timedMinsByDate.get(d.date) ?? 0) + dm);
       } else {
-        // Examen / fecha importante
-        importantByDate.set(d.date, (importantByDate.get(d.date) ?? 0) + 1);
+        importantBareByDate.set(d.date, (importantBareByDate.get(d.date) ?? 0) + 1);
       }
     }
 
@@ -1254,16 +1254,17 @@ export function DashboardOverviewPanel() {
     }
 
     return weekDates.map((date) => {
-      const studyMins  = studyMinsByDate.get(date) ?? 0;
-      const important  = importantByDate.get(date) ?? 0;
-      const bbDue      = bbDeadlinesByDate.get(date) ?? 0;
+      const timedMins = timedMinsByDate.get(date) ?? 0;
+      const bareImp = importantBareByDate.get(date) ?? 0;
+      const bbDue = bbDeadlinesByDate.get(date) ?? 0;
 
-      // Estudio: 360 min → 70 pts
-      const studyLoad = Math.min(70, (studyMins / 360) * 70);
-      // Eventos importantes: cada uno +15, máx 30
-      const eventLoad = Math.min(30, (important + bbDue) * 15);
+      const timedLoad = Math.min(
+        70,
+        (timedMins / WEEKLY_LOAD_TIMED_MINS_FOR_MAX) * 70,
+      );
+      const eventLoad = Math.min(30, (bareImp + bbDue) * 15);
 
-      return Math.round(Math.min(100, studyLoad + eventLoad));
+      return Math.round(Math.min(100, timedLoad + eventLoad));
     });
   }, [studyPlansRevision, deadlinesRevision, bbRevision]);
 
@@ -1278,10 +1279,23 @@ export function DashboardOverviewPanel() {
     return weekDates.map((date) => {
       const studySessions = deadlines.filter((d) => d.id.startsWith("study-") && d.date === date);
       const studyMins = studySessions.reduce((s, d) => s + (d.durationMinutes ?? 60), 0);
-      const importantCount = deadlines.filter((d) => !d.id.startsWith("study-") && d.date === date).length;
+      const timedOthers = deadlines
+        .filter((d) => !d.id.startsWith("study-") && d.date === date)
+        .reduce((s, d) => s + (d.durationMinutes && d.durationMinutes > 0 ? d.durationMinutes : 0), 0);
+      const timedTotal = studyMins + timedOthers;
+      const bareCount = deadlines.filter(
+        (d) =>
+          !d.id.startsWith("study-") &&
+          d.date === date &&
+          !(d.durationMinutes != null && d.durationMinutes > 0),
+      ).length;
       const parts: string[] = [];
-      if (studyMins > 0) parts.push(`${Math.round(studyMins / 60 * 10) / 10}h estudio`);
-      if (importantCount > 0) parts.push(`${importantCount} evento${importantCount > 1 ? "s" : ""}`);
+      if (timedTotal > 0) {
+        parts.push(
+          `${Math.round((timedTotal / 60) * 10) / 10}h bloques (clase+estudio)`,
+        );
+      }
+      if (bareCount > 0) parts.push(`${bareCount} fecha${bareCount > 1 ? "s" : ""} (sin duración)`);
       return parts.length ? parts.join(" · ") : "Sin carga";
     });
   }, [studyPlansRevision, deadlinesRevision]);
