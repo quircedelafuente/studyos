@@ -324,3 +324,18 @@ export function removeSessions(
     byCourse: { ...state.byCourse, [courseKey]: { sessions } },
   };
 }
+
+/** Localiza la fila de sesión enlazada a un evento de Google (`googleEventKey`). */
+export function findSessionRowByGoogleEventKey(
+  state: ClassNotesState,
+  eventKey: string,
+): { courseKey: string; sessionId: string } | null {
+  for (const [courseKey, bucket] of Object.entries(state.byCourse)) {
+    for (const row of bucket.sessions) {
+      if (row.googleEventKey === eventKey) {
+        return { courseKey, sessionId: row.id };
+      }
+    }
+  }
+  return null;
+}

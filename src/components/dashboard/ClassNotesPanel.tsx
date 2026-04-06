@@ -14,6 +14,7 @@ import {
   CLASS_NOTES_MAX_SESSIONS,
   UNASSIGNED_COURSE_KEY,
   addEmptySession,
+  findSessionRowByGoogleEventKey,
   googleEventKey,
   isTimedClassNotesEvent,
   loadClassNotes,
@@ -24,10 +25,18 @@ import {
   updateSessionLabel,
   type ClassNotesState,
 } from "@/lib/class-notes-storage";
+import { ClassSessionDetailView } from "./ClassSessionDetailView";
 import { CourseGlyph } from "./CourseGlyph";
 import { IconPlus } from "./icons";
 
 type ViewMode = "dias" | "cursos";
+
+type SessionDetailTarget = {
+  courseKey: string;
+  sessionId: string;
+  sessionLabel: string;
+  courseName: string;
+};
 
 function eventLocalDayKey(ev: GoogleCalendarEventItem): string | null {
   const d = parseGoogleDateTimeToJsDate(
@@ -115,6 +124,18 @@ export function ClassNotesPanel() {
   const [selectedByCourse, setSelectedByCourse] = useState<
     Record<string, Set<string>>
   >({});
+  const [sessionDetail, setSessionDetail] = useState<SessionDetailTarget | null>(
+    null,
+  );
+  const [desktopWide, setDesktopWide] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setDesktopWide(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   const refreshCourses = useCallback(() => {
     setCoursesSnap(readBbDisplayedCoursesSnapshot());
@@ -376,7 +397,16 @@ export function ClassNotesPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6">
-        {status !== "authenticated" ? (
+        {sessionDetail ? (
+          <ClassSessionDetailView
+            courseKey={sessionDetail.courseKey}
+            sessionId={sessionDetail.sessionId}
+            sessionLabel={sessionDetail.sessionLabel}
+            courseName={sessionDetail.courseName}
+            allowGenerate={desktopWide}
+            onBack={() => setSessionDetail(null)}
+          />
+        ) : status !== "authenticated" ? (
           <p className="text-sm text-[var(--ink-muted)]">
             Inicia sesión con Google para ver el calendario.
           </p>
@@ -401,19 +431,61 @@ export function ClassNotesPanel() {
                     {formatDayHeading(dayKey)}
                   </h2>
                   <ul className="mt-3 space-y-2">
-                    {events.map((ev) => (
-                      <li
-                        key={googleEventKey(ev)}
-                        className="flex min-h-[44px] items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 py-3"
-                      >
-                        <span className="shrink-0 text-xs font-semibold tabular-nums text-[var(--ink-faint)]">
-                          {formatEventTime(ev) || "—"}
-                        </span>
-                        <span className="min-w-0 flex-1 text-sm font-medium text-[var(--ink)]">
-                          {ev.summary?.trim() || "(Sin título)"}
-                        </span>
-                      </li>
-                    ))}
+                    {events.map((ev) => {
+                      const loc = findSessionRowByGoogleEventKey(
+                        notesState,
+                        googleEventKey(ev),
+                      );
+                      const row =
+                        loc &&
+                        notesState.byCourse[loc.courseKey]?.sessions.find(
+                          (s) => s.id === loc.sessionId,
+                        );
+                      const sectionMeta = loc
+                        ? courseSections.find((s) => s.key === loc.courseKey)
+                        : undefined;
+                      return (
+                        <li key={googleEventKey(ev)}>
+                          <button
+                            type="button"
+                            disabled={!loc}
+                            onClick={() => {
+                              if (!loc || !row) return;
+                              setSessionDetail({
+                                courseKey: loc.courseKey,
+                                sessionId: loc.sessionId,
+                                sessionLabel: row.label,
+                                courseName:
+                                  sectionMeta?.name ??
+                                  ev.summary?.trim() ??
+                                  "Sesión",
+                              });
+                            }}
+                            className={`flex min-h-[44px] w-full items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 py-3 text-left transition ${
+                              loc
+                                ? "cursor-pointer hover:bg-[var(--surface-muted)]"
+                                : "cursor-not-allowed opacity-60"
+                            }`}
+                          >
+                            <span className="shrink-0 text-xs font-semibold tabular-nums text-[var(--ink-faint)]">
+                              {formatEventTime(ev) || "—"}
+                            </span>
+                            <span className="min-w-0 flex-1 text-sm font-medium text-[var(--ink)]">
+                              {ev.summary?.trim() || "(Sin título)"}
+                            </span>
+                            {loc ? (
+                              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--ink-faint)]">
+                                Apuntes
+                              </span>
+                            ) : (
+                              <span className="shrink-0 text-[10px] text-[var(--ink-faint)]">
+                                Sin curso
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </section>
               ))
@@ -547,6 +619,40 @@ export function ClassNotesPanel() {
                                       ? "border-[var(--ink)] bg-[var(--surface)]"
                                       : "border-[var(--border)] bg-[var(--surface)]"
                                   }`}
+                                  onClick={(e) => {
+                                    if (
+                                      (e.target as HTMLElement).closest(
+                                        "label,input,button,a",
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    setSessionDetail({
+                                      courseKey: section.key,
+                                      sessionId: row.id,
+                                      sessionLabel: row.label,
+                                      courseName: section.name,
+                                    });
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key !== "Enter" && e.key !== " ") return;
+                                    if (
+                                      (e.target as HTMLElement).closest(
+                                        "label,input,textarea",
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    e.preventDefault();
+                                    setSessionDetail({
+                                      courseKey: section.key,
+                                      sessionId: row.id,
+                                      sessionLabel: row.label,
+                                      courseName: section.name,
+                                    });
+                                  }}
+                                  role="button"
+                                  tabIndex={0}
                                 >
                                   <label className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center">
                                     <input
@@ -581,6 +687,9 @@ export function ClassNotesPanel() {
                                       {when}
                                     </span>
                                   ) : null}
+                                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--ink-faint)]">
+                                    Apuntes
+                                  </span>
                                 </li>
                               );
                             })}

@@ -1,0 +1,14 @@
+# IEStudio Class Notes — compañero WhisperX
+# Recomendado: Python 3.10–3.11 (3.12 puede funcionar según torch/whisperx).
+#
+# NVIDIA + CUDA (recomendado para velocidad):
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
+#   pip install -r requirements.txt
+#
+# macOS / CPU:
+#   pip install -r requirements.txt
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+whisperx>=3.1.1
