@@ -58,6 +58,11 @@ export function DashboardApp() {
   const [mainTab, setMainTab] = useState<MainTabId>("calendario");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMdUp, setIsMdUp] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(min-width: 768px)").matches
+      : false,
+  );
   const { data: session, status } = useSession();
   const { setSuppressFloatingWidget } = useStudyArena();
 
@@ -70,16 +75,36 @@ export function DashboardApp() {
     [isIOS],
   );
 
+  /** iPhone / iOS estrecho: menú hamburguesa → modal a pantalla completa (no drawer). */
+  const iosMobileFullscreenMenu = isIOS && !isMdUp;
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setIsMdUp(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
   useEffect(() => {
     setSuppressFloatingWidget(mainTab === "study-arena");
     return () => setSuppressFloatingWidget(false);
   }, [mainTab, setSuppressFloatingWidget]);
 
+  useEffect(() => {
+    if (!sidebarOpen || !iosMobileFullscreenMenu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen, iosMobileFullscreenMenu]);
+
   const closeSidebar = () => setSidebarOpen(false);
 
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 min-w-0 overflow-x-hidden bg-[var(--canvas)] text-[var(--ink)]">
-      {sidebarOpen ? (
+      {sidebarOpen && !iosMobileFullscreenMenu ? (
         <button
           type="button"
           aria-label="Cerrar menú"
@@ -88,8 +113,90 @@ export function DashboardApp() {
         />
       ) : null}
 
+      {sidebarOpen && iosMobileFullscreenMenu ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navegación"
+          className="fixed inset-0 z-[70] flex flex-col bg-[var(--canvas)] text-[var(--ink)]"
+        >
+          <div className="flex shrink-0 items-center px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 pl-[max(0.75rem,env(safe-area-inset-left))]">
+            <button
+              type="button"
+              onClick={closeSidebar}
+              aria-label="Cerrar menú"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--ink)] active:bg-[var(--surface-muted)]"
+            >
+              <IconX className="h-7 w-7" />
+            </button>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-6 py-4">
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+                <nav
+                  className="flex w-full flex-col gap-2 text-center"
+                  aria-label="Secciones"
+                >
+                  {MAIN_TABS.map(({ id, label, Icon }) => {
+                    const active = mainTab === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => {
+                          setMainTab(id);
+                          closeSidebar();
+                        }}
+                        className={`flex min-h-[52px] w-full items-center justify-center gap-3 rounded-2xl px-4 py-3.5 text-base font-semibold transition ${
+                          active
+                            ? "bg-[var(--ink)] text-white shadow-md"
+                            : "bg-[var(--surface)] text-[var(--ink)] shadow-sm ring-1 ring-[var(--border)] active:bg-[var(--surface-muted)]"
+                        }`}
+                      >
+                        <Icon className="h-6 w-6 shrink-0 opacity-90" />
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+              <div className="mt-6 shrink-0 border-t border-[var(--border)] pt-6 pb-2">
+                {status === "authenticated" && session?.user ? (
+                  <div className="space-y-3 text-center">
+                    <p className="truncate text-xs text-[var(--ink-muted)]">
+                      {session.user.email ?? session.user.name}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeSidebar();
+                        void signOut({ callbackUrl: "/" });
+                      }}
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--ink)] transition active:bg-[var(--surface-muted)]"
+                    >
+                      Cerrar sesión
+                    </button>
+                  </div>
+                ) : status === "loading" ? (
+                  <p className="text-center text-xs text-[var(--ink-faint)]">Cargando sesión…</p>
+                ) : (
+                  <p className="text-center text-xs text-[var(--ink-faint)]">
+                    Inicia sesión desde Calendario para sincronizar Google.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]" aria-hidden />
+        </div>
+      ) : null}
+
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-dvh w-[17.5rem] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar)] transition-transform duration-200 ease-out md:static md:translate-x-0 ${
+        className={`${
+          iosMobileFullscreenMenu
+            ? "hidden md:flex"
+            : "flex"
+        } fixed left-0 top-0 z-50 h-dvh w-[17.5rem] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar)] transition-transform duration-200 ease-out md:static md:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } ${sidebarCollapsed ? "md:w-[4.75rem]" : "md:w-[17.5rem]"}`}
         aria-label="Navegación principal"
