@@ -163,7 +163,9 @@ function FileInlinePreview({
           if (cancelled) return;
           setState({ status: "text", text, truncated });
         } catch {
-          const url = URL.createObjectURL(blob);
+          const typedBlob =
+            mime && mime !== blob.type ? new Blob([blob], { type: mime }) : blob;
+          const url = URL.createObjectURL(typedBlob);
           urlRef.current = url;
           if (cancelled) {
             URL.revokeObjectURL(url);
@@ -174,7 +176,9 @@ function FileInlinePreview({
         return;
       }
 
-      const url = URL.createObjectURL(blob);
+      const typedBlob =
+        mime && mime !== blob.type ? new Blob([blob], { type: mime }) : blob;
+      const url = URL.createObjectURL(typedBlob);
       urlRef.current = url;
       if (cancelled) {
         URL.revokeObjectURL(url);
