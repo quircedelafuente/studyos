@@ -9,6 +9,7 @@ struct StudyWidgetBundle: WidgetBundle {
         TodaySessionWidget()
         ActiveSessionWidget()
         BBDeliveriesWidget()
+        StudyTrendWidget()
 
         // Live Activity (iOS 16.2+)
         if #available(iOS 16.2, *) {

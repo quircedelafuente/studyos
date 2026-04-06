@@ -46,6 +46,7 @@ export async function syncWidgetData(): Promise<void> {
       todaySessions: (parsed.todaySessions as unknown[])?.length ?? 0,
       activeSession: parsed.activeSession !== null,
       bbDeliveries: (parsed.bbDeliveries as unknown[])?.length ?? 0,
+      studyTrend: (parsed.studyTrend as unknown[])?.length ?? 0,
     });
     await WidgetData.sync({ json });
     console.log("[WidgetDataSync] ✅ sync OK");
@@ -150,13 +151,56 @@ function buildWidgetJson(): string {
     // BB data unavailable — skip
   }
 
+  const studyTrend = buildStudyTrendForWidget();
+
   return JSON.stringify({
     deadlines,
     todaySessions,
     activeSession,
     bbDeliveries,
+    studyTrend,
     lastUpdated: nowMs,
   });
+}
+
+/** Misma lógica que el widget StudyTrend del dashboard (13 días, solo deadlines `study-*`). */
+function buildStudyTrendForWidget(): Array<{
+  label: string;
+  hours: number;
+  isToday: boolean;
+}> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const DAY_LABELS = ["D", "L", "M", "X", "J", "V", "S"];
+  const slots: Array<{
+    date: string;
+    label: string;
+    hours: number;
+    isToday: boolean;
+  }> = Array.from({ length: 13 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + (i - 6));
+    const dow = d.getDay();
+    return {
+      date: formatLocalYmd(d),
+      label: `${DAY_LABELS[dow] ?? ""}${d.getDate()}`,
+      hours: 0,
+      isToday: i === 6,
+    };
+  });
+  const ymdSet = new Set(slots.map((s) => s.date));
+  for (const dl of loadImportantDeadlines()) {
+    if (!dl.id.startsWith("study-") || !ymdSet.has(dl.date)) continue;
+    const slot = slots.find((s) => s.date === dl.date);
+    if (slot) {
+      slot.hours += (dl.durationMinutes ?? 60) / 60;
+    }
+  }
+  return slots.map(({ label, hours, isToday }) => ({
+    label,
+    hours: Math.round(hours * 100) / 100,
+    isToday,
+  }));
 }
 
 function urgencyForDate(dateYmd: string): string {

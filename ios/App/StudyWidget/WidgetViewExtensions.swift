@@ -11,4 +11,14 @@ extension View {
             self.background(Color(UIColor.systemBackground))
         }
     }
+
+    /// Fondo negro para widgets que deben combinar con estilo “dark” del gráfico StudyTrend.
+    @ViewBuilder
+    func ieStudyTrendWidgetBackground() -> some View {
+        if #available(iOS 17.0, *) {
+            self.containerBackground(Color.black, for: .widget)
+        } else {
+            self.background(Color.black)
+        }
+    }
 }

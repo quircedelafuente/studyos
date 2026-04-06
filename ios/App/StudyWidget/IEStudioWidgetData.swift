@@ -13,10 +13,12 @@ struct IEWidgetData: Codable {
     var todaySessions:[IEWidgetSession]
     var activeSession:IEWidgetActiveSession?
     var bbDeliveries: [IEWidgetDelivery]
+    /// Puntos del gráfico StudyTrend (±6 días); opcional por compatibilidad con JSON antiguos.
+    var studyTrend:   [IEWidgetStudyTrendPoint]?
     var lastUpdated:  Double          // Unix ms
 
     static var empty: IEWidgetData {
-        IEWidgetData(deadlines: [], todaySessions: [], activeSession: nil, bbDeliveries: [], lastUpdated: 0)
+        IEWidgetData(deadlines: [], todaySessions: [], activeSession: nil, bbDeliveries: [], studyTrend: nil, lastUpdated: 0)
     }
 
     static func load() -> IEWidgetData {
@@ -57,6 +59,14 @@ struct IEWidgetDeadline: Codable, Identifiable {
         default:       return daysRemaining <= 3 ? "red" : daysRemaining <= 7 ? "yellow" : "normal"
         }
     }
+}
+
+// MARK: - Study trend (dashboard chart)
+
+struct IEWidgetStudyTrendPoint: Codable {
+    var label:   String
+    var hours:   Double
+    var isToday: Bool
 }
 
 // MARK: - Today sessions
