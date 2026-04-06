@@ -397,6 +397,26 @@ export function IconNotes({ className }: { className?: string }) {
   );
 }
 
+/** Apuntes de clase / sesiones (libro abierto). */
+export function IconClassNotes({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 4h5a2 2 0 012 2v15a3 3 0 00-3-3H6a2 2 0 01-2-2V6a2 2 0 012-2zM18 4h-5a2 2 0 00-2 2v15a3 3 0 013-3h4a2 2 0 002-2V6a2 2 0 00-2-2z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 9h2M9 13h2M15 9h2M15 13h2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** Study Arena: temporizador + focus (icono simple). */
 export function IconStudyArena({ className }: { className?: string }) {
   return (

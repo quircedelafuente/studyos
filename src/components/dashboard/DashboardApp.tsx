@@ -20,6 +20,7 @@ import {
   IconAssignments,
   IconDashboard,
   IconCalendar,
+  IconClassNotes,
   IconCourses,
   IconDeadlines,
   IconFolder,
@@ -30,6 +31,7 @@ import {
   IconTerminal,
   IconX,
 } from "./icons";
+import { ClassNotesPanel } from "./ClassNotesPanel";
 import { NotesPanel } from "./NotesPanel";
 
 const BASE_TABS: {
@@ -41,6 +43,7 @@ const BASE_TABS: {
   { id: "dashboard",     label: "Dashboard",        Icon: IconDashboard },
   { id: "calendario",    label: "Calendario",        Icon: IconCalendar },
   { id: "courses",       label: "Courses",           Icon: IconCourses },
+  { id: "class-notes",   label: "Class Notes",       Icon: IconClassNotes },
   { id: "fechas",        label: "Exámenes y fechas", Icon: IconDeadlines },
   { id: "documentos",    label: "Documentos",        Icon: IconFolder },
   { id: "assignments",   label: "Assignments",       Icon: IconAssignments },
@@ -200,6 +203,9 @@ export function DashboardApp() {
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <CoursesPanel />
             </div>
+          ) : null}
+          {mainTab === "class-notes" ? (
+            <ClassNotesPanel />
           ) : null}
           {mainTab === "fechas" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
