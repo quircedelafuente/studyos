@@ -32,14 +32,25 @@ export function scheduleWidgetSync(delayMs = 2000): void {
 }
 
 export async function syncWidgetData(): Promise<void> {
-  if (!isCapacitorIOS()) return;
+  if (!isCapacitorIOS()) {
+    console.log("[WidgetDataSync] skip — not Capacitor iOS");
+    return;
+  }
 
   try {
     const { default: WidgetData } = await import("@/plugins/WidgetDataPlugin");
     const json = buildWidgetJson();
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    console.log("[WidgetDataSync] syncing →", {
+      deadlines: (parsed.deadlines as unknown[])?.length ?? 0,
+      todaySessions: (parsed.todaySessions as unknown[])?.length ?? 0,
+      activeSession: parsed.activeSession !== null,
+      bbDeliveries: (parsed.bbDeliveries as unknown[])?.length ?? 0,
+    });
     await WidgetData.sync({ json });
+    console.log("[WidgetDataSync] ✅ sync OK");
   } catch (e) {
-    console.warn("[WidgetDataSync] sync failed:", e);
+    console.error("[WidgetDataSync] ❌ sync failed:", e);
   }
 }
 
