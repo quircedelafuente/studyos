@@ -75,6 +75,13 @@ export function DashboardApp() {
     [isIOS],
   );
 
+  /** En viewport móvil no se ofrece Bloqueo de apps (sigue en tablet/escritorio). */
+  const navTabs = useMemo(
+    () =>
+      isMdUp ? MAIN_TABS : MAIN_TABS.filter((t) => t.id !== "app-blocking"),
+    [MAIN_TABS, isMdUp],
+  );
+
   /** iPhone / iOS estrecho: menú hamburguesa → modal a pantalla completa (no drawer). */
   const iosMobileFullscreenMenu = isIOS && !isMdUp;
 
@@ -99,6 +106,12 @@ export function DashboardApp() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [sidebarOpen, iosMobileFullscreenMenu]);
+
+  useEffect(() => {
+    if (!isMdUp && mainTab === "app-blocking") {
+      setMainTab("calendario");
+    }
+  }, [isMdUp, mainTab]);
 
   const closeSidebar = () => setSidebarOpen(false);
 
@@ -131,13 +144,13 @@ export function DashboardApp() {
             </button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-6 py-4">
+            <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-4 py-2">
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
                 <nav
-                  className="flex w-full flex-col gap-2 text-center"
+                  className="flex w-full flex-col gap-1.5 text-center"
                   aria-label="Secciones"
                 >
-                  {MAIN_TABS.map(({ id, label, Icon }) => {
+                  {navTabs.map(({ id, label, Icon }) => {
                     const active = mainTab === id;
                     return (
                       <button
@@ -147,20 +160,20 @@ export function DashboardApp() {
                           setMainTab(id);
                           closeSidebar();
                         }}
-                        className={`flex min-h-[52px] w-full items-center justify-center gap-3 rounded-2xl px-4 py-3.5 text-base font-semibold transition ${
+                        className={`flex min-h-[40px] w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold leading-snug transition ${
                           active
                             ? "bg-[var(--ink)] text-white shadow-md"
                             : "bg-[var(--surface)] text-[var(--ink)] shadow-sm ring-1 ring-[var(--border)] active:bg-[var(--surface-muted)]"
                         }`}
                       >
-                        <Icon className="h-6 w-6 shrink-0 opacity-90" />
-                        <span>{label}</span>
+                        <Icon className="h-[1.1rem] w-[1.1rem] shrink-0 opacity-90" />
+                        <span className="line-clamp-2">{label}</span>
                       </button>
                     );
                   })}
                 </nav>
               </div>
-              <div className="mt-6 shrink-0 border-t border-[var(--border)] pt-6 pb-2">
+              <div className="mt-4 shrink-0 border-t border-[var(--border)] pt-4 pb-2">
                 {status === "authenticated" && session?.user ? (
                   <div className="space-y-3 text-center">
                     <p className="truncate text-xs text-[var(--ink-muted)]">
@@ -172,7 +185,7 @@ export function DashboardApp() {
                         closeSidebar();
                         void signOut({ callbackUrl: "/" });
                       }}
-                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--ink)] transition active:bg-[var(--surface-muted)]"
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--ink)] transition active:bg-[var(--surface-muted)]"
                     >
                       Cerrar sesión
                     </button>
@@ -201,12 +214,12 @@ export function DashboardApp() {
         } ${sidebarCollapsed ? "md:w-[4.75rem]" : "md:w-[17.5rem]"}`}
         aria-label="Navegación principal"
       >
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2.5 md:px-4 md:py-4">
           <div className={sidebarCollapsed ? "hidden" : "block"}>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ink-muted)]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-muted)] md:text-xs md:tracking-[0.2em]">
               IEStudio
             </p>
-            <p className="mt-0.5 text-sm font-semibold text-[var(--ink)]">
+            <p className="mt-0.5 text-xs font-semibold text-[var(--ink)] md:text-sm">
               Panel
             </p>
           </div>
@@ -229,11 +242,13 @@ export function DashboardApp() {
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-          <p className={`mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-faint)] ${sidebarCollapsed ? "hidden" : "block"}`}>
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2 md:gap-1 md:p-3">
+          <p
+            className={`mb-0.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--ink-faint)] md:mb-1 md:text-[11px] ${sidebarCollapsed ? "hidden" : "block"}`}
+          >
             Secciones
           </p>
-          {MAIN_TABS.map(({ id, label, Icon }) => {
+          {navTabs.map(({ id, label, Icon }) => {
             const active = mainTab === id;
             return (
               <button
@@ -243,15 +258,19 @@ export function DashboardApp() {
                   setMainTab(id);
                   closeSidebar();
                 }}
-                className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
+                className={`flex min-h-[40px] w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition md:min-h-[44px] md:gap-3 md:rounded-xl md:px-3 md:py-3 md:text-sm ${
                   active
                     ? "bg-[var(--ink)] text-white"
                     : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"
                 }`}
                 title={sidebarCollapsed ? label : undefined}
               >
-                <Icon className="h-5 w-5 shrink-0 opacity-90" />
-                <span className={sidebarCollapsed ? "hidden" : "inline"}>{label}</span>
+                <Icon className="h-[1.05rem] w-[1.05rem] shrink-0 opacity-90 md:h-5 md:w-5" />
+                <span
+                  className={`min-w-0 md:truncate ${sidebarCollapsed ? "hidden" : "inline line-clamp-2 md:line-clamp-none"}`}
+                >
+                  {label}
+                </span>
               </button>
             );
           })}
@@ -282,18 +301,20 @@ export function DashboardApp() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:pl-0">
-        <header className="flex items-center gap-3 border-[var(--border)] bg-[var(--surface)] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden border-b shadow-sm z-30">
+        <header className="z-30 flex items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-sm md:hidden">
           <button
             type="button"
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-[var(--ink)] active:bg-[var(--surface-muted)] transition-colors"
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl p-1.5 text-[var(--ink)] active:bg-[var(--surface-muted)] transition-colors"
             aria-label="Abrir menú"
             onClick={() => setSidebarOpen(true)}
           >
             <IconMenu className="h-6 w-6" />
           </button>
-          <div className="flex flex-col min-w-0">
-            <span className="truncate text-xs font-bold uppercase tracking-widest text-[var(--ink-faint)]">IEStudio</span>
-            <span className="min-w-0 truncate text-sm font-black -mt-0.5">Dashboard</span>
+          <div className="min-w-0 flex flex-col leading-tight">
+            <span className="truncate text-[10px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">
+              IEStudio
+            </span>
+            <span className="min-w-0 truncate text-xs font-bold text-[var(--ink)]">Dashboard</span>
           </div>
         </header>
 
@@ -351,7 +372,7 @@ export function DashboardApp() {
               <NotebookLMPanel />
             </div>
           ) : null}
-          {mainTab === "app-blocking" ? (
+          {mainTab === "app-blocking" && isMdUp ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <AppBlockingPanel />
             </div>
