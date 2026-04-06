@@ -348,76 +348,90 @@ export function DailyTasksPanel() {
         </p>
       </header>
 
-      <div
-        className="flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)]/40 p-1"
-        role="tablist"
-        aria-label="Vista principal"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={panelView === "list"}
-          onClick={() => setPanelView("list")}
-          className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
-            panelView === "list"
-              ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm ring-1 ring-[var(--border)]"
-              : "text-[var(--ink-muted)] hover:text-[var(--ink)]"
-          }`}
-        >
-          <IconChecklist className="h-4 w-4 opacity-80" />
-          Lista
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={panelView === "calendar"}
-          onClick={() => setPanelView("calendar")}
-          className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
-            panelView === "calendar"
-              ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm ring-1 ring-[var(--border)]"
-              : "text-[var(--ink-muted)] hover:text-[var(--ink)]"
-          }`}
-        >
-          <IconCalendar className="h-4 w-4 opacity-80" />
-          Calendario
-        </button>
-      </div>
-
-      {panelView === "list" ? (
-        <>
+      <div className="space-y-4">
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">
+            Vista
+          </p>
           <div
-            className="flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)]/40 p-1"
+            className="flex border-b border-[var(--border)]"
             role="tablist"
-            aria-label="Tipo de lista"
+            aria-label="Vista principal"
           >
             <button
               type="button"
               role="tab"
-              aria-selected={listMode === "day"}
-              onClick={() => setListMode("day")}
-              className={`min-h-[44px] flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
-                listMode === "day"
-                  ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm ring-1 ring-[var(--border)]"
-                  : "text-[var(--ink-muted)] hover:text-[var(--ink)]"
+              aria-selected={panelView === "list"}
+              onClick={() => setPanelView("list")}
+              className={`flex min-h-[48px] flex-1 items-center justify-center gap-2 border-b-2 px-3 py-2.5 text-sm transition sm:flex-none sm:justify-start sm:px-4 ${
+                panelView === "list"
+                  ? "-mb-px border-[var(--ink)] font-bold text-[var(--ink)]"
+                  : "border-transparent font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]"
               }`}
             >
-              Diaria
+              <IconChecklist className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+              Lista
             </button>
             <button
               type="button"
               role="tab"
-              aria-selected={listMode === "week"}
-              onClick={() => setListMode("week")}
-              className={`min-h-[44px] flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
-                listMode === "week"
-                  ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm ring-1 ring-[var(--border)]"
-                  : "text-[var(--ink-muted)] hover:text-[var(--ink)]"
+              aria-selected={panelView === "calendar"}
+              onClick={() => setPanelView("calendar")}
+              className={`flex min-h-[48px] flex-1 items-center justify-center gap-2 border-b-2 px-3 py-2.5 text-sm transition sm:flex-none sm:justify-start sm:px-4 ${
+                panelView === "calendar"
+                  ? "-mb-px border-[var(--ink)] font-bold text-[var(--ink)]"
+                  : "border-transparent font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]"
               }`}
             >
-              Semanal
+              <IconCalendar className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+              Calendario
             </button>
           </div>
+        </div>
 
+        {panelView === "list" ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <p className="shrink-0 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">
+              Alcance
+            </p>
+            <div
+              className="inline-flex h-11 max-w-md rounded-full border border-[var(--border)] bg-[var(--canvas)] p-1"
+              role="tablist"
+              aria-label="Tipo de lista"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={listMode === "day"}
+                onClick={() => setListMode("day")}
+                className={`min-w-0 flex-1 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                  listMode === "day"
+                    ? "bg-[var(--ink)] text-white"
+                    : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]/80 hover:text-[var(--ink)]"
+                }`}
+              >
+                Diaria
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={listMode === "week"}
+                onClick={() => setListMode("week")}
+                className={`min-w-0 flex-1 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                  listMode === "week"
+                    ? "bg-[var(--ink)] text-white"
+                    : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]/80 hover:text-[var(--ink)]"
+                }`}
+              >
+                Semanal
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {panelView === "list" ? (
+        <>
           <p className="flex flex-wrap items-center gap-3 text-[11px] text-[var(--ink-muted)]">
             <span className="font-semibold text-[var(--ink-faint)]">Prioridad:</span>
             <span className="inline-flex items-center gap-1.5">
