@@ -6,6 +6,7 @@ import {
   loadChecklistTasks,
 } from "@/lib/daily-checklist-storage";
 import { loadImportantDeadlines } from "@/lib/deadlines-storage";
+import { buildStudyTrendChartData } from "@/lib/study-trend-chart-data";
 import { loadStudyPlans } from "@/lib/study-plans-storage";
 import { formatLocalYmd } from "@/lib/study-plan-loose-parse";
 import { loadStudyArenaState } from "@/lib/study-arena-storage";
@@ -166,7 +167,7 @@ function buildWidgetJson(): string {
     // BB data unavailable — skip
   }
 
-  const studyTrend = buildStudyTrendForWidget();
+  const studyTrend = buildStudyTrendChartData();
   const dailyTasksRing = dailyRingMetaFromTasks(loadChecklistTasks());
 
   return JSON.stringify({
@@ -182,46 +183,6 @@ function buildWidgetJson(): string {
 
 function finiteNumber(n: number, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
-}
-
-/** Misma lógica que el widget StudyTrend del dashboard (13 días, solo deadlines `study-*`). */
-function buildStudyTrendForWidget(): Array<{
-  label: string;
-  hours: number;
-  isToday: boolean;
-}> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const DAY_LABELS = ["D", "L", "M", "X", "J", "V", "S"];
-  const slots: Array<{
-    date: string;
-    label: string;
-    hours: number;
-    isToday: boolean;
-  }> = Array.from({ length: 13 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + (i - 6));
-    const dow = d.getDay();
-    return {
-      date: formatLocalYmd(d),
-      label: `${DAY_LABELS[dow] ?? ""}${d.getDate()}`,
-      hours: 0,
-      isToday: i === 6,
-    };
-  });
-  const ymdSet = new Set(slots.map((s) => s.date));
-  for (const dl of loadImportantDeadlines()) {
-    if (!dl.id.startsWith("study-") || !ymdSet.has(dl.date)) continue;
-    const slot = slots.find((s) => s.date === dl.date);
-    if (slot) {
-      slot.hours += (dl.durationMinutes ?? 60) / 60;
-    }
-  }
-  return slots.map(({ label, hours, isToday }) => ({
-    label,
-    hours: finiteNumber(Math.round(finiteNumber(hours) * 100) / 100),
-    isToday,
-  }));
 }
 
 function urgencyForDate(dateYmd: string): string {

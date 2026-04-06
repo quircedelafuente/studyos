@@ -124,32 +124,27 @@ export async function PUT(request: Request) {
   );
   delete sanitized[MANUAL_COURSES_STORAGE_KEY];
 
-  let payloadText: string;
   try {
-    payloadText = JSON.stringify(sanitized);
+    /**
+     * Fusión con lo ya guardado: el móvil suele tener menos claves `iestudio-*` en
+     * localStorage que el escritorio. El PUT anterior rechazaba la subida
+     * (`skipped`) y el checklist del teléfono nunca llegaba a la nube.
+     * Las claves del cliente sobrescriben las del servidor; el resto se conserva.
+     */
+    const existingEntries = (await tryReadPayload(sql, emailKey)) ?? {};
+    const merged = sanitizeEntriesForUpload({
+      ...existingEntries,
+      ...sanitized,
+    });
+    delete merged[MANUAL_COURSES_STORAGE_KEY];
+
+    let payloadText = JSON.stringify(merged);
     // eslint-disable-next-line no-control-regex
     payloadText = payloadText.replace(
       /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
       "",
     );
     payloadText = sanitizeJsonTextForPostgresJsonb(payloadText);
-  } catch {
-    return NextResponse.json(
-      { error: "No se pudo serializar el payload" },
-      { status: 400 },
-    );
-  }
-
-  try {
-    const incomingCount = Object.keys(sanitized).length;
-    const existing = await sql`
-      SELECT jsonb_object_keys(payload) AS key FROM user_app_kv WHERE user_id = ${emailKey}
-    `.catch(() => [] as { key: string }[]);
-    const existingCount = (existing as { key: string }[]).length;
-
-    if (existingCount > 0 && incomingCount < existingCount) {
-      return NextResponse.json({ ok: true, skipped: true });
-    }
 
     await sql`
       INSERT INTO user_app_kv (user_id, payload, updated_at)

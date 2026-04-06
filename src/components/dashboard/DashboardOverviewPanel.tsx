@@ -21,6 +21,7 @@ import {
 } from "@/lib/blackboard-storage";
 import { getSubmissionLight } from "@/lib/blackboard-submission-status";
 import { loadStudyPlans, STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
+import { buildStudyTrendChartData } from "@/lib/study-trend-chart-data";
 import {
   DEADLINES_CHANGED_EVENT,
   DEADLINES_STORAGE_KEY,
@@ -1321,31 +1322,7 @@ export function DashboardOverviewPanel() {
   }, [deadlinesRevision]);
 
   // ── StudyTrend ────────────────────────────────────────────────────────────
-  const studyTrendData = useMemo(() => {
-    if (typeof window === "undefined") return [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const DAY_LABELS = ["D", "L", "M", "X", "J", "V", "S"];
-    const slots: Array<{ date: string; label: string; hours: number; isToday: boolean }> =
-      Array.from({ length: 13 }, (_, i) => {
-        const d = new Date(today);
-        d.setDate(today.getDate() + (i - 6));
-        const dow = d.getDay();
-        return {
-          date: formatLocalYmd(d),
-          label: `${DAY_LABELS[dow] ?? ""}${d.getDate()}`,
-          hours: 0,
-          isToday: i === 6,
-        };
-      });
-    const ymdSet = new Set(slots.map((s) => s.date));
-    for (const dl of loadImportantDeadlines()) {
-      if (!dl.id.startsWith("study-") || !ymdSet.has(dl.date)) continue;
-      const slot = slots.find((s) => s.date === dl.date);
-      if (slot) slot.hours += (dl.durationMinutes ?? 60) / 60;
-    }
-    return slots;
-  }, [studyPlansRevision, deadlinesRevision]);
+  const studyTrendData = useMemo(() => buildStudyTrendChartData(), [studyPlansRevision, deadlinesRevision]);
 
   const taskAdherence = useMemo(() => {
     if (typeof window === "undefined") {
