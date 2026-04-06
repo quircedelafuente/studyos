@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		05CC1F0F8726B0ABD6EAABFB /* BBDeliveriesWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372B5E9656B0B9E5AB68160B /* BBDeliveriesWidget.swift */; };
 		B1C2D3E4F5061728394A5B6C7 /* StudyTrendWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5B6C8 /* StudyTrendWidget.swift */; };
+		D5E6F708294A5B6C7D8E9F0A1 /* DailyTasksWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E6F708294A5B6C7D8E9F0A2 /* DailyTasksWidget.swift */; };
 		10162636718C010A5144804D /* StudySessionAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1319492CB6CCC86B0FE4B0A7 /* StudySessionAttributes.swift */; };
 		230113631D3B137280B8D80D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AC268E940A6FE17392394EB9 /* Foundation.framework */; };
 		262281518CC1EEA5A4A1D85A /* IEStudioWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D05DD8810632A6DB3F4940 /* IEStudioWidgetData.swift */; };
@@ -72,6 +73,7 @@
 		309AEAB4F13A95EF6CD5124D /* StudyWidget */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = StudyWidget; path = StudyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		372B5E9656B0B9E5AB68160B /* BBDeliveriesWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BBDeliveriesWidget.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A5B6C8 /* StudyTrendWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StudyTrendWidget.swift; sourceTree = "<group>"; };
+		D5E6F708294A5B6C7D8E9F0A2 /* DailyTasksWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyTasksWidget.swift; sourceTree = "<group>"; };
 		41587BDF097B033E70ED9D3B /* WidgetDataPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetDataPlugin.swift; sourceTree = "<group>"; };
 		991CAD93D41E4C818A695932 /* MainViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		48C7EB64B87F41F229998B31 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -137,6 +139,7 @@
 				06A7DD11C9DE78BCDAF76102 /* ActiveSessionWidget.swift */,
 				372B5E9656B0B9E5AB68160B /* BBDeliveriesWidget.swift */,
 				B1C2D3E4F5061728394A5B6C8 /* StudyTrendWidget.swift */,
+				D5E6F708294A5B6C7D8E9F0A2 /* DailyTasksWidget.swift */,
 			);
 			path = StudyWidget;
 			sourceTree = "<group>";
@@ -378,6 +381,7 @@
 				5A59F63187ABD8521EE82F43 /* ActiveSessionWidget.swift in Sources */,
 				05CC1F0F8726B0ABD6EAABFB /* BBDeliveriesWidget.swift in Sources */,
 				B1C2D3E4F5061728394A5B6C7 /* StudyTrendWidget.swift in Sources */,
+				D5E6F708294A5B6C7D8E9F0A1 /* DailyTasksWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

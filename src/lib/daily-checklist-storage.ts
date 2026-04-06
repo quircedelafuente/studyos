@@ -2,6 +2,7 @@ import type {
   ChecklistPriority,
   ChecklistTaskItem,
 } from "@/types/dashboard";
+import { Capacitor } from "@capacitor/core";
 import { requestCloudSyncPushDebounced } from "@/lib/cloud-sync-push";
 
 export const DAILY_CHECKLIST_STORAGE_KEY = "iestudio-daily-checklist-v1";
@@ -69,6 +70,54 @@ export function sundayAfterMondayYmd(mondayYmd: string): string | null {
   return `${yy}-${mm}-${dd}`;
 }
 
+/** Misma lógica que el anillo "Hoy (diarias)" del dashboard / widget. */
+export function dailyRingMetaFromTasks(tasks: readonly ChecklistTaskItem[]): {
+  pct: number;
+  empty: boolean;
+  done: number;
+  total: number;
+} {
+  const ymd = todayYmdLocal();
+  const todayList = tasks.filter(
+    (t) => t.scope === "day" && t.periodKey === ymd,
+  );
+  const total = todayList.length;
+  if (total === 0) {
+    return { pct: 0, empty: true, done: 0, total: 0 };
+  }
+  const done = todayList.filter((t) => t.done).length;
+  return {
+    pct: Math.round((100 * done) / total),
+    empty: false,
+    done,
+    total,
+  };
+}
+
+function isCapacitorIos(): boolean {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
+}
+
+/** Envía el anillo al plugin nativo (vía App Group) al guardar o tras sync en la nube. */
+export function pushDailyTasksRingToNativeFromTasks(
+  tasks: readonly ChecklistTaskItem[],
+): void {
+  if (typeof window === "undefined" || !isCapacitorIos()) return;
+  const ring = dailyRingMetaFromTasks(tasks);
+  void import("@/plugins/WidgetDataPlugin")
+    .then(({ default: WidgetData }) =>
+      WidgetData.syncDailyTasksRing({ json: JSON.stringify(ring) }),
+    )
+    .catch((e) => {
+      console.warn("[DailyChecklist] syncDailyTasksRing failed:", e);
+    });
+}
+
+export function pushDailyTasksRingToNativeIfIos(): void {
+  if (typeof window === "undefined" || !isCapacitorIos()) return;
+  pushDailyTasksRingToNativeFromTasks(loadChecklistTasks());
+}
+
 export function loadChecklistTasks(): ChecklistTaskItem[] {
   if (typeof window === "undefined") return EMPTY;
   try {
@@ -98,6 +147,7 @@ export function saveChecklistTasks(tasks: ChecklistTaskItem[]): void {
     );
     window.dispatchEvent(new CustomEvent(DAILY_CHECKLIST_CHANGED_EVENT));
     requestCloudSyncPushDebounced();
+    pushDailyTasksRingToNativeFromTasks(tasks);
   } catch {
     // quota
   }

@@ -15,10 +15,20 @@ struct IEWidgetData: Codable {
     var bbDeliveries: [IEWidgetDelivery]
     /// Puntos del gráfico StudyTrend (±6 días); opcional por compatibilidad con JSON antiguos.
     var studyTrend:   [IEWidgetStudyTrendPoint]?
+    /// Anillo "Hoy (diarias)" del checklist (Tareas).
+    var dailyTasksRing: IEWidgetDailyTasksRing?
     var lastUpdated:  Double          // Unix ms
 
     static var empty: IEWidgetData {
-        IEWidgetData(deadlines: [], todaySessions: [], activeSession: nil, bbDeliveries: [], studyTrend: nil, lastUpdated: 0)
+        IEWidgetData(
+            deadlines: [],
+            todaySessions: [],
+            activeSession: nil,
+            bbDeliveries: [],
+            studyTrend: nil,
+            dailyTasksRing: nil,
+            lastUpdated: 0,
+        )
     }
 
     static func load() -> IEWidgetData {
@@ -67,6 +77,29 @@ struct IEWidgetStudyTrendPoint: Codable {
     var label:   String
     var hours:   Double
     var isToday: Bool
+}
+
+// MARK: - Daily tasks (hoy diarias)
+
+struct IEWidgetDailyTasksRing: Codable {
+    /// 0…100
+    var pct:   Int
+    var empty: Bool
+    var done:  Int
+    var total: Int
+
+    /// Copia reducida escrita por `WidgetDataPlugin` para que el widget siga funcionando
+    /// aunque falle el decode del JSON completo (p. ej. `null` en algún `Double`).
+    static let appGroupStandaloneKey = "iestudio_widget_daily_tasks_ring"
+
+    static func loadStandalone(from defaults: UserDefaults) -> IEWidgetDailyTasksRing? {
+        guard
+            let raw = defaults.string(forKey: appGroupStandaloneKey),
+            let data = raw.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode(IEWidgetDailyTasksRing.self, from: data)
+        else { return nil }
+        return decoded
+    }
 }
 
 // MARK: - Today sessions

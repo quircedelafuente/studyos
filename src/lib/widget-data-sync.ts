@@ -1,6 +1,10 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
+import {
+  dailyRingMetaFromTasks,
+  loadChecklistTasks,
+} from "@/lib/daily-checklist-storage";
 import { loadImportantDeadlines } from "@/lib/deadlines-storage";
 import { loadStudyPlans } from "@/lib/study-plans-storage";
 import { formatLocalYmd } from "@/lib/study-plan-loose-parse";
@@ -41,12 +45,23 @@ export async function syncWidgetData(): Promise<void> {
     const { default: WidgetData } = await import("@/plugins/WidgetDataPlugin");
     const json = buildWidgetJson();
     const parsed = JSON.parse(json) as Record<string, unknown>;
+    const ring = parsed.dailyTasksRing as
+      | { pct?: number; empty?: boolean; done?: number; total?: number }
+      | undefined;
     console.log("[WidgetDataSync] syncing →", {
       deadlines: (parsed.deadlines as unknown[])?.length ?? 0,
       todaySessions: (parsed.todaySessions as unknown[])?.length ?? 0,
       activeSession: parsed.activeSession !== null,
       bbDeliveries: (parsed.bbDeliveries as unknown[])?.length ?? 0,
       studyTrend: (parsed.studyTrend as unknown[])?.length ?? 0,
+      dailyTasksRing: ring
+        ? {
+            pct: ring.pct,
+            empty: ring.empty,
+            done: ring.done,
+            total: ring.total,
+          }
+        : null,
     });
     await WidgetData.sync({ json });
     console.log("[WidgetDataSync] ✅ sync OK");
@@ -88,7 +103,7 @@ function buildWidgetJson(): string {
         id: `${p.id}::${d.date}`,
         sessionTitle: d.sessionTitle ?? "Sesión de estudio",
         planTitle: p.title,
-        studyHours: d.studyHours ?? 0,
+        studyHours: finiteNumber(Number(d.studyHours), 0),
         focus: d.focus ?? "",
         date: d.date,
       });
@@ -152,6 +167,7 @@ function buildWidgetJson(): string {
   }
 
   const studyTrend = buildStudyTrendForWidget();
+  const dailyTasksRing = dailyRingMetaFromTasks(loadChecklistTasks());
 
   return JSON.stringify({
     deadlines,
@@ -159,8 +175,13 @@ function buildWidgetJson(): string {
     activeSession,
     bbDeliveries,
     studyTrend,
+    dailyTasksRing,
     lastUpdated: nowMs,
   });
+}
+
+function finiteNumber(n: number, fallback = 0): number {
+  return Number.isFinite(n) ? n : fallback;
 }
 
 /** Misma lógica que el widget StudyTrend del dashboard (13 días, solo deadlines `study-*`). */
@@ -198,7 +219,7 @@ function buildStudyTrendForWidget(): Array<{
   }
   return slots.map(({ label, hours, isToday }) => ({
     label,
-    hours: Math.round(hours * 100) / 100,
+    hours: finiteNumber(Math.round(finiteNumber(hours) * 100) / 100),
     isToday,
   }));
 }
