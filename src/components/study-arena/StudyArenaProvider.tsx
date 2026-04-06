@@ -15,6 +15,7 @@ import {
   STUDY_ARENA_CHANGED_EVENT,
   STUDY_ARENA_STORAGE_KEY,
 } from "@/lib/study-arena-storage";
+import { saveCompletedSession } from "@/lib/study-arena-completed-storage";
 
 export type StudyArenaSessionOption = {
   key: string;
@@ -359,6 +360,21 @@ export function StudyArenaProvider({ children }: { children: React.ReactNode }) 
     const shouldPrompt = elapsed < FALSE_SESSION_TOO_SHORT_MS;
 
     if (!shouldPrompt) {
+      saveCompletedSession({
+        arenaRunId: s.arenaRunId,
+        key: s.key,
+        planId: s.planId,
+        planTitle: s.planTitle,
+        date: s.date,
+        studyHours: s.studyHours,
+        focus: s.focus,
+        sessionTitle: s.sessionTitle,
+        focusScore: s.focusScore,
+        distractionCount: s.distractionCount,
+        elapsedActiveMs: elapsed,
+        totalDurationMs: s.totalDurationMs,
+        startedAtMs: s.startedAtMs,
+      });
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveSession(null);
       setFalseSessionPrompt(null);
@@ -432,6 +448,23 @@ export function StudyArenaProvider({ children }: { children: React.ReactNode }) 
     const elapsed = computeElapsedActiveMs(cur, nowMs);
     const shortSession = elapsed < FALSE_SESSION_TOO_SHORT_MS;
     setFalseSessionPrompt(null);
+    if (!shortSession) {
+      saveCompletedSession({
+        arenaRunId: cur.arenaRunId,
+        key: cur.key,
+        planId: cur.planId,
+        planTitle: cur.planTitle,
+        date: cur.date,
+        studyHours: cur.studyHours,
+        focus: cur.focus,
+        sessionTitle: cur.sessionTitle,
+        focusScore: cur.focusScore,
+        distractionCount: cur.distractionCount,
+        elapsedActiveMs: elapsed,
+        totalDurationMs: cur.totalDurationMs,
+        startedAtMs: cur.startedAtMs,
+      });
+    }
     setActiveSession((prev) => {
       if (!prev) return prev;
       if (!shortSession) return null;

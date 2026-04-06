@@ -5,6 +5,7 @@ import { loadStudyPlans, STUDY_PLANS_CHANGED_EVENT, STUDY_PLANS_STORAGE_KEY } fr
 import { formatLocalYmd, splitFocusIntoItems } from "@/lib/study-plan-loose-parse";
 import { useStudyArena, type StudyArenaSessionOption } from "@/components/study-arena/StudyArenaProvider";
 import { ParkingLotSessionReviewModal } from "@/components/study-arena/ParkingLotSessionReviewModal";
+import { CompletedSessionsSection } from "@/components/study-arena/CompletedSessionsSection";
 import {
   addParkingLotNote,
   formatParkingNoteTime,
@@ -145,7 +146,6 @@ export function StudyArenaPanel() {
 
   const todayYmd = useMemo(() => formatLocalYmd(new Date()), []);
   const [options, setOptions] = useState<StudyArenaSessionOption[]>([]);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const [parkingDraft, setParkingDraft] = useState("");
   const [parkingReviewOpen, setParkingReviewOpen] = useState(false);
@@ -241,12 +241,7 @@ export function StudyArenaPanel() {
     }
 
     function refresh() {
-      const next = getTodayOptions();
-      setOptions(next);
-      setSelectedKey((cur) => {
-        if (cur && next.some((o) => o.key === cur)) return cur;
-        return next[0]?.key ?? null;
-      });
+      setOptions(getTodayOptions());
     }
 
     refresh();
@@ -260,11 +255,6 @@ export function StudyArenaPanel() {
       window.removeEventListener("storage", onStorage);
     };
   }, [todayYmd]);
-
-  const selectedOption = useMemo(() => {
-    if (!selectedKey) return null;
-    return options.find((o) => o.key === selectedKey) ?? null;
-  }, [options, selectedKey]);
 
   function submitParkingQuick() {
     if (!activeSessionKey || !activeSession) return;
@@ -333,61 +323,42 @@ export function StudyArenaPanel() {
                 </p>
               </div>
             ) : (
-              <>
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {options.map((o) => {
-                    const isSelected = o.key === selectedKey;
-                    const focusItems = splitFocusIntoItems(o.focus);
-                    const summary = focusItems.slice(0, 2).join(" · ");
-                    return (
-                      <li key={o.key} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {options.map((o) => {
+                  const focusItems = splitFocusIntoItems(o.focus);
+                  const summary = focusItems.slice(0, 2).join(" · ");
+                  return (
+                    <li key={o.key} className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+                      <div className="flex-1 px-4 pt-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1 text-[11px] font-bold text-[var(--ink-muted)]">
+                            {o.planTitle}
+                          </span>
+                          <span className="text-[11px] font-semibold text-[var(--ink-muted)]">
+                            {Math.round(o.studyHours * 10) / 10}h
+                          </span>
+                        </div>
+                        <div className="mt-2 truncate text-sm font-extrabold text-[var(--ink)]">
+                          {o.sessionTitle?.trim() ? o.sessionTitle : "Sesión de estudio"}
+                        </div>
+                        {summary ? <div className="mt-1 line-clamp-2 text-xs text-[var(--ink-muted)]">{summary}</div> : null}
+                      </div>
+                      <div className="px-4 pb-4 pt-3">
                         <button
                           type="button"
-                          onClick={() => setSelectedKey(o.key)}
-                          className={`w-full rounded-2xl px-4 py-4 text-left transition hover:bg-[var(--surface-muted)] ${
-                            isSelected ? "ring-2 ring-[var(--ink)]/30" : ""
-                          }`}
-                          aria-pressed={isSelected}
+                          onClick={() => startSession(o)}
+                          className="w-full rounded-xl bg-[var(--ink)] px-4 py-2.5 text-sm font-extrabold text-white transition hover:opacity-90"
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1 text-[11px] font-bold text-[var(--ink-muted)]">
-                              {o.planTitle}
-                            </span>
-                            <span className="text-[11px] font-semibold text-[var(--ink-muted)]">
-                              {Math.round(o.studyHours * 10) / 10}h
-                            </span>
-                          </div>
-                          <div className="mt-2 truncate text-sm font-extrabold text-[var(--ink)]">
-                            {o.sessionTitle?.trim() ? o.sessionTitle : "Sesión de estudio"}
-                          </div>
-                          {summary ? <div className="mt-1 line-clamp-2 text-xs text-[var(--ink-muted)]">{summary}</div> : null}
-                          <div className="mt-3 flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-semibold text-[var(--ink-muted)]">
-                              {isSelected ? "Seleccionada" : "Seleccionar"}
-                            </span>
-                            <span className="text-[11px] text-[var(--ink-faint)]">→</span>
-                          </div>
+                          Empezar sesión
                         </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-
-                <div className="sticky bottom-0 -mx-3 px-3 pt-3 bg-gradient-to-t from-[var(--canvas)] to-transparent">
-                  <button
-                    type="button"
-                    disabled={!selectedOption}
-                    onClick={() => {
-                      if (!selectedOption) return;
-                      startSession(selectedOption);
-                    }}
-                    className="w-full rounded-2xl bg-[var(--ink)] px-4 py-3 text-sm font-extrabold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Empezar sesión
-                  </button>
-                </div>
-              </>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
+
+            <CompletedSessionsSection onRedo={(option) => startSession(option)} />
           </div>
         ) : (
           <div className="flex min-h-0 flex-col gap-4">
