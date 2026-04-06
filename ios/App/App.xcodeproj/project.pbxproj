@@ -22,6 +22,7 @@
 		5A59F63187ABD8521EE82F43 /* ActiveSessionWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A7DD11C9DE78BCDAF76102 /* ActiveSessionWidget.swift */; };
 		609F91D4499EB165C6EE8998 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1EC6900D695F1C0BD6E8C1FE /* ManagedSettings.framework */; };
 		648B1BBE4D92148CAA990368 /* WidgetDataPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41587BDF097B033E70ED9D3B /* WidgetDataPlugin.swift */; };
+		03D8C57894794BA58D2C6246 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 991CAD93D41E4C818A695932 /* MainViewController.swift */; };
 		796276FC484176E20E262447 /* StudyWidget in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 309AEAB4F13A95EF6CD5124D /* StudyWidget */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7E4A9C8C75F43037937DD937 /* TodaySessionWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A769A75E2CB0C359342C585D /* TodaySessionWidget.swift */; };
 		82D562DB4B2367D7560D044A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C28FFAC998FF4434FC648C66 /* WidgetKit.framework */; };
@@ -70,6 +71,7 @@
 		309AEAB4F13A95EF6CD5124D /* StudyWidget */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = StudyWidget; path = StudyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		372B5E9656B0B9E5AB68160B /* BBDeliveriesWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BBDeliveriesWidget.swift; sourceTree = "<group>"; };
 		41587BDF097B033E70ED9D3B /* WidgetDataPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetDataPlugin.swift; sourceTree = "<group>"; };
+		991CAD93D41E4C818A695932 /* MainViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		48C7EB64B87F41F229998B31 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -192,6 +194,7 @@
 				F47634CDE2B2654664E7D864 /* ScreenTimePlugin.swift */,
 				41587BDF097B033E70ED9D3B /* WidgetDataPlugin.swift */,
 				83C08C24265EA0DC36EB8ED7 /* WidgetDataPlugin.m */,
+				991CAD93D41E4C818A695932 /* MainViewController.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -354,6 +357,7 @@
 				EA7792830F2A1B2AEA7742A5 /* LiveActivityPlugin.swift in Sources */,
 				C71C08E3FE11E94E7654B72C /* ScreenTimePlugin.swift in Sources */,
 				648B1BBE4D92148CAA990368 /* WidgetDataPlugin.swift in Sources */,
+				03D8C57894794BA58D2C6246 /* MainViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
