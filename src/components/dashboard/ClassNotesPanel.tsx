@@ -10,6 +10,10 @@ import { BB_COURSES_STORAGE_CHANGED } from "@/lib/blackboard-storage";
 import { BB_COURSE_CURATION_CHANGED } from "@/lib/bb-course-curation";
 import { BB_COURSE_FILTER_CHANGED } from "@/lib/bb-course-filter-prefs";
 import {
+  getSessionNotesEntry,
+  SESSION_NOTES_CHANGED_EVENT,
+} from "@/lib/session-notes-storage";
+import {
   CLASS_NOTES_CHANGED_EVENT,
   CLASS_NOTES_MAX_SESSIONS,
   UNASSIGNED_COURSE_KEY,
@@ -117,6 +121,7 @@ export function ClassNotesPanel() {
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [notesRevision, setNotesRevision] = useState(0);
+  const [sessionNotesRevision, setSessionNotesRevision] = useState(0);
   const [coursesSnap, setCoursesSnap] = useState(readBbDisplayedCoursesSnapshot);
   const [expandedCourse, setExpandedCourse] = useState<Record<string, boolean>>(
     {},
@@ -161,6 +166,12 @@ export function ClassNotesPanel() {
     const onNotes = () => setNotesRevision((n) => n + 1);
     window.addEventListener(CLASS_NOTES_CHANGED_EVENT, onNotes);
     return () => window.removeEventListener(CLASS_NOTES_CHANGED_EVENT, onNotes);
+  }, []);
+
+  useEffect(() => {
+    const on = () => setSessionNotesRevision((n) => n + 1);
+    window.addEventListener(SESSION_NOTES_CHANGED_EVENT, on);
+    return () => window.removeEventListener(SESSION_NOTES_CHANGED_EVENT, on);
   }, []);
 
   /** Rango fijo para Class Notes: 1 ene → 30 jun (año en curso), todas las sesiones con hora. */
@@ -257,7 +268,8 @@ export function ClassNotesPanel() {
     if (changed) saveClassNotes(next);
   }, [googleEvents, status, courseSeedSignature, displayedCourses]);
 
-  const notesState = useMemo(() => loadClassNotes(), [notesRevision]);
+  // sessionNotesRevision incluido para que los puntos verdes se actualicen al generar/borrar
+  const notesState = useMemo(() => loadClassNotes(), [notesRevision, sessionNotesRevision]);
 
   const courseSections = useMemo(() => {
     const rows: {
@@ -335,12 +347,6 @@ export function ClassNotesPanel() {
         <h1 className="text-xl font-black tracking-tight text-[var(--ink)] md:text-2xl">
           Class Notes
         </h1>
-        <p className="mt-1 max-w-2xl text-sm text-[var(--ink-muted)]">
-          Carga eventos con hora desde el 1 de enero hasta el 30 de junio del
-          año actual. Por curso, las sesiones siguen el número en el título
-          (p. ej. «Sesión 3», «S3») y luego la fecha. El nombre del curso debe
-          aparecer en el título del evento para asignarlo.
-        </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--canvas)] p-1">
             <button
@@ -474,8 +480,11 @@ export function ClassNotesPanel() {
                               {ev.summary?.trim() || "(Sin título)"}
                             </span>
                             {loc ? (
-                              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--ink-faint)]">
-                                Apuntes
+                              <span className="flex shrink-0 items-center gap-1.5">
+                                {getSessionNotesEntry(loc.courseKey, loc.sessionId)?.markdown
+                                  ? <span className="h-2 w-2 rounded-full bg-green-500" title="Apuntes generados" />
+                                  : null}
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--ink-faint)]">Apuntes</span>
                               </span>
                             ) : (
                               <span className="shrink-0 text-[10px] text-[var(--ink-faint)]">
@@ -687,8 +696,11 @@ export function ClassNotesPanel() {
                                       {when}
                                     </span>
                                   ) : null}
-                                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--ink-faint)]">
-                                    Apuntes
+                                  <span className="flex shrink-0 items-center gap-1.5">
+                                    {getSessionNotesEntry(section.key, row.id)?.markdown
+                                      ? <span className="h-2 w-2 rounded-full bg-green-500" title="Apuntes generados" />
+                                      : null}
+                                    <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--ink-faint)]">Apuntes</span>
                                   </span>
                                 </li>
                               );

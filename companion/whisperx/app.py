@@ -75,19 +75,13 @@ async def lifespan(_: FastAPI):
     yield
 
 
-_middleware_params = dict(
-    allow_credentials=True,
-    allow_methods=["POST", "OPTIONS", "GET"],
-    allow_headers=["*"],
-)
-_origins_env = os.environ.get("IESTUDIO_CORS_ORIGIN", "http://localhost:3000").strip()
-_cors_origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
-
 app = FastAPI(title="IEStudio WhisperX Companion", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins or ["http://localhost:3000"],
-    **_middleware_params,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["POST", "OPTIONS", "GET"],
+    allow_headers=["*"],
 )
 
 MAX_UPLOAD_BYTES = int(os.environ.get("WHISPERX_MAX_UPLOAD_MB", "200")) * 1024 * 1024

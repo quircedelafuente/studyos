@@ -95,6 +95,14 @@ export function getSessionNotesEntry(
   return loadSessionNotes().bySession[k] ?? null;
 }
 
+export function deleteSessionNotesEntry(courseKey: string, sessionId: string): void {
+  const prev = loadSessionNotes();
+  const k = sessionCompositeKey(courseKey, sessionId);
+  const next: SessionNotesState = { v: 1, bySession: { ...prev.bySession } };
+  delete next.bySession[k];
+  saveSessionNotes(next);
+}
+
 export function upsertSessionNotesEntry(
   courseKey: string,
   sessionId: string,
