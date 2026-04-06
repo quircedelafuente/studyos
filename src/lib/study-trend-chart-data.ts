@@ -2,6 +2,7 @@
 
 import { loadImportantDeadlines } from "@/lib/deadlines-storage";
 import { loadStudyPlans } from "@/lib/study-plans-storage";
+import { loadCompletedSessions } from "@/lib/study-arena-completed-storage";
 import { formatLocalYmd } from "@/lib/study-plan-loose-parse";
 
 export type StudyTrendChartPoint = {
@@ -54,6 +55,13 @@ export function buildStudyTrendChartData(): StudyTrendChartPoint[] {
     }
   }
 
+  // ── Actual hours from completed Study Arena sessions ──────────────────────
+  const completedByDate = new Map<string, number>();
+  for (const cs of loadCompletedSessions()) {
+    if (!ymdSet.has(cs.date)) continue;
+    completedByDate.set(cs.date, (completedByDate.get(cs.date) ?? 0) + cs.elapsedActiveMs / 3600000);
+  }
+
   const coveredIds = new Set(deadlines.map((d) => d.id));
   for (const p of loadStudyPlans()) {
     const sched = p.aiSchedule;
@@ -61,6 +69,8 @@ export function buildStudyTrendChartData(): StudyTrendChartPoint[] {
 
     for (const day of sched.days) {
       if (!day?.date || !ymdSet.has(day.date)) continue;
+      // Skip planned hours for dates that have actual completed sessions
+      if (completedByDate.has(day.date)) continue;
       const syncId = `study-${p.id}-${day.date}`;
       if (coveredIds.has(syncId)) continue;
       const slot = slots.find((s) => s.date === day.date);
@@ -68,6 +78,12 @@ export function buildStudyTrendChartData(): StudyTrendChartPoint[] {
         slot.hours += Math.max(0, day.studyHours ?? 0);
       }
     }
+  }
+
+  // Apply actual hours (override planned for those dates)
+  for (const [date, actualHours] of completedByDate) {
+    const slot = slots.find((s) => s.date === date);
+    if (slot) slot.hours = finiteHour(actualHours);
   }
 
   return slots.map(({ label, hours, isToday }) => ({

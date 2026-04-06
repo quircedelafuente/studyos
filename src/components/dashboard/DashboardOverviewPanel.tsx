@@ -22,6 +22,7 @@ import {
 import { getSubmissionLight } from "@/lib/blackboard-submission-status";
 import { loadStudyPlans, STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
 import { buildStudyTrendChartData } from "@/lib/study-trend-chart-data";
+import { STUDY_ARENA_COMPLETED_CHANGED_EVENT, STUDY_ARENA_COMPLETED_STORAGE_KEY } from "@/lib/study-arena-completed-storage";
 import {
   DEADLINES_CHANGED_EVENT,
   DEADLINES_STORAGE_KEY,
@@ -913,6 +914,7 @@ export function DashboardOverviewPanel() {
   const [studyPlansRevision, setStudyPlansRevision] = useState(0);
   const [deadlinesRevision, setDeadlinesRevision] = useState(0);
   const [checklistRevision, setChecklistRevision] = useState(0);
+  const [arenaCompletedRevision, setArenaCompletedRevision] = useState(0);
 
   useEffect(() => {
     if (cloudSync?.initialSyncDone) {
@@ -987,6 +989,21 @@ export function DashboardOverviewPanel() {
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(DAILY_CHECKLIST_CHANGED_EVENT, bump);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    function bump() {
+      setArenaCompletedRevision((n) => n + 1);
+    }
+    window.addEventListener(STUDY_ARENA_COMPLETED_CHANGED_EVENT, bump);
+    function onStorage(e: StorageEvent) {
+      if (e.key === STUDY_ARENA_COMPLETED_STORAGE_KEY) bump();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(STUDY_ARENA_COMPLETED_CHANGED_EVENT, bump);
       window.removeEventListener("storage", onStorage);
     };
   }, []);
@@ -1322,7 +1339,7 @@ export function DashboardOverviewPanel() {
   }, [deadlinesRevision]);
 
   // ── StudyTrend ────────────────────────────────────────────────────────────
-  const studyTrendData = useMemo(() => buildStudyTrendChartData(), [studyPlansRevision, deadlinesRevision]);
+  const studyTrendData = useMemo(() => buildStudyTrendChartData(), [studyPlansRevision, deadlinesRevision, arenaCompletedRevision]);
 
   const taskAdherence = useMemo(() => {
     if (typeof window === "undefined") {
