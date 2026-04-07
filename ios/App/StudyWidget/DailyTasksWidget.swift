@@ -205,23 +205,9 @@ struct DailyTasksMediumView: View {
     var body: some View {
         let b = entry.built
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "checklist")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(Color(red: 52 / 255, green: 211 / 255, blue: 153 / 255))
-                Text("Tareas hoy")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
-                Spacer()
-                Text("Diarias")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(Color.white.opacity(0.45))
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
+            Spacer(minLength: 0)
 
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 DailyTasksRingCompact(ring: b.ring)
                     .padding(.leading, 4)
 
@@ -261,7 +247,6 @@ struct DailyTasksMediumView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 10)
-            .padding(.bottom, 10)
 
             Spacer(minLength: 0)
         }
