@@ -204,13 +204,16 @@ export function buildTimedSegmentsForWeek(
       assignments.push({ seg: s, lane });
     }
 
-    const maxLanes = Math.max(1, laneEnds.length);
-    for (const { seg, lane } of assignments) {
-      out.push({
-        ...seg,
-        lane,
-        maxLanes,
-      });
+    for (const { seg: s, lane } of assignments) {
+      // maxLanes is local to the overlap group of this event, not the whole column.
+      // Start at lane+1 (minimum needed) and expand by checking overlaps.
+      let localMaxLanes = lane + 1;
+      for (const { seg: other, lane: otherLane } of assignments) {
+        if (s.topPx < other.topPx + other.heightPx && other.topPx < s.topPx + s.heightPx) {
+          localMaxLanes = Math.max(localMaxLanes, otherLane + 1);
+        }
+      }
+      out.push({ ...s, lane, maxLanes: localMaxLanes });
     }
   }
 

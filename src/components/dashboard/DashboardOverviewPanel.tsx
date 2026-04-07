@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const GridLayout = WidthProvider(Responsive);
 import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import type { ReactNode } from "react";
-import type { ChecklistPriority } from "@/types/dashboard";
 import { readBbDisplayedCoursesSnapshot } from "@/lib/bb-displayed-courses";
 import { filterCoursesByMode, resolveGradebookColumnUltraUrl } from "@/lib/blackboard-api";
 import { loadBbConfig } from "@/lib/blackboard-config";
@@ -30,13 +29,9 @@ import {
   loadImportantDeadlines,
 } from "@/lib/deadlines-storage";
 import {
-  dailyRingMetaFromTasks,
   DAILY_CHECKLIST_CHANGED_EVENT,
   DAILY_CHECKLIST_STORAGE_KEY,
   loadChecklistTasks,
-  saveChecklistTasks,
-  sortChecklistTasks,
-  todayYmdLocal,
 } from "@/lib/daily-checklist-storage";
 
 type WidgetShellProps = {
@@ -171,114 +166,6 @@ function ProgressRing({
           </div>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-const DAILY_WIDGET_PRI_DOT: Record<ChecklistPriority, string> = {
-  green: "bg-emerald-500",
-  orange: "bg-amber-500",
-  red: "bg-red-500",
-};
-
-/** Widget Panel: hasta 3 tareas diarias pendientes, mismo storage que Tareas. */
-function DailyTasksQuickWidget({ checklistRevision }: { checklistRevision: number }) {
-  const { hasAnyToday, morePendingCount, ring, visiblePending } = useMemo(() => {
-    void checklistRevision;
-    const all = loadChecklistTasks();
-    const todayYmd = todayYmdLocal();
-    const todayList = all.filter((t) => t.scope === "day" && t.periodKey === todayYmd);
-    const sorted = sortChecklistTasks(todayList);
-    const pend = sorted.filter((t) => !t.done);
-    return {
-      hasAnyToday: todayList.length > 0,
-      ring: dailyRingMetaFromTasks(all),
-      visiblePending: pend.slice(0, 3),
-      morePendingCount: Math.max(0, pend.length - 3),
-    };
-  }, [checklistRevision]);
-
-  function toggle(id: string) {
-    saveChecklistTasks(
-      loadChecklistTasks().map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    );
-  }
-
-  const allDone = hasAnyToday && visiblePending.length === 0;
-  const ringPct = allDone ? 100 : ring.empty ? 0 : ring.pct;
-  const ringDetail = ring.empty
-    ? "Sin tareas hoy"
-    : allDone
-      ? `${ring.total}/${ring.total} hechas`
-      : `${ring.done}/${ring.total} hechas`;
-  const ringAccentEmpty = !hasAnyToday;
-
-  let body: ReactNode;
-  if (!hasAnyToday) {
-    body = (
-      <p className="text-[11px] font-semibold leading-snug text-[var(--ink-muted)]">
-        No hay tareas diarias para el día de hoy. Añádelas en la sección{" "}
-        <span className="text-[var(--ink)]">Tareas</span>.
-      </p>
-    );
-  } else if (allDone) {
-    body = (
-      <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-3 py-2.5">
-        <p className="text-[11px] font-bold leading-snug text-emerald-950">
-          Has completado el 100% de las tareas de hoy.
-        </p>
-      </div>
-    );
-  } else {
-    body = (
-      <ul className="space-y-1.5">
-        {visiblePending.map((t) => (
-          <li key={t.id}>
-            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)]/90 px-2.5 py-2 transition hover:bg-[var(--surface-muted)]">
-              <input
-                type="checkbox"
-                checked={false}
-                onChange={() => toggle(t.id)}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--border)] accent-[var(--ink)]"
-                aria-label={`Marcar como hecha: ${t.title}`}
-              />
-              <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${DAILY_WIDGET_PRI_DOT[t.priority]}`}
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1 text-[11px] font-semibold leading-snug text-[var(--ink)]">
-                  {t.title}
-                </span>
-              </span>
-            </label>
-          </li>
-        ))}
-      </ul>
-    );
-    if (morePendingCount > 0) {
-      body = (
-        <div className="space-y-1.5">
-          {body}
-          <p className="text-[10px] font-semibold text-[var(--ink-faint)]">
-            +{morePendingCount} más en Tareas
-          </p>
-        </div>
-      );
-    }
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start">
-      <div className="shrink-0 sm:pt-0.5">
-        <ProgressRing
-          valuePct={ringPct}
-          label="Hoy (diarias)"
-          detail={ringDetail}
-          accentColor={rgbForAdherencePct(ringPct, ringAccentEmpty)}
-        />
-      </div>
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-0.5">{body}</div>
     </div>
   );
 }
@@ -851,13 +738,13 @@ function getCurrentWeekDates(): string[] {
 const WEEKLY_LOAD_TIMED_MINS_FOR_MAX = 360;
 
 // ── Widget grid (react-grid-layout) ───────────────────────────────────────
-const LAYOUT_KEY = "iestudio-dashboard-layout-v5";
+const LAYOUT_KEY = "iestudio-dashboard-layout-v4";
 const MOBILE_HEIGHTS_KEY = "iestudio-dashboard-mobile-heights-v1";
 const WIDGET_IDS = [
   "entregas", "prioridad", "sesiones",
   "enfoque", "examenes", "adherencia",
   "carga", "studytrend",
-  "esfuerzo", "burnout", "dailytasks",
+  "esfuerzo", "burnout",
   "racha", "foco",
 ] as const;
 type WidgetId = (typeof WIDGET_IDS)[number];
@@ -874,10 +761,8 @@ const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "adherencia", x: 8, y: 8,  w: 4, h: 11, minW: 2, minH: 5 },
   { i: "carga",      x: 0, y: 19, w: 8, h: 8, minW: 2, minH: 3 },
   { i: "studytrend", x: 8, y: 19, w: 4, h: 8, minW: 2, minH: 3 },
-  /** Mismo tamaño que StudyTrend (4×8): tareas diarias rápidas. */
-  { i: "esfuerzo",   x: 0, y: 27, w: 4, h: 8, minW: 2, minH: 3 },
-  { i: "burnout",    x: 4, y: 27, w: 4, h: 8, minW: 2, minH: 3 },
-  { i: "dailytasks", x: 8, y: 27, w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "esfuerzo",   x: 0, y: 27, w: 6, h: 8, minW: 2, minH: 3 },
+  { i: "burnout",    x: 6, y: 27, w: 6, h: 8, minW: 2, minH: 3 },
   { i: "racha",      x: 0, y: 35, w: 4, h: 8, minW: 2, minH: 3 },
   { i: "foco",       x: 4, y: 35, w: 8, h: 8, minW: 2, minH: 3 },
 ];
@@ -2038,15 +1923,6 @@ export function DashboardOverviewPanel() {
               {wid === "studytrend" && (
                 <WidgetShell title="StudyTrend" subtitle="Sesiones de estudio · ±6 días">
                   <StudyTrendChart data={studyTrendData} />
-                </WidgetShell>
-              )}
-
-              {wid === "dailytasks" && (
-                <WidgetShell
-                  title="Tareas de hoy"
-                  subtitle="Próximas pendientes · checklist diario"
-                >
-                  <DailyTasksQuickWidget checklistRevision={checklistRevision} />
                 </WidgetShell>
               )}
 

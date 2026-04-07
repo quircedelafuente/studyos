@@ -6,6 +6,9 @@ import { loadImportantDeadlines } from "@/lib/deadlines-storage";
 /** Vista previa de sesiones del plan IA (no confundir con filas ya guardadas en «Exámenes y fechas»). */
 export const STUDY_PLAN_PREVIEW_CALENDAR_ID = "iestudio-study-plan-preview";
 
+/** Prefijo del `id` de eventos de vista previa del plan IA en el calendario de semana. */
+export const STUDY_PLAN_DAY_EVENT_ID_PREFIX = "iestudio-sp-day-";
+
 /** Eventos locales generados desde el calendario IA del plan ya guardados en «Exámenes y fechas». */
 const STUDY_DEADLINE_PREFIX = "study-";
 
@@ -39,14 +42,17 @@ export function studyPlanAiScheduleToCalendarEvents(plans: StudyPlan[]): GoogleC
         30 * 60 * 1000,
         Math.round(Math.max(0.25, day.studyHours) * 60) * 60 * 1000,
       );
-      const start = new Date(y, mo - 1, d, 9, 0, 0, 0);
+      const startTimeParts = day.startTime?.split(":").map(Number);
+      const startH = startTimeParts?.[0] ?? 9;
+      const startM = startTimeParts?.[1] ?? 0;
+      const start = new Date(y, mo - 1, d, startH, startM, 0, 0);
       const end = new Date(start.getTime() + durationMs);
       const head = day.sessionTitle?.trim() ? `${day.sessionTitle.trim()}: ` : "";
       const focus = (day.focus ?? "").trim();
       const summary = `📚 ${p.title}: ${head}${focus || `${day.studyHours}h`}`.slice(0, 200);
 
       out.push({
-        id: `iestudio-sp-day-${p.id}-${day.date}`,
+        id: `${STUDY_PLAN_DAY_EVENT_ID_PREFIX}${p.id}-${day.date}`,
         calendarId: STUDY_PLAN_PREVIEW_CALENDAR_ID,
         summary,
         colorId,

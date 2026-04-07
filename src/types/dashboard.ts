@@ -42,6 +42,8 @@ export type StudyPlanDayEntry = {
   focus: string;
   /** Título opcional de la sesión (tarjeta); si falta, se muestra la fecha. */
   sessionTitle?: string;
+  /** Hora de inicio en formato HH:mm; si falta, la vista previa usa 09:00. */
+  startTime?: string | null;
 };
 
 /** Calendario estructurado guardado en el plan (tras «Guardar en la app»). */

@@ -10,6 +10,10 @@ import {
   buildTimedSegmentsForWeek,
 } from "@/lib/week-time-grid-layout";
 import { DEADLINE_CALENDAR_EVENT_ID_PREFIX } from "@/lib/deadlines-to-calendar-events";
+import {
+  STUDY_PLAN_DAY_EVENT_ID_PREFIX,
+  STUDY_PLAN_PREVIEW_CALENDAR_ID,
+} from "@/lib/study-plans-calendar-events";
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -37,8 +41,8 @@ type WeekGoogleStyleGridProps = {
   /** Si se omite, no se muestra borrar (solo lectura). */
   onDeleteEvent?: (p: { eventId: string; calendarId: string }) => void;
   deletingKey?: string | null;
-  /** Callback para mover un evento local a una nueva hora (HH:mm). */
-  onMoveEvent?: (p: { eventId: string; newTime: string }) => void;
+  /** Callback para mover un evento local a una nueva hora (HH:mm). calendarId identifica el origen. */
+  onMoveEvent?: (p: { calendarId: string; eventId: string; newTime: string }) => void;
 };
 
 export function WeekGoogleStyleGrid({
@@ -119,6 +123,7 @@ export function WeekGoogleStyleGrid({
 
   const dragRef = useRef<{
     eventId: string;
+    calendarId: string;
     startY: number;
     origTopPx: number;
     heightPx: number;
@@ -128,12 +133,16 @@ export function WeekGoogleStyleGrid({
 
   const isDraggableEvent = useCallback(
     (eventId?: string) =>
-      Boolean(onMoveEvent && eventId?.startsWith(DEADLINE_CALENDAR_EVENT_ID_PREFIX)),
+      Boolean(
+        onMoveEvent &&
+          (eventId?.startsWith(DEADLINE_CALENDAR_EVENT_ID_PREFIX) ||
+            eventId?.startsWith(STUDY_PLAN_DAY_EVENT_ID_PREFIX)),
+      ),
     [onMoveEvent],
   );
 
   const handlePointerDown = useCallback(
-    (e: React.PointerEvent, seg: { eventId?: string; topPx: number; heightPx: number }) => {
+    (e: React.PointerEvent, seg: { eventId?: string; calendarId?: string; topPx: number; heightPx: number }) => {
       if (!seg.eventId || !isDraggableEvent(seg.eventId)) return;
       e.preventDefault();
       e.stopPropagation();
@@ -143,6 +152,7 @@ export function WeekGoogleStyleGrid({
       const currentHeight = (seg.heightPx / (24 * 76)) * gridHeightPx;
       dragRef.current = {
         eventId: seg.eventId,
+        calendarId: seg.calendarId ?? "",
         startY: e.clientY,
         origTopPx: currentTop,
         heightPx: currentHeight,
@@ -177,10 +187,15 @@ export function WeekGoogleStyleGrid({
       const m = snapped % 60;
       const newTime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 
-      const rawId = drag.eventId.startsWith(DEADLINE_CALENDAR_EVENT_ID_PREFIX)
-        ? drag.eventId.slice(DEADLINE_CALENDAR_EVENT_ID_PREFIX.length)
-        : drag.eventId;
-      onMoveEvent?.({ eventId: rawId, newTime });
+      let rawId: string;
+      if (drag.eventId.startsWith(DEADLINE_CALENDAR_EVENT_ID_PREFIX)) {
+        rawId = drag.eventId.slice(DEADLINE_CALENDAR_EVENT_ID_PREFIX.length);
+      } else if (drag.eventId.startsWith(STUDY_PLAN_DAY_EVENT_ID_PREFIX)) {
+        rawId = drag.eventId.slice(STUDY_PLAN_DAY_EVENT_ID_PREFIX.length);
+      } else {
+        rawId = drag.eventId;
+      }
+      onMoveEvent?.({ calendarId: drag.calendarId, eventId: rawId, newTime });
     },
     [onMoveEvent, gridHeightPx],
   );

@@ -13,7 +13,6 @@ import {
   mondayYmdLocal,
   newTaskId,
   saveChecklistTasks,
-  sortChecklistTasks,
   sundayAfterMondayYmd,
   todayYmdLocal,
 } from "@/lib/daily-checklist-storage";
@@ -37,6 +36,12 @@ type CalCell = {
 };
 
 const WEEKDAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"] as const;
+
+const PRI_ORDER: Record<ChecklistPriority, number> = {
+  red: 0,
+  orange: 1,
+  green: 2,
+};
 
 const PRI_DOT: Record<
   ChecklistPriority,
@@ -166,7 +171,12 @@ function progressLabel(done: number, total: number): string {
 }
 
 function sortTasks(list: ChecklistTaskItem[]): ChecklistTaskItem[] {
-  return sortChecklistTasks(list);
+  return [...list].sort((a, b) => {
+    const pa = PRI_ORDER[a.priority];
+    const pb = PRI_ORDER[b.priority];
+    if (pa !== pb) return pa - pb;
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
 }
 
 function dayTasksForYmd(

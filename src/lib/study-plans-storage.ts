@@ -51,11 +51,17 @@ function normalizeAiSchedule(raw: unknown): StudyPlanAISchedule | undefined {
             : Number(r.studyHours);
       const studyHours = Number.isFinite(h) ? Math.max(0.25, Math.min(24, h)) : 2;
       const st = r.sessionTitle;
+      const rawStartTime = r.startTime;
+      const startTime =
+        typeof rawStartTime === "string" && /^\d{2}:\d{2}$/.test(rawStartTime)
+          ? rawStartTime
+          : undefined;
       days.push({
         date: r.date,
         studyHours,
         focus: typeof r.focus === "string" ? r.focus : "",
         ...(typeof st === "string" && st.trim() ? { sessionTitle: st.trim() } : {}),
+        ...(startTime ? { startTime } : {}),
       });
     }
   }

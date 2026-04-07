@@ -26,7 +26,7 @@ import {
   saveImportantDeadlines,
 } from "@/lib/deadlines-storage";
 import { signInWithGoogle } from "@/lib/capacitor-auth";
-import { loadStudyPlans, STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
+import { loadStudyPlans, saveStudyPlans, STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
 import {
   STUDY_PLAN_PREVIEW_CALENDAR_ID,
   studyPlanAiScheduleToCalendarEvents,
@@ -319,12 +319,36 @@ export function CalendarPanel() {
   );
 
   const handleMoveEvent = useCallback(
-    (p: { eventId: string; newTime: string }) => {
-      const all = loadImportantDeadlines();
-      const idx = all.findIndex((d) => d.id === p.eventId);
-      if (idx === -1) return;
-      all[idx] = { ...all[idx], time: p.newTime };
-      saveImportantDeadlines(all);
+    (p: { calendarId: string; eventId: string; newTime: string }) => {
+      if (p.calendarId === STUDY_PLAN_PREVIEW_CALENDAR_ID) {
+        // p.eventId = "${planId}-${date}" (after stripping STUDY_PLAN_DAY_EVENT_ID_PREFIX)
+        // planId is a UUID v4 (always 36 chars); date is "YYYY-MM-DD" (10 chars)
+        const date = p.eventId.slice(-10);
+        const planId = p.eventId.slice(0, p.eventId.length - 11);
+        if (!planId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+        const plans = loadStudyPlans();
+        const planIdx = plans.findIndex((plan) => plan.id === planId);
+        if (planIdx === -1) return;
+        const plan = plans[planIdx]!;
+        const days = plan.aiSchedule?.days ?? [];
+        const dayIdx = days.findIndex((d) => d.date === date);
+        if (dayIdx === -1) return;
+        const newDays = days.map((d, i) =>
+          i === dayIdx ? { ...d, startTime: p.newTime } : d,
+        );
+        const updatedPlan = {
+          ...plan,
+          aiSchedule: { ...plan.aiSchedule!, days: newDays },
+          updatedAt: new Date().toISOString(),
+        };
+        saveStudyPlans(plans.map((pl, i) => (i === planIdx ? updatedPlan : pl)));
+      } else {
+        const all = loadImportantDeadlines();
+        const idx = all.findIndex((d) => d.id === p.eventId);
+        if (idx === -1) return;
+        all[idx] = { ...all[idx], time: p.newTime };
+        saveImportantDeadlines(all);
+      }
     },
     [],
   );
