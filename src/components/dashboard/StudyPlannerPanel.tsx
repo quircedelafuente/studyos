@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImportantDeadline, StudyPlan } from "@/types/dashboard";
 import {
+  getGoogleEventColorStyle,
+  normalizeGoogleEventColorId,
+} from "@/lib/google-calendar-event-colors";
+import {
   DEADLINES_CHANGED_EVENT,
   DEADLINES_STORAGE_KEY,
   loadImportantDeadlines,
@@ -38,7 +42,36 @@ function formatDeadlineOptionLabel(d: ImportantDeadline): string {
   return `${d.title} · ${dateStr}${d.time ? ` · ${d.time}` : ""}`;
 }
 
-export function StudyPlannerPanel() {
+function LinkedDeadlineColorDot({
+  deadlineId,
+  deadlines,
+}: {
+  deadlineId: string;
+  deadlines: ImportantDeadline[];
+}) {
+  const dl = deadlines.find((d) => d.id === deadlineId);
+  const cs = getGoogleEventColorStyle(normalizeGoogleEventColorId(dl?.calendarColorId));
+  return (
+    <span
+      className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+      style={{ backgroundColor: cs.borderLeft }}
+      title="Color del examen o fecha en calendario"
+      aria-hidden
+    />
+  );
+}
+
+type StudyPlannerPanelProps = {
+  /** Desde Exámenes y fechas: abre el modal «Nuevo plan» con este deadline preseleccionado. */
+  navCreateDeadlineId?: string | null;
+  /** Desde Exámenes y fechas: abre el chat de este plan. */
+  navOpenPlanId?: string | null;
+};
+
+export function StudyPlannerPanel({
+  navCreateDeadlineId = null,
+  navOpenPlanId = null,
+}: StudyPlannerPanelProps = {}) {
   const [plans, setPlans] = useState<StudyPlan[]>([]);
   const [deadlines, setDeadlines] = useState(() =>
     loadImportantDeadlines().filter((d) => !d.id.startsWith("study-")),
@@ -90,6 +123,21 @@ export function StudyPlannerPanel() {
       setChatPlanId(null);
     }
   }, [chatPlanId, plans]);
+
+  useEffect(() => {
+    if (!navCreateDeadlineId) return;
+    setChatPlanId(null);
+    setNewTargetDeadlineId(navCreateDeadlineId);
+    setNewTitle("");
+    setCreateError(null);
+    setCreateOpen(true);
+  }, [navCreateDeadlineId]);
+
+  useEffect(() => {
+    if (!navOpenPlanId) return;
+    setCreateOpen(false);
+    setChatPlanId(navOpenPlanId);
+  }, [navOpenPlanId]);
 
   const sortedPlans = useMemo(() => {
     return [...plans].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -242,7 +290,12 @@ export function StudyPlannerPanel() {
                   onClick={() => setChatPlanId(p.id)}
                   className="flex min-w-0 flex-1 flex-col gap-1 p-4 text-left transition hover:bg-[var(--surface-muted)]"
                 >
-                  <span className="font-semibold text-[var(--ink)]">{p.title}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    {p.targetDeadlineId ? (
+                      <LinkedDeadlineColorDot deadlineId={p.targetDeadlineId} deadlines={deadlines} />
+                    ) : null}
+                    <span className="min-w-0 truncate font-semibold text-[var(--ink)]">{p.title}</span>
+                  </span>
                   <span className="text-xs text-[var(--ink-muted)]">
                     Actualizado {formatPlanDate(p.updatedAt)}
                     {p.aiSchedule?.days?.length ? ` · Plan IA (${p.aiSchedule.days.length} días)` : ""}

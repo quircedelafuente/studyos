@@ -5,6 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useStudyArena } from "@/components/study-arena/StudyArenaProvider";
 import type { MainTabId } from "@/types/dashboard";
+import {
+  STUDY_PLANNER_NAV_EVENT,
+  type StudyPlannerNavDetail,
+} from "@/lib/study-planner-nav";
 import { AssignmentsPanel } from "./AssignmentsPanel";
 import { CalendarPanel } from "./CalendarPanel";
 import { NotebookLMPanel } from "./NotebookLMPanel";
@@ -56,6 +60,11 @@ const BASE_TABS: {
 
 export function DashboardApp() {
   const [mainTab, setMainTab] = useState<MainTabId>("calendario");
+  /** Intención de navegación hacia Study Planner (se mantiene unos ms para montajes dobles en dev). */
+  const [studyPlannerNavCreateDeadlineId, setStudyPlannerNavCreateDeadlineId] = useState<
+    string | null
+  >(null);
+  const [studyPlannerNavOpenPlanId, setStudyPlannerNavOpenPlanId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMdUp, setIsMdUp] = useState(() =>
@@ -112,6 +121,36 @@ export function DashboardApp() {
       setMainTab("calendario");
     }
   }, [isMdUp, mainTab]);
+
+  useEffect(() => {
+    function onStudyPlannerNav(e: Event) {
+      const ce = e as CustomEvent<StudyPlannerNavDetail>;
+      const d = ce.detail;
+      if (!d) return;
+      if (d.mode === "create") {
+        setStudyPlannerNavCreateDeadlineId(d.deadlineId);
+        setStudyPlannerNavOpenPlanId(null);
+      } else {
+        setStudyPlannerNavOpenPlanId(d.planId);
+        setStudyPlannerNavCreateDeadlineId(null);
+      }
+      setMainTab("study-planner");
+      setSidebarOpen(false);
+    }
+    window.addEventListener(STUDY_PLANNER_NAV_EVENT, onStudyPlannerNav as EventListener);
+    return () =>
+      window.removeEventListener(STUDY_PLANNER_NAV_EVENT, onStudyPlannerNav as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (mainTab !== "study-planner") return;
+    if (!studyPlannerNavCreateDeadlineId && !studyPlannerNavOpenPlanId) return;
+    const t = window.setTimeout(() => {
+      setStudyPlannerNavCreateDeadlineId(null);
+      setStudyPlannerNavOpenPlanId(null);
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [mainTab, studyPlannerNavCreateDeadlineId, studyPlannerNavOpenPlanId]);
 
   const closeSidebar = () => setSidebarOpen(false);
 
@@ -354,7 +393,10 @@ export function DashboardApp() {
           ) : null}
           {mainTab === "study-planner" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-              <StudyPlannerPanel />
+              <StudyPlannerPanel
+                navCreateDeadlineId={studyPlannerNavCreateDeadlineId}
+                navOpenPlanId={studyPlannerNavOpenPlanId}
+              />
             </div>
           ) : null}
           {mainTab === "study-arena" ? (

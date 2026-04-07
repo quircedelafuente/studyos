@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
-import type { DeadlineTag, ImportantDeadline } from "@/types/dashboard";
+import type { DeadlineTag, ImportantDeadline, StudyPlan } from "@/types/dashboard";
 import type { BbCourseItem } from "@/types/blackboard";
 import {
   DEADLINE_TAGS_CHANGED_EVENT,
@@ -27,6 +27,12 @@ import {
   normalizeGoogleEventColorId,
 } from "@/lib/google-calendar-event-colors";
 import { IconPlus } from "@/components/dashboard/icons";
+import {
+  loadStudyPlans,
+  STUDY_PLANS_CHANGED_EVENT,
+  STUDY_PLANS_STORAGE_KEY,
+} from "@/lib/study-plans-storage";
+import { emitStudyPlannerNavigate } from "@/lib/study-planner-nav";
 
 function formatDateEs(ymd: string): string {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -593,6 +599,7 @@ export function DeadlinesPanel() {
   const [formTagIds, setFormTagIds] = useState<string[]>([]);
   const [formColorId, setFormColorId] = useState("6");
   const [editingDeadline, setEditingDeadline] = useState<ImportantDeadline | null>(null);
+  const [studyPlansRevision, setStudyPlansRevision] = useState(0);
 
   const refresh = useCallback(() => {
     /** Excluir sesiones del Study Planner (id: "study-<planId>-<date>"); son eventos de calendario
@@ -635,6 +642,22 @@ export function DeadlinesPanel() {
     };
   }, [refresh, cloudSync?.initialSyncDone]);
 
+  useEffect(() => {
+    function bumpPlans() {
+      setStudyPlansRevision((n) => n + 1);
+    }
+    bumpPlans();
+    window.addEventListener(STUDY_PLANS_CHANGED_EVENT, bumpPlans);
+    function onStorage(e: StorageEvent) {
+      if (e.key === STUDY_PLANS_STORAGE_KEY) bumpPlans();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(STUDY_PLANS_CHANGED_EVENT, bumpPlans);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
   /** Si el curso elegido deja de estar en la lista de Courses, se anula la selección. */
   useEffect(() => {
     if (!courseId) return;
@@ -674,6 +697,21 @@ export function DeadlinesPanel() {
       return a.title.localeCompare(b.title, "es");
     });
   }, [deadlines]);
+
+  /** Un plan por deadline (el más recientemente actualizado). */
+  const planByDeadlineId = useMemo(() => {
+    void studyPlansRevision;
+    const m = new Map<string, StudyPlan>();
+    for (const p of loadStudyPlans()) {
+      const tid = p.targetDeadlineId;
+      if (!tid) continue;
+      const prev = m.get(tid);
+      if (!prev || p.updatedAt.localeCompare(prev.updatedAt) > 0) {
+        m.set(tid, p);
+      }
+    }
+    return m;
+  }, [studyPlansRevision]);
 
   function addDeadline() {
     const t = title.trim();
@@ -934,7 +972,9 @@ export function DeadlinesPanel() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {sorted.map((d) => (
+            {sorted.map((d) => {
+              const linkedPlan = planByDeadlineId.get(d.id);
+              return (
               <li
                 key={d.id}
                 className="flex min-w-0 items-stretch gap-2 rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 py-2 shadow-sm"
@@ -942,7 +982,16 @@ export function DeadlinesPanel() {
                 {/* Scroll solo en el contenido; si no, overflow recorta los desplegables (color) */}
                 <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:thin]">
                   <div className="flex min-w-0 flex-nowrap items-center gap-x-2 gap-y-0 text-sm">
-                    <span className="shrink-0 font-semibold text-[var(--ink)]">{d.title}</span>
+                    <span className="flex shrink-0 items-center gap-1.5 font-semibold text-[var(--ink)]">
+                      {linkedPlan ? (
+                        <span
+                          className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm ring-2 ring-emerald-500/20"
+                          title="Tiene plan de estudio en Study Planner"
+                          aria-label="Tiene plan de estudio"
+                        />
+                      ) : null}
+                      {d.title}
+                    </span>
                     <span className="shrink-0 text-[var(--ink-faint)]">·</span>
                     <span className="min-w-0 shrink truncate text-[var(--ink-muted)]">
                       {formatDateEs(d.date)}
@@ -977,6 +1026,29 @@ export function DeadlinesPanel() {
                   />
                   <button
                     type="button"
+                    onClick={() => emitStudyPlannerNavigate({ mode: "create", deadlineId: d.id })}
+                    className="shrink-0 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+                    title="Crear plan de estudio para esta fecha"
+                  >
+                    Plan
+                  </button>
+                  {linkedPlan ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        emitStudyPlannerNavigate({
+                          mode: "open",
+                          planId: linkedPlan.id,
+                        })
+                      }
+                      className="shrink-0 rounded-lg border border-emerald-600/30 bg-emerald-50/80 px-2.5 py-1.5 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100/90"
+                      title="Abrir el plan de estudio en Study Planner"
+                    >
+                      Abrir
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
                     onClick={() => setEditingDeadline(d)}
                     className="shrink-0 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
                   >
@@ -991,7 +1063,8 @@ export function DeadlinesPanel() {
                   </button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>
