@@ -312,6 +312,267 @@ function ChevronDownMini({ className }: { className?: string }) {
   );
 }
 
+function EditDeadlineDialog({
+  deadline,
+  onClose,
+  displayedCourses,
+  tagRegistry,
+}: {
+  deadline: ImportantDeadline;
+  onClose: () => void;
+  displayedCourses: BbCourseItem[];
+  tagRegistry: DeadlineTag[];
+}) {
+  const [title, setTitle] = useState(deadline.title);
+  const [date, setDate] = useState(deadline.date);
+  const [time, setTime] = useState(deadline.time ?? "");
+  const [courseId, setCourseId] = useState(deadline.courseId ?? "");
+  const [courseChoiceTouched, setCourseChoiceTouched] = useState(true);
+  const [courseSearch, setCourseSearch] = useState("");
+  const [coursePickerOpen, setCoursePickerOpen] = useState(false);
+  const coursePickerRef = useRef<HTMLDivElement>(null);
+  const courseSearchInputRef = useRef<HTMLInputElement>(null);
+  const [formTagIds, setFormTagIds] = useState<string[]>([...deadline.tagIds]);
+  const [formColorId, setFormColorId] = useState(deadline.calendarColorId);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!coursePickerOpen) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (coursePickerRef.current?.contains(e.target as Node)) return;
+      setCoursePickerOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [coursePickerOpen]);
+
+  useEffect(() => {
+    if (coursePickerOpen) {
+      queueMicrotask(() => courseSearchInputRef.current?.focus());
+    }
+  }, [coursePickerOpen]);
+
+  const filteredCourses = useMemo(() => {
+    return displayedCourses.filter((c) => bbCourseMatchesQuery(c, courseSearch));
+  }, [displayedCourses, courseSearch]);
+
+  function selectCourseFromPicker(id: string) {
+    setCourseId(id);
+    setCourseChoiceTouched(true);
+    setCourseSearch("");
+    setCoursePickerOpen(false);
+  }
+
+  const courseTriggerLabel = (() => {
+    if (courseId) {
+      const row = displayedCourses.find((c) => c.learnCourseId === courseId);
+      if (row) return bbCourseDisplayLine(row);
+      return "Asignatura eliminada";
+    }
+    if (courseChoiceTouched && courseId === "") return "Sin asignatura";
+    return "Seleccionar asignatura";
+  })();
+
+  function save() {
+    const t = title.trim();
+    if (!t || !date) return;
+    const known = new Set(loadDeadlineTags().map((x) => x.id));
+    const tagIds = formTagIds.filter((id) => known.has(id));
+    const next: ImportantDeadline = {
+      ...deadline,
+      title: t,
+      date,
+      time: time.trim() === "" ? null : time.trim(),
+      courseId: courseId === "" ? null : courseId,
+      tagIds,
+      calendarColorId: normalizeGoogleEventColorId(formColorId),
+    };
+    saveImportantDeadlines(
+      loadImportantDeadlines().map((d) => (d.id === deadline.id ? next : d)),
+    );
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40"
+        aria-label="Cerrar"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-deadline-title"
+        className="relative z-10 max-h-[min(92dvh,100%)] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-xl sm:rounded-2xl sm:p-5"
+      >
+        <h2 id="edit-deadline-title" className="text-lg font-extrabold text-[var(--ink)]">
+          Editar fecha o examen
+        </h2>
+        <p className="mt-1 text-xs text-[var(--ink-muted)]">
+          Los cambios se reflejan al instante en el calendario de la app.
+        </p>
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
+              Título
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 py-2 text-base text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:border-[var(--ink)] focus:outline-none sm:text-sm"
+            />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <div className="min-w-[10rem] flex-1">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
+                Fecha
+              </label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 py-2 text-base text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none sm:text-sm"
+              />
+            </div>
+            <div className="min-w-[9rem] flex-1">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
+                Hora <span className="font-normal normal-case text-[var(--ink-faint)]">(opcional)</span>
+              </label>
+              <input
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 py-2 text-base text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none sm:text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
+              Asignatura
+            </label>
+            <div className="relative" ref={coursePickerRef}>
+              <button
+                type="button"
+                onClick={() => setCoursePickerOpen((o) => !o)}
+                aria-expanded={coursePickerOpen}
+                aria-haspopup="listbox"
+                className="flex w-full min-h-[2.5rem] items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 py-2 text-left text-base text-[var(--ink)] transition hover:bg-[var(--surface-muted)] focus:border-[var(--ink)] focus:outline-none sm:text-sm"
+              >
+                <span className="min-w-0 flex-1 truncate">{courseTriggerLabel}</span>
+                <ChevronDownMini
+                  className={`h-4 w-4 shrink-0 opacity-70 transition ${coursePickerOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {coursePickerOpen ? (
+                <div className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-lg ring-1 ring-black/5">
+                  <input
+                    ref={courseSearchInputRef}
+                    type="search"
+                    value={courseSearch}
+                    onChange={(e) => setCourseSearch(e.target.value)}
+                    placeholder="Buscar asignatura…"
+                    disabled={displayedCourses.length === 0}
+                    autoComplete="off"
+                    className="mb-2 w-full rounded-lg border border-[var(--border)] bg-[var(--canvas)] px-3 py-2 text-base text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:border-[var(--ink)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                    aria-label="Buscar asignatura"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div
+                    className="max-h-40 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--canvas)] p-1"
+                    role="listbox"
+                    aria-label="Lista de asignaturas"
+                  >
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={courseId === "" && courseChoiceTouched}
+                      onClick={() => selectCourseFromPicker("")}
+                      className={`flex w-full rounded-lg px-3 py-2 text-left text-base transition hover:bg-[var(--surface-muted)] sm:text-sm ${
+                        courseId === "" && courseChoiceTouched
+                          ? "bg-[var(--surface-muted)] font-semibold text-[var(--ink)]"
+                          : "text-[var(--ink-muted)]"
+                      }`}
+                    >
+                      Sin asignatura
+                    </button>
+                    {displayedCourses.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-[var(--ink-faint)]">
+                        No hay cursos en Courses. Configura la lista allí primero.
+                      </p>
+                    ) : filteredCourses.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-[var(--ink-faint)]">
+                        Ninguna asignatura coincide con la búsqueda.
+                      </p>
+                    ) : (
+                      filteredCourses.map((c) => (
+                        <button
+                          key={c.learnCourseId}
+                          type="button"
+                          role="option"
+                          aria-selected={courseId === c.learnCourseId}
+                          onClick={() => selectCourseFromPicker(c.learnCourseId)}
+                          className={`flex w-full rounded-lg px-3 py-2 text-left text-base transition hover:bg-[var(--surface-muted)] sm:text-sm ${
+                            courseId === c.learnCourseId
+                              ? "bg-[var(--surface-muted)] font-semibold text-[var(--ink)]"
+                              : "text-[var(--ink)]"
+                          }`}
+                        >
+                          {bbCourseDisplayLine(c)}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
+              Etiquetas
+            </label>
+            <DeadlineTagPicker selectedIds={formTagIds} onChange={setFormTagIds} allTags={tagRegistry} />
+          </div>
+          <div className="flex items-end gap-2">
+            <div className="shrink-0">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
+                Color
+              </label>
+              <DeadlineCalendarColorCompact variant="square" value={formColorId} onChange={setFormColorId} />
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap justify-end gap-2 pb-[env(safe-area-inset-bottom,0px)]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[44px] rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--ink)] hover:bg-[var(--surface-muted)]"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={!title.trim() || !date}
+            className="min-h-[44px] rounded-xl bg-[var(--ink)] px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DeadlinesPanel() {
   const cloudSync = useCloudSyncStatus();
   const [deadlines, setDeadlines] = useState<ImportantDeadline[]>([]);
@@ -331,14 +592,20 @@ export function DeadlinesPanel() {
   const courseSearchInputRef = useRef<HTMLInputElement>(null);
   const [formTagIds, setFormTagIds] = useState<string[]>([]);
   const [formColorId, setFormColorId] = useState("6");
+  const [editingDeadline, setEditingDeadline] = useState<ImportantDeadline | null>(null);
 
   const refresh = useCallback(() => {
     /** Excluir sesiones del Study Planner (id: "study-<planId>-<date>"); son eventos de calendario
      * pero no son exámenes/fechas manuales y no deben aparecer aquí. */
-    setDeadlines(loadImportantDeadlines().filter((d) => !d.id.startsWith("study-")));
+    const list = loadImportantDeadlines().filter((d) => !d.id.startsWith("study-"));
+    setDeadlines(list);
     setTagRegistry(loadDeadlineTags());
     const snap = readBbDisplayedCoursesSnapshot();
     setDisplayedCourses(snap.hasConfig ? snap.displayedCourses : []);
+    setEditingDeadline((cur) => {
+      if (!cur) return cur;
+      return list.some((d) => d.id === cur.id) ? cur : null;
+    });
   }, []);
 
   useEffect(() => {
@@ -469,6 +736,7 @@ export function DeadlinesPanel() {
 
   function removeDeadline(id: string) {
     saveImportantDeadlines(loadImportantDeadlines().filter((d) => d.id !== id));
+    setEditingDeadline((cur) => (cur?.id === id ? null : cur));
   }
 
   function courseLabel(courseIdVal: string | null): string {
@@ -701,12 +969,19 @@ export function DeadlinesPanel() {
                     </div>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2 self-center">
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 self-center">
                   <DeadlineCalendarColorCompact
                     variant="square"
                     value={d.calendarColorId}
                     onChange={(c) => updateDeadlineCalendarColor(d.id, c)}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setEditingDeadline(d)}
+                    className="shrink-0 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+                  >
+                    Editar
+                  </button>
                   <button
                     type="button"
                     onClick={() => removeDeadline(d.id)}
@@ -720,6 +995,16 @@ export function DeadlinesPanel() {
           </ul>
         )}
       </section>
+
+      {editingDeadline ? (
+        <EditDeadlineDialog
+          key={editingDeadline.id}
+          deadline={editingDeadline}
+          onClose={() => setEditingDeadline(null)}
+          displayedCourses={displayedCourses}
+          tagRegistry={tagRegistry}
+        />
+      ) : null}
     </div>
   );
 }

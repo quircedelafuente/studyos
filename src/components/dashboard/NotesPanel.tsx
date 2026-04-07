@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   addParkingLotNote,
+  deleteParkingLotNote,
   formatParkingNoteTime,
   loadParkingLotNotes,
   PARKING_LOT_CHANGED_EVENT,
@@ -10,7 +11,7 @@ import {
   updateParkingLotNote,
   type ParkingLotNote,
 } from "@/lib/parking-lot-storage";
-import { IconPencil, IconPlus } from "./icons";
+import { IconPencil, IconPlus, IconTrash } from "./icons";
 
 type NoteModalMode = "create" | "edit";
 
@@ -72,7 +73,7 @@ function NoteModal({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={8}
-          className="mt-4 w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 py-2 text-sm text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="mt-4 w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 py-2 text-base text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none sm:text-sm"
           placeholder="Escribe aquí…"
         />
         <div className="mt-4 flex flex-wrap justify-end gap-2 pb-[env(safe-area-inset-bottom,0px)]">
@@ -154,16 +155,31 @@ export function NotesPanel() {
                 className="relative w-full max-w-[14.5rem] justify-self-center sm:max-w-none sm:justify-self-stretch"
                 style={{ aspectRatio: "3 / 4" }}
               >
-                <article className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[linear-gradient(165deg,color-mix(in_srgb,var(--surface)_92%,#f59e0b_8%)_0%,var(--surface)_55%)] shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(n)}
-                    className="absolute right-2 top-2 z-10 rounded-lg border border-[var(--border)] bg-white/90 p-1.5 text-[var(--ink)] shadow-sm backdrop-blur-sm transition hover:bg-white"
-                    aria-label="Editar nota"
-                    title="Editar"
-                  >
-                    <IconPencil className="h-4 w-4" />
-                  </button>
+                <article className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+                  <div className="absolute right-2 top-2 z-10 flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(n)}
+                      className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 p-1.5 text-[var(--ink)] shadow-sm backdrop-blur-sm transition hover:bg-[var(--surface-muted)]"
+                      aria-label="Editar nota"
+                      title="Editar"
+                    >
+                      <IconPencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!window.confirm("¿Eliminar esta nota?")) return;
+                        deleteParkingLotNote(n.id);
+                        refresh();
+                      }}
+                      className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 p-1.5 text-red-600 shadow-sm backdrop-blur-sm transition hover:bg-red-50"
+                      aria-label="Eliminar nota"
+                      title="Eliminar"
+                    >
+                      <IconTrash className="h-4 w-4" />
+                    </button>
+                  </div>
                   <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-11">
                     <p className="whitespace-pre-wrap text-sm leading-snug text-[var(--ink)]">{n.text}</p>
                   </div>
