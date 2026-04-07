@@ -51,6 +51,12 @@ function ymdToDate(ymd: string): Date | null {
   return new Date(y, m - 1, d);
 }
 
+function startOfDay(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
 function SchedulePill({ schedule }: { schedule: HabitSchedule }) {
   if (schedule.mode === "times_per_week") {
     return (
@@ -593,42 +599,46 @@ export function HabitTrackerPanel() {
 
           <div className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-[var(--ink)]">Calendario</p>
-                <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
-                  Cada día se colorea según el % de hábitos completados (para los hábitos que aplican ese día).
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const d = new Date(calYear, calMonth, 1);
-                    d.setMonth(d.getMonth() - 1);
-                    setCalYear(d.getFullYear());
-                    setCalMonth(d.getMonth());
-                  }}
-                  className="min-h-[36px] rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
-                  aria-label="Mes anterior"
-                >
-                  ←
-                </button>
-                <div className="min-w-[10rem] text-center text-xs font-bold capitalize text-[var(--ink)]">
+              <div className="min-w-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[var(--ink)]">Calendario</p>
+                    <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                      Cada día se colorea según el % de hábitos completados (para los hábitos que aplican ese día).
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(calYear, calMonth, 1);
+                        d.setMonth(d.getMonth() - 1);
+                        setCalYear(d.getFullYear());
+                        setCalMonth(d.getMonth());
+                      }}
+                      className="min-h-[36px] rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+                      aria-label="Mes anterior"
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(calYear, calMonth, 1);
+                        d.setMonth(d.getMonth() + 1);
+                        setCalYear(d.getFullYear());
+                        setCalMonth(d.getMonth());
+                      }}
+                      className="min-h-[36px] rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+                      aria-label="Mes siguiente"
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 text-center text-xs font-bold capitalize text-[var(--ink)] sm:text-left">
                   {monthLabelEs(calYear, calMonth)}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const d = new Date(calYear, calMonth, 1);
-                    d.setMonth(d.getMonth() + 1);
-                    setCalYear(d.getFullYear());
-                    setCalMonth(d.getMonth());
-                  }}
-                  className="min-h-[36px] rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
-                  aria-label="Mes siguiente"
-                >
-                  →
-                </button>
               </div>
             </div>
 
@@ -640,7 +650,12 @@ export function HabitTrackerPanel() {
               ))}
               {calendarCells.map((c) => {
                 const meta = habitCalendarMeta[c.ymd] ?? { pct: 0, done: 0, total: 0 };
-                const tone = cellTone(meta.pct, meta.total);
+                const dt = ymdToDate(c.ymd);
+                const today0 = startOfDay(new Date());
+                const inPastOrToday = dt ? startOfDay(dt).getTime() <= today0.getTime() : false;
+                // Regla: antes de que llegue el día (futuro) o si aún no hubo hábitos configurados ese día, mostrar gris.
+                const shouldColor = inPastOrToday && meta.total > 0;
+                const tone = shouldColor ? cellTone(meta.pct, meta.total) : "empty";
                 const base =
                   tone === "empty"
                     ? "bg-[var(--surface-muted)] text-[var(--ink-faint)] border-[var(--border)]"
@@ -654,9 +669,11 @@ export function HabitTrackerPanel() {
                 const dayNum = Number(c.ymd.slice(-2));
                 const isToday = c.ymd === dateToYmd(new Date());
                 const tooltip =
-                  meta.total === 0
-                    ? `${c.ymd} · Sin hábitos`
-                    : `${c.ymd} · ${meta.done}/${meta.total} · ${meta.pct}%`;
+                  !inPastOrToday
+                    ? `${c.ymd} · Aún no`
+                    : meta.total === 0
+                      ? `${c.ymd} · Sin hábitos`
+                      : `${c.ymd} · ${meta.done}/${meta.total} · ${meta.pct}%`;
                 return (
                   <div key={c.ymd} className="flex justify-center">
                     <div
