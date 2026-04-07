@@ -555,14 +555,14 @@ export function HabitTrackerPanel() {
                           <>
                             <button
                               type="button"
-                              onClick={() => addMeasure(h, -0.25)}
+                              onClick={() => addMeasure(h, -1)}
                               className="min-h-[36px] rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
                             >
                               −
                             </button>
                             <button
                               type="button"
-                              onClick={() => addMeasure(h, 0.25)}
+                              onClick={() => addMeasure(h, 1)}
                               className="min-h-[36px] rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
                             >
                               +

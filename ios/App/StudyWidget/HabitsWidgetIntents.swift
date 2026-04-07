@@ -73,7 +73,7 @@ private func doneForHabit(_ h: IEHabitDef, _ e: IEHabitLogEntry?) -> Bool {
 }
 
 enum HabitsMirrorStore {
-    static func loadHabitsAndLogs() -> (habits: [IEHabitDef], logs: IEHabitLogsMirrorRoot) {
+    fileprivate static func loadHabitsAndLogs() -> (habits: [IEHabitDef], logs: IEHabitLogsMirrorRoot) {
         let defaults = UserDefaults(suiteName: kAppGroupID)
         let habitsRaw = defaults?.string(forKey: kHabitsMirrorKey) ?? ""
         let logsRaw = defaults?.string(forKey: kHabitLogsMirrorKey) ?? ""
@@ -98,7 +98,7 @@ enum HabitsMirrorStore {
         return (habits, logs)
     }
 
-    static func saveLogs(_ logs: IEHabitLogsMirrorRoot) {
+    fileprivate static func saveLogs(_ logs: IEHabitLogsMirrorRoot) {
         guard let defaults = UserDefaults(suiteName: kAppGroupID) else { return }
         guard let d = try? JSONEncoder().encode(logs),
               let s = String(data: d, encoding: .utf8) else { return }
@@ -133,22 +133,43 @@ enum HabitsMirrorStore {
         saveLogs(next)
     }
 
-    static func topToday(max: Int) -> [(id: String, title: String, kind: String, value: Double, unit: String, done: Bool)] {
+    /// Progreso de todos los hábitos programados hoy (para anillo y borde).
+    static func todayRingStats() -> (pct: Int, empty: Bool, done: Int, total: Int) {
+        let (habits, logs) = loadHabitsAndLogs()
+        let today = habits
+            .filter { !($0.archived ?? false) }
+            .filter { isScheduledToday($0) }
+        let total = today.count
+        if total == 0 {
+            return (0, true, 0, 0)
+        }
+        var done = 0
+        for h in today {
+            let pk = periodKey(for: h)
+            let e = logs.byPeriod[pk]?[h.id]
+            if doneForHabit(h, e) { done += 1 }
+        }
+        let pct = min(100, Int((100.0 * Double(done) / Double(total)).rounded()))
+        return (pct, false, done, total)
+    }
+
+    /// Hasta `max` hábitos **pendientes** hoy (`target` solo aplica a kind == measure).
+    static func topTodayPending(max: Int) -> [(id: String, title: String, kind: String, value: Double, unit: String, target: Double?)] {
         let (habits, logs) = loadHabitsAndLogs()
         let today = habits
             .filter { !($0.archived ?? false) }
             .filter { isScheduledToday($0) }
             .sorted { $0.createdAt < $1.createdAt }
-        var out: [(String, String, String, Double, String, Bool)] = []
+        var out: [(String, String, String, Double, String, Double?)] = []
         for h in today {
             if out.count >= max { break }
             let pk = periodKey(for: h)
             let e = logs.byPeriod[pk]?[h.id]
-            let done = doneForHabit(h, e)
-            if done { continue }
+            if doneForHabit(h, e) { continue }
             let unit = h.unit ?? ""
             let value = e?.value ?? 0
-            out.append((h.id, h.title, h.kind, value, unit, done))
+            let tgt: Double? = h.kind == "measure" ? h.target : nil
+            out.append((h.id, h.title, h.kind, value, unit, tgt))
         }
         return out
     }
@@ -190,6 +211,23 @@ struct AddHabitMeasureIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         HabitsMirrorStore.addMeasure(habitId: habitId, delta: delta)
+        return .result()
+    }
+}
+
+/// Incremento +1 desde el widget (alineado con la web).
+@available(iOS 17.0, *)
+struct AddHabitMeasureOneIntent: AppIntent {
+    static var title: LocalizedStringResource = "Sumar 1 a hábito"
+
+    @Parameter(title: "ID del hábito")
+    var habitId: String
+
+    init() {}
+    init(habitId: String) { self.habitId = habitId }
+
+    func perform() async throws -> some IntentResult {
+        HabitsMirrorStore.addMeasure(habitId: habitId, delta: 1)
         return .result()
     }
 }

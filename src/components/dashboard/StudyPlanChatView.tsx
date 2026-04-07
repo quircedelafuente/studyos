@@ -426,21 +426,21 @@ export function StudyPlanChatView({ plan, onBack, onPlansChanged }: Props) {
       for (const day of schedule.days) {
         const focusItems = splitFocusIntoItems(day.focus);
         const summary = focusItems.join(" · ").slice(0, 160);
-        const durationMinutes = Math.round(day.studyHours * 60);
+        const durationMinutes = Math.max(1, Math.round(day.studyHours * 60));
         const id = `${studyPrefix}${day.date}`;
         const sessionHead = day.sessionTitle?.trim()
           ? `${day.sessionTitle.trim()}: `
           : "";
         const title = `📚 ${planLabel}: ${sessionHead}${summary || `${day.studyHours}h`}`;
 
-        // Preserve time and duration if the user already moved/resized this session.
+        // Preserve time only if the user already moved this session; always use fresh duration.
         const existing = existingById.get(id);
         newItems.push({
           id,
           title: title.slice(0, 200),
           date: existing?.date ?? day.date,
           time: existing?.time ?? "09:00",
-          durationMinutes: Math.max(30, durationMinutes),
+          durationMinutes,
           courseId: null,
           tagIds: existing?.tagIds ?? [],
           calendarColorId: inheritedColorId,
