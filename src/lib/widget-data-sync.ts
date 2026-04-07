@@ -6,6 +6,8 @@ import {
   DAILY_CHECKLIST_STORAGE_KEY,
   loadChecklistTasks,
 } from "@/lib/daily-checklist-storage";
+import { HABITS_STORAGE_KEY } from "@/lib/habits-storage";
+import { HABIT_LOGS_STORAGE_KEY } from "@/lib/habit-logs-storage";
 import { loadImportantDeadlines } from "@/lib/deadlines-storage";
 import { buildStudyTrendChartData } from "@/lib/study-trend-chart-data";
 import { loadStudyPlans } from "@/lib/study-plans-storage";
@@ -53,6 +55,21 @@ export async function syncWidgetData(): Promise<void> {
       await WidgetData.syncDailyChecklistMirror({ json: raw });
     } catch (e) {
       console.warn("[WidgetDataSync] checklist mirror:", e);
+    }
+    try {
+      const habitsRaw =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(HABITS_STORAGE_KEY) ?? '{"v":1,"habits":[]}'
+          : '{"v":1,"habits":[]}';
+      const logsRaw =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(HABIT_LOGS_STORAGE_KEY) ??
+            '{"v":1,"byPeriod":{}}'
+          : '{"v":1,"byPeriod":{}}';
+      await WidgetData.syncHabitsMirror({ json: habitsRaw });
+      await WidgetData.syncHabitLogsMirror({ json: logsRaw });
+    } catch (e) {
+      console.warn("[WidgetDataSync] habits mirrors:", e);
     }
     const json = buildWidgetJson();
     const parsed = JSON.parse(json) as Record<string, unknown>;

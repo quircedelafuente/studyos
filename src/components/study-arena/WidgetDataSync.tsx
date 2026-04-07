@@ -16,8 +16,8 @@ import { STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
 import { STUDY_ARENA_CHANGED_EVENT } from "@/lib/study-arena-storage";
 import { BB_GRADEBOOK_STORAGE_CHANGED, BB_COURSES_STORAGE_CHANGED } from "@/lib/blackboard-storage";
 import { useStudyArena } from "@/components/study-arena/StudyArenaProvider";
-import { HABITS_CHANGED_EVENT } from "@/lib/habits-storage";
-import { HABIT_LOGS_CHANGED_EVENT } from "@/lib/habit-logs-storage";
+import { HABITS_CHANGED_EVENT, HABITS_STORAGE_KEY } from "@/lib/habits-storage";
+import { HABIT_LOGS_CHANGED_EVENT, HABIT_LOGS_STORAGE_KEY } from "@/lib/habit-logs-storage";
 import { rescheduleHabitRemindersIos } from "@/lib/habit-notifications";
 
 /**
@@ -44,34 +44,40 @@ export function WidgetDataSync() {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") return;
 
     const handler = () => scheduleWidgetSync(1500);
-    /** Sin debounce: el anillo y el JSON deben ir al App Group en cuanto cambia el checklist. */
-    const checklistHandler = () => {
+    /** Sin debounce: mirrors interactivos deben ir al App Group al instante. */
+    const immediateSync = () => {
       void syncWidgetData();
     };
-    const onChecklistStorage = (e: StorageEvent) => {
-      if (e.key === DAILY_CHECKLIST_STORAGE_KEY) void syncWidgetData();
+    const onCrossTabStorage = (e: StorageEvent) => {
+      if (
+        e.key === DAILY_CHECKLIST_STORAGE_KEY ||
+        e.key === HABITS_STORAGE_KEY ||
+        e.key === HABIT_LOGS_STORAGE_KEY
+      ) {
+        void syncWidgetData();
+      }
     };
 
     window.addEventListener(DEADLINES_CHANGED_EVENT, handler);
-    window.addEventListener(DAILY_CHECKLIST_CHANGED_EVENT, checklistHandler);
-    window.addEventListener("storage", onChecklistStorage);
+    window.addEventListener(DAILY_CHECKLIST_CHANGED_EVENT, immediateSync);
+    window.addEventListener("storage", onCrossTabStorage);
     window.addEventListener(STUDY_PLANS_CHANGED_EVENT, handler);
     window.addEventListener(STUDY_ARENA_CHANGED_EVENT, handler);
     window.addEventListener(BB_GRADEBOOK_STORAGE_CHANGED, handler);
     window.addEventListener(BB_COURSES_STORAGE_CHANGED, handler);
-    window.addEventListener(HABITS_CHANGED_EVENT, handler);
-    window.addEventListener(HABIT_LOGS_CHANGED_EVENT, handler);
+    window.addEventListener(HABITS_CHANGED_EVENT, immediateSync);
+    window.addEventListener(HABIT_LOGS_CHANGED_EVENT, immediateSync);
 
     return () => {
       window.removeEventListener(DEADLINES_CHANGED_EVENT, handler);
-      window.removeEventListener(DAILY_CHECKLIST_CHANGED_EVENT, checklistHandler);
-      window.removeEventListener("storage", onChecklistStorage);
+      window.removeEventListener(DAILY_CHECKLIST_CHANGED_EVENT, immediateSync);
+      window.removeEventListener("storage", onCrossTabStorage);
       window.removeEventListener(STUDY_PLANS_CHANGED_EVENT, handler);
       window.removeEventListener(STUDY_ARENA_CHANGED_EVENT, handler);
       window.removeEventListener(BB_GRADEBOOK_STORAGE_CHANGED, handler);
       window.removeEventListener(BB_COURSES_STORAGE_CHANGED, handler);
-      window.removeEventListener(HABITS_CHANGED_EVENT, handler);
-      window.removeEventListener(HABIT_LOGS_CHANGED_EVENT, handler);
+      window.removeEventListener(HABITS_CHANGED_EVENT, immediateSync);
+      window.removeEventListener(HABIT_LOGS_CHANGED_EVENT, immediateSync);
     };
   }, []);
 

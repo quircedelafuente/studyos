@@ -25,6 +25,10 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "syncDailyTasksRing", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncDailyChecklistMirror", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "reconcileChecklistFromAppGroup", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "syncHabitsMirror", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "syncHabitLogsMirror", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "reconcileHabitsFromAppGroup", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "reconcileHabitLogsFromAppGroup", returnType: CAPPluginReturnPromise),
     ]
 
     private let appGroupSuite = "group.com.agustmun.iestudio"
@@ -33,6 +37,9 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
     private let checklistMirrorKey = "iestudio_daily_checklist_mirror"
     private let habitsMirrorKey = "iestudio_habits_mirror"
     private let habitLogsMirrorKey = "iestudio_habit_logs_mirror"
+    /// Mismas claves que `localStorage` en la web (`habits-storage.ts` / `habit-logs-storage.ts`).
+    private let habitsStorageKeyWeb = "iestudio-habits-v1"
+    private let habitLogsStorageKeyWeb = "iestudio-habit-logs-v1"
 
     private func localTodayYmd() -> String {
         let cal = Calendar.current
@@ -71,41 +78,100 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
         return true
     }
 
-    /// Ajusta el anillo desde localStorage del WKWebView sin bloquear el sync principal
-    /// (StudyTrend y el resto dependen de `reloadAllTimelines` inmediato tras escribir el JSON).
-    private func refreshDailyRingFromWebViewNonBlocking(defaults: UserDefaults) {
-        guard let wv = webView else { return }
+    /// `evaluateJavaScript` debe ejecutarse en el hilo principal (Main Thread Checker).
+    private func refreshDailyRingFromWebViewNonBlocking() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let wv = self.webView else { return }
 
-        let escapedKey = checklistStorageKey
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-        let js = """
-        (function(){
-          try { return localStorage.getItem('\(escapedKey)') || ''; } catch (e) { return ''; }
-        })()
-        """
+            let escapedKey = self.checklistStorageKey
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+            let js = """
+            (function(){
+              try { return localStorage.getItem('\(escapedKey)') || ''; } catch (e) { return ''; }
+            })()
+            """
 
-        wv.evaluateJavaScript(js) { [weak self] result, error in
-            if let error = error {
-                print("[WidgetDataPlugin] ⚠️ WebView localStorage: \(error.localizedDescription)")
-                return
-            }
-            guard let self = self else { return }
-            guard let defaults = UserDefaults(suiteName: self.appGroupSuite) else { return }
+            wv.evaluateJavaScript(js) { [weak self] result, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("[WidgetDataPlugin] ⚠️ WebView localStorage: \(error.localizedDescription)")
+                        return
+                    }
+                    guard let self = self else { return }
+                    guard let defaults = UserDefaults(suiteName: self.appGroupSuite) else { return }
 
-            if let raw = result as? String {
-                // Mirror completo del checklist para el widget interactivo.
-                defaults.set(raw, forKey: self.checklistMirrorKey)
-                if raw.isEmpty {
-                    let empty: [String: Any] = ["pct": 0, "empty": true, "done": 0, "total": 0]
-                    _ = self.persistRingMini(empty, defaults: defaults)
-                } else if let mini = self.ringMiniFromChecklistStorageRaw(raw) {
-                    _ = self.persistRingMini(mini, defaults: defaults)
-                    print("[WidgetDataPlugin] ✅ daily tasks ring from WebView → \(mini)")
+                    if let raw = result as? String {
+                        defaults.set(raw, forKey: self.checklistMirrorKey)
+                        if raw.isEmpty {
+                            let empty: [String: Any] = ["pct": 0, "empty": true, "done": 0, "total": 0]
+                            _ = self.persistRingMini(empty, defaults: defaults)
+                        } else if let mini = self.ringMiniFromChecklistStorageRaw(raw) {
+                            _ = self.persistRingMini(mini, defaults: defaults)
+                            print("[WidgetDataPlugin] ✅ daily tasks ring from WebView → \(mini)")
+                        }
+                    }
+                    defaults.synchronize()
+                    WidgetCenter.shared.reloadTimelines(ofKind: "DailyTasksWidget")
                 }
             }
-            defaults.synchronize()
-            WidgetCenter.shared.reloadTimelines(ofKind: "DailyTasksWidget")
+        }
+    }
+
+    /// Escribe mirrors de hábitos desde el WKWebView (funciona aunque el JS desplegado no llame a `syncHabitsMirror`).
+    private func refreshHabitsMirrorsFromWebViewNonBlocking() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let wv = self.webView else {
+                print("[WidgetDataPlugin] ⚠️ habits mirrors skip — no webView")
+                return
+            }
+
+            let k1 = self.habitsStorageKeyWeb
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+            let k2 = self.habitLogsStorageKeyWeb
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+            let js = """
+            (function(){
+              try {
+                var h = localStorage.getItem('\(k1)') || '';
+                var l = localStorage.getItem('\(k2)') || '';
+                return JSON.stringify({ habits: h, logs: l });
+              } catch (e) { return '{"habits":"","logs":""}'; }
+            })()
+            """
+
+            wv.evaluateJavaScript(js) { [weak self] result, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("[WidgetDataPlugin] ⚠️ habits localStorage JS: \(error.localizedDescription)")
+                        return
+                    }
+                    guard let self = self else { return }
+                    guard let defaults = UserDefaults(suiteName: self.appGroupSuite) else { return }
+
+                    var habitsOut = "{\"v\":1,\"habits\":[]}"
+                    var logsOut = "{\"v\":1,\"byPeriod\":{}}"
+                    if let jsonStr = result as? String,
+                       let d = jsonStr.data(using: .utf8),
+                       let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
+                        if let h = obj["habits"] as? String, !h.isEmpty {
+                            habitsOut = h
+                        }
+                        if let l = obj["logs"] as? String, !l.isEmpty {
+                            logsOut = l
+                        }
+                    }
+
+                    defaults.set(habitsOut, forKey: self.habitsMirrorKey)
+                    defaults.set(logsOut, forKey: self.habitLogsMirrorKey)
+                    defaults.synchronize()
+                    print("[WidgetDataPlugin] ✅ habits mirrors from WebView (chars) habits=\(habitsOut.count) logs=\(logsOut.count)")
+                    WidgetCenter.shared.reloadTimelines(ofKind: "HabitsWidget")
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+            }
         }
     }
 
@@ -269,6 +335,7 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
 
         call.resolve()
 
-        refreshDailyRingFromWebViewNonBlocking(defaults: defaults)
+        refreshDailyRingFromWebViewNonBlocking()
+        refreshHabitsMirrorsFromWebViewNonBlocking()
     }
 }
