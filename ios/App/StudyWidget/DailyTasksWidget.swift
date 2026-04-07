@@ -272,12 +272,26 @@ struct DailyTasksEntryView: View {
     var entry: DailyTasksEntry
 
     var body: some View {
-        if #available(iOS 17.0, *) {
-            // iOS 17+: AppIntent habilita marcar desde el widget (medium).
-            DailyTasksMediumView(entry: entry)
-        } else {
-            DailyTasksMediumView(entry: entry)
+        DailyTasksMediumView(entry: entry)
+    }
+}
+
+private struct DailyTasksWidgetRootView: View {
+    let entry: DailyTasksEntry
+
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        Group {
+            switch family {
+            case .systemSmall:
+                DailyTasksSmallView(ring: entry.built.ring)
+            default:
+                DailyTasksEntryView(entry: entry)
+            }
         }
+        .ieStudyTrendWidgetBackground()
+        .widgetURL(URL(string: "iestudio://daily-tasks"))
     }
 }
 
@@ -286,17 +300,7 @@ struct DailyTasksWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DailyTasksProvider()) { entry in
-            // El mismo widget soporta small (solo anillo) y medium (lista + anillo).
-            Group {
-                switch entry.family {
-                case .systemSmall:
-                    DailyTasksSmallView(ring: entry.built.ring)
-                default:
-                    DailyTasksEntryView(entry: entry)
-                }
-            }
-            .ieStudyTrendWidgetBackground()
-            .widgetURL(URL(string: "iestudio://daily-tasks"))
+            DailyTasksWidgetRootView(entry: entry)
         }
         .configurationDisplayName("Tareas diarias")
         .description("Hasta 3 tareas de hoy; puedes marcarlas hechas. Progreso en el anillo.")
