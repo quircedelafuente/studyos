@@ -426,7 +426,7 @@ export function StudyPlanChatView({ plan, onBack, onPlansChanged }: Props) {
           title: title.slice(0, 200),
           date: existing?.date ?? day.date,
           time: existing?.time ?? "09:00",
-          durationMinutes: existing?.durationMinutes ?? Math.max(30, durationMinutes),
+          durationMinutes: Math.max(30, durationMinutes),
           courseId: null,
           tagIds: existing?.tagIds ?? [],
           calendarColorId: inheritedColorId,
