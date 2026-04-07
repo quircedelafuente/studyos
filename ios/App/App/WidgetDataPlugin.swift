@@ -92,6 +92,8 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
             guard let defaults = UserDefaults(suiteName: self.appGroupSuite) else { return }
 
             if let raw = result as? String {
+                // Mirror completo del checklist para el widget interactivo.
+                defaults.set(raw, forKey: self.checklistMirrorKey)
                 if raw.isEmpty {
                     let empty: [String: Any] = ["pct": 0, "empty": true, "done": 0, "total": 0]
                     _ = self.persistRingMini(empty, defaults: defaults)

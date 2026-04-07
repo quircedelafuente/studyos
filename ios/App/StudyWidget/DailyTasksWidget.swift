@@ -93,6 +93,61 @@ private struct DailyTasksRingCompact: View {
     }
 }
 
+// MARK: - Vista pequeña (solo anillo)
+
+private struct DailyTasksSmallView: View {
+    let ring: IEWidgetDailyTasksRing
+
+    private var accent: Color {
+        ringAccentColor(pct: ring.pct, empty: ring.empty)
+    }
+
+    private var detailText: String {
+        if ring.empty { return "Sin tareas" }
+        return "\(ring.done)/\(ring.total)"
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let side = min(geo.size.width, geo.size.height)
+            let ringDiameter = side * 0.82
+            let lineWidth = max(9, ringDiameter * 0.09)
+            let pctFont = max(18, ringDiameter * 0.26)
+            let subFont = max(9, ringDiameter * 0.11)
+
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.12), lineWidth: lineWidth)
+                Circle()
+                    .trim(from: 0, to: CGFloat(ring.pct) / 100.0)
+                    .stroke(
+                        accent,
+                        style: StrokeStyle(lineWidth: lineWidth, lineCap: .round),
+                    )
+                    .rotationEffect(.degrees(-90))
+
+                VStack(spacing: 2) {
+                    Text("\(ring.pct)%")
+                        .font(.system(size: pctFont, weight: .heavy, design: .rounded))
+                        .foregroundColor(accent)
+                        .minimumScaleFactor(0.65)
+                        .lineLimit(1)
+                    Text(detailText)
+                        .font(.system(size: subFont, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color.white.opacity(0.45))
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 6)
+            }
+            .frame(width: ringDiameter, height: ringDiameter)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Tareas diarias, \(ring.pct) por ciento, \(detailText)")
+        }
+    }
+}
+
 @available(iOS 17.0, *)
 private struct TaskToggleRow: View {
     let taskId: String
@@ -217,7 +272,12 @@ struct DailyTasksEntryView: View {
     var entry: DailyTasksEntry
 
     var body: some View {
-        DailyTasksMediumView(entry: entry)
+        if #available(iOS 17.0, *) {
+            // iOS 17+: AppIntent habilita marcar desde el widget (medium).
+            DailyTasksMediumView(entry: entry)
+        } else {
+            DailyTasksMediumView(entry: entry)
+        }
     }
 }
 
@@ -226,13 +286,21 @@ struct DailyTasksWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DailyTasksProvider()) { entry in
-            DailyTasksEntryView(entry: entry)
-                .ieStudyTrendWidgetBackground()
-                .widgetURL(URL(string: "iestudio://daily-tasks"))
+            // El mismo widget soporta small (solo anillo) y medium (lista + anillo).
+            Group {
+                switch entry.family {
+                case .systemSmall:
+                    DailyTasksSmallView(ring: entry.built.ring)
+                default:
+                    DailyTasksEntryView(entry: entry)
+                }
+            }
+            .ieStudyTrendWidgetBackground()
+            .widgetURL(URL(string: "iestudio://daily-tasks"))
         }
         .configurationDisplayName("Tareas diarias")
         .description("Hasta 3 tareas de hoy; puedes marcarlas hechas. Progreso en el anillo.")
-        .supportedFamilies([.systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
 }
