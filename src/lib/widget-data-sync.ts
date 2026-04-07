@@ -3,6 +3,7 @@
 import { Capacitor } from "@capacitor/core";
 import {
   dailyRingMetaFromTasks,
+  DAILY_CHECKLIST_STORAGE_KEY,
   loadChecklistTasks,
 } from "@/lib/daily-checklist-storage";
 import { loadImportantDeadlines } from "@/lib/deadlines-storage";
@@ -44,6 +45,15 @@ export async function syncWidgetData(): Promise<void> {
 
   try {
     const { default: WidgetData } = await import("@/plugins/WidgetDataPlugin");
+    try {
+      const raw =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(DAILY_CHECKLIST_STORAGE_KEY) ?? '{"v":1,"tasks":[]}'
+          : '{"v":1,"tasks":[]}';
+      await WidgetData.syncDailyChecklistMirror({ json: raw });
+    } catch (e) {
+      console.warn("[WidgetDataSync] checklist mirror:", e);
+    }
     const json = buildWidgetJson();
     const parsed = JSON.parse(json) as Record<string, unknown>;
     const ring = parsed.dailyTasksRing as

@@ -2,22 +2,6 @@ import type {
   ChecklistPriority,
   ChecklistTaskItem,
 } from "@/types/dashboard";
-
-const PRI_ORDER: Record<ChecklistPriority, number> = {
-  red: 0,
-  orange: 1,
-  green: 2,
-};
-
-/** Prioridad (rojo primero) y luego antigüedad. */
-export function sortChecklistTasks(list: readonly ChecklistTaskItem[]): ChecklistTaskItem[] {
-  return [...list].sort((a, b) => {
-    const pa = PRI_ORDER[a.priority];
-    const pb = PRI_ORDER[b.priority];
-    if (pa !== pb) return pa - pb;
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  });
-}
 import { Capacitor } from "@capacitor/core";
 import { requestCloudSyncPushDebounced } from "@/lib/cloud-sync-push";
 
@@ -154,16 +138,43 @@ export function loadChecklistTasks(): ChecklistTaskItem[] {
   }
 }
 
+function pushChecklistMirrorToNativeIfIos(payload: string): void {
+  if (typeof window === "undefined" || !isCapacitorIos()) return;
+  void import("@/plugins/WidgetDataPlugin")
+    .then(({ default: WidgetData }) => WidgetData.syncDailyChecklistMirror({ json: payload }))
+    .catch((e) => {
+      console.warn("[DailyChecklist] syncDailyChecklistMirror failed:", e);
+    });
+}
+
+/** Si el usuario marcó tareas en el widget, fusiona el JSON del App Group en localStorage y dispara sync. */
+export async function reconcileChecklistFromAppGroupIfIos(): Promise<boolean> {
+  if (typeof window === "undefined" || !isCapacitorIos()) return false;
+  try {
+    const { default: WidgetData } = await import("@/plugins/WidgetDataPlugin");
+    const r = await WidgetData.reconcileChecklistFromAppGroup();
+    const mirror = r.mirror as string | null | undefined;
+    if (mirror == null || typeof mirror !== "string" || mirror === "") return false;
+    const cur = window.localStorage.getItem(DAILY_CHECKLIST_STORAGE_KEY) ?? "";
+    if (cur === mirror) return false;
+    window.localStorage.setItem(DAILY_CHECKLIST_STORAGE_KEY, mirror);
+    window.dispatchEvent(new CustomEvent(DAILY_CHECKLIST_CHANGED_EVENT));
+    requestCloudSyncPushDebounced();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function saveChecklistTasks(tasks: ChecklistTaskItem[]): void {
   if (typeof window === "undefined") return;
+  const payload = JSON.stringify({ v: 1, tasks });
   try {
-    window.localStorage.setItem(
-      DAILY_CHECKLIST_STORAGE_KEY,
-      JSON.stringify({ v: 1, tasks }),
-    );
+    window.localStorage.setItem(DAILY_CHECKLIST_STORAGE_KEY, payload);
     window.dispatchEvent(new CustomEvent(DAILY_CHECKLIST_CHANGED_EVENT));
     requestCloudSyncPushDebounced();
     pushDailyTasksRingToNativeFromTasks(tasks);
+    pushChecklistMirrorToNativeIfIos(payload);
   } catch {
     // quota
   }

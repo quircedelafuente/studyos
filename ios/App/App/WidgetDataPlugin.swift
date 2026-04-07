@@ -23,11 +23,14 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "sync", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncDailyTasksRing", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "syncDailyChecklistMirror", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "reconcileChecklistFromAppGroup", returnType: CAPPluginReturnPromise),
     ]
 
     private let appGroupSuite = "group.com.agustmun.iestudio"
     private let dailyRingKey = "iestudio_widget_daily_tasks_ring"
     private let checklistStorageKey = "iestudio-daily-checklist-v1"
+    private let checklistMirrorKey = "iestudio_daily_checklist_mirror"
 
     private func localTodayYmd() -> String {
         let cal = Calendar.current
@@ -135,6 +138,40 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
         print("[WidgetDataPlugin] ✅ daily tasks ring (JS explícito) → \(miniStr)")
         WidgetCenter.shared.reloadTimelines(ofKind: "DailyTasksWidget")
         call.resolve()
+    }
+
+    /// Persiste el JSON completo del checklist (mismo formato que localStorage web) para el widget y la reconciliación.
+    @objc public func syncDailyChecklistMirror(_ call: CAPPluginCall) {
+        guard let json = call.getString("json") else {
+            call.reject("Missing json parameter")
+            return
+        }
+        guard let defaults = UserDefaults(suiteName: appGroupSuite) else {
+            call.reject("App Group not available")
+            return
+        }
+        defaults.set(json, forKey: checklistMirrorKey)
+        if json.isEmpty {
+            let empty: [String: Any] = ["pct": 0, "empty": true, "done": 0, "total": 0]
+            _ = persistRingMini(empty, defaults: defaults)
+        } else if let mini = ringMiniFromChecklistStorageRaw(json) {
+            _ = persistRingMini(mini, defaults: defaults)
+        }
+        defaults.synchronize()
+        WidgetCenter.shared.reloadTimelines(ofKind: "DailyTasksWidget")
+        call.resolve()
+    }
+
+    /// Devuelve el mirror del App Group para que JS lo fusione en localStorage si difiere (p. ej. marcas desde el widget).
+    @objc public func reconcileChecklistFromAppGroup(_ call: CAPPluginCall) {
+        guard let defaults = UserDefaults(suiteName: appGroupSuite),
+              let mirror = defaults.string(forKey: checklistMirrorKey),
+              !mirror.isEmpty
+        else {
+            call.resolve(["mirror": NSNull()])
+            return
+        }
+        call.resolve(["mirror": mirror])
     }
 
     @objc public func sync(_ call: CAPPluginCall) {

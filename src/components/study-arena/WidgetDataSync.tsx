@@ -7,6 +7,7 @@ import { scheduleWidgetSync, syncWidgetData } from "@/lib/widget-data-sync";
 import {
   DAILY_CHECKLIST_CHANGED_EVENT,
   DAILY_CHECKLIST_STORAGE_KEY,
+  reconcileChecklistFromAppGroupIfIos,
 } from "@/lib/daily-checklist-storage";
 import { DEADLINES_CHANGED_EVENT } from "@/lib/deadlines-storage";
 import { STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
@@ -73,7 +74,11 @@ export function WidgetDataSync() {
     void import("@capacitor/app").then(({ App }) => {
       if (cancelled) return;
       void App.addListener("appStateChange", ({ isActive }) => {
-        if (isActive) void syncWidgetData();
+        if (isActive) {
+          void reconcileChecklistFromAppGroupIfIos().finally(() => {
+            void syncWidgetData();
+          });
+        }
       }).then((h) => {
         handle = h;
       });
