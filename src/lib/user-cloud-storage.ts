@@ -4,6 +4,8 @@ import { PARKING_LOT_CHANGED_EVENT } from "@/lib/parking-lot-storage";
 import { DEADLINES_CHANGED_EVENT } from "@/lib/deadlines-storage";
 import { DEADLINE_TAGS_CHANGED_EVENT } from "@/lib/deadline-tags-storage";
 import { STUDY_MICROTASKS_CHANGED_EVENT } from "@/lib/study-microtasks-storage";
+import { HABITS_CHANGED_EVENT } from "@/lib/habits-storage";
+import { HABIT_LOGS_CHANGED_EVENT } from "@/lib/habit-logs-storage";
 import {
   BB_COURSES_STORAGE_CHANGED,
   BB_GRADEBOOK_STORAGE_CHANGED,
@@ -165,6 +167,8 @@ export function dispatchCloudRefreshEvents(): void {
   window.dispatchEvent(new CustomEvent(DEADLINES_CHANGED_EVENT));
   window.dispatchEvent(new CustomEvent(DEADLINE_TAGS_CHANGED_EVENT));
   window.dispatchEvent(new CustomEvent(STUDY_MICROTASKS_CHANGED_EVENT));
+  window.dispatchEvent(new CustomEvent(HABITS_CHANGED_EVENT));
+  window.dispatchEvent(new CustomEvent(HABIT_LOGS_CHANGED_EVENT));
   window.dispatchEvent(new Event(BB_COURSES_STORAGE_CHANGED));
   window.dispatchEvent(new Event(BB_GRADEBOOK_STORAGE_CHANGED));
   window.dispatchEvent(new Event(BB_CONTENT_META_CHANGED));

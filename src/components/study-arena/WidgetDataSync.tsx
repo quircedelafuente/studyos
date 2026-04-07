@@ -9,11 +9,16 @@ import {
   DAILY_CHECKLIST_STORAGE_KEY,
   reconcileChecklistFromAppGroupIfIos,
 } from "@/lib/daily-checklist-storage";
+import { reconcileHabitsFromAppGroupIfIos } from "@/lib/habits-storage";
+import { reconcileHabitLogsFromAppGroupIfIos } from "@/lib/habit-logs-storage";
 import { DEADLINES_CHANGED_EVENT } from "@/lib/deadlines-storage";
 import { STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
 import { STUDY_ARENA_CHANGED_EVENT } from "@/lib/study-arena-storage";
 import { BB_GRADEBOOK_STORAGE_CHANGED, BB_COURSES_STORAGE_CHANGED } from "@/lib/blackboard-storage";
 import { useStudyArena } from "@/components/study-arena/StudyArenaProvider";
+import { HABITS_CHANGED_EVENT } from "@/lib/habits-storage";
+import { HABIT_LOGS_CHANGED_EVENT } from "@/lib/habit-logs-storage";
+import { rescheduleHabitRemindersIos } from "@/lib/habit-notifications";
 
 /**
  * Mounts once inside AppProviders (iOS only).
@@ -54,6 +59,8 @@ export function WidgetDataSync() {
     window.addEventListener(STUDY_ARENA_CHANGED_EVENT, handler);
     window.addEventListener(BB_GRADEBOOK_STORAGE_CHANGED, handler);
     window.addEventListener(BB_COURSES_STORAGE_CHANGED, handler);
+    window.addEventListener(HABITS_CHANGED_EVENT, handler);
+    window.addEventListener(HABIT_LOGS_CHANGED_EVENT, handler);
 
     return () => {
       window.removeEventListener(DEADLINES_CHANGED_EVENT, handler);
@@ -63,6 +70,22 @@ export function WidgetDataSync() {
       window.removeEventListener(STUDY_ARENA_CHANGED_EVENT, handler);
       window.removeEventListener(BB_GRADEBOOK_STORAGE_CHANGED, handler);
       window.removeEventListener(BB_COURSES_STORAGE_CHANGED, handler);
+      window.removeEventListener(HABITS_CHANGED_EVENT, handler);
+      window.removeEventListener(HABIT_LOGS_CHANGED_EVENT, handler);
+    };
+  }, []);
+
+  // Habits: reprogramar recordatorios (iOS) cuando cambian hábitos o logs
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") return;
+    const h = () => {
+      void rescheduleHabitRemindersIos();
+    };
+    window.addEventListener(HABITS_CHANGED_EVENT, h);
+    window.addEventListener(HABIT_LOGS_CHANGED_EVENT, h);
+    return () => {
+      window.removeEventListener(HABITS_CHANGED_EVENT, h);
+      window.removeEventListener(HABIT_LOGS_CHANGED_EVENT, h);
     };
   }, []);
 
@@ -75,7 +98,11 @@ export function WidgetDataSync() {
       if (cancelled) return;
       void App.addListener("appStateChange", ({ isActive }) => {
         if (isActive) {
-          void reconcileChecklistFromAppGroupIfIos().finally(() => {
+          void (async () => {
+            await reconcileChecklistFromAppGroupIfIos();
+            await reconcileHabitsFromAppGroupIfIos();
+            await reconcileHabitLogsFromAppGroupIfIos();
+          })().finally(() => {
             void syncWidgetData();
           });
         }

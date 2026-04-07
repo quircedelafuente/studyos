@@ -4,6 +4,7 @@ export type MainTabId =
   | "class-notes"
   | "fechas"
   | "daily-tasks"
+  | "habits"
   | "documentos"
   | "assignments"
   | "study-arena"
@@ -26,6 +27,54 @@ export type ChecklistTaskItem = {
   periodKey: string;
   /** Verde = baja, naranja = media, roja = alta. */
   priority: ChecklistPriority;
+};
+
+// ── Habit tracker ────────────────────────────────────────────────────────────
+
+export type HabitSchedule =
+  | {
+      mode: "weekdays";
+      /** 0=Dom ... 6=Sáb */
+      weekdays: number[];
+    }
+  | {
+      mode: "times_per_week";
+      /** 1..7 */
+      timesPerWeek: number;
+    };
+
+export type HabitReminder = {
+  enabled: boolean;
+  /** Hora local HH:mm */
+  timeLocal: string;
+  /** Mensaje motivador personalizado (opcional) */
+  message: string;
+};
+
+export type HabitKind = "check" | "measure";
+
+export type HabitTargetMode = "at_least" | "exact";
+
+export type HabitDefinition = {
+  id: string;
+  title: string;
+  kind: HabitKind;
+  schedule: HabitSchedule;
+  /** Para hábitos de medida */
+  unit?: string;
+  target?: number | null;
+  targetMode?: HabitTargetMode;
+  reminder?: HabitReminder;
+  createdAt: string;
+  updatedAt: string;
+  archived?: boolean;
+};
+
+export type HabitLogEntry = {
+  /** true para hábitos de tipo check; o derivado para medida */
+  done?: boolean;
+  /** acumulado para hábitos de medida */
+  value?: number;
 };
 
 /** Mensaje en el chat de planificación (modelo vía OpenRouter). */

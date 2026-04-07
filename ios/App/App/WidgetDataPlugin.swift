@@ -31,6 +31,8 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
     private let dailyRingKey = "iestudio_widget_daily_tasks_ring"
     private let checklistStorageKey = "iestudio-daily-checklist-v1"
     private let checklistMirrorKey = "iestudio_daily_checklist_mirror"
+    private let habitsMirrorKey = "iestudio_habits_mirror"
+    private let habitLogsMirrorKey = "iestudio_habit_logs_mirror"
 
     private func localTodayYmd() -> String {
         let cal = Calendar.current
@@ -168,6 +170,58 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc public func reconcileChecklistFromAppGroup(_ call: CAPPluginCall) {
         guard let defaults = UserDefaults(suiteName: appGroupSuite),
               let mirror = defaults.string(forKey: checklistMirrorKey),
+              !mirror.isEmpty
+        else {
+            call.resolve(["mirror": NSNull()])
+            return
+        }
+        call.resolve(["mirror": mirror])
+    }
+
+    @objc public func syncHabitsMirror(_ call: CAPPluginCall) {
+        guard let json = call.getString("json") else {
+            call.reject("Missing json parameter")
+            return
+        }
+        guard let defaults = UserDefaults(suiteName: appGroupSuite) else {
+            call.reject("App Group not available")
+            return
+        }
+        defaults.set(json, forKey: habitsMirrorKey)
+        defaults.synchronize()
+        WidgetCenter.shared.reloadTimelines(ofKind: "HabitsWidget")
+        call.resolve()
+    }
+
+    @objc public func syncHabitLogsMirror(_ call: CAPPluginCall) {
+        guard let json = call.getString("json") else {
+            call.reject("Missing json parameter")
+            return
+        }
+        guard let defaults = UserDefaults(suiteName: appGroupSuite) else {
+            call.reject("App Group not available")
+            return
+        }
+        defaults.set(json, forKey: habitLogsMirrorKey)
+        defaults.synchronize()
+        WidgetCenter.shared.reloadTimelines(ofKind: "HabitsWidget")
+        call.resolve()
+    }
+
+    @objc public func reconcileHabitsFromAppGroup(_ call: CAPPluginCall) {
+        guard let defaults = UserDefaults(suiteName: appGroupSuite),
+              let mirror = defaults.string(forKey: habitsMirrorKey),
+              !mirror.isEmpty
+        else {
+            call.resolve(["mirror": NSNull()])
+            return
+        }
+        call.resolve(["mirror": mirror])
+    }
+
+    @objc public func reconcileHabitLogsFromAppGroup(_ call: CAPPluginCall) {
+        guard let defaults = UserDefaults(suiteName: appGroupSuite),
+              let mirror = defaults.string(forKey: habitLogsMirrorKey),
               !mirror.isEmpty
         else {
             call.resolve(["mirror": NSNull()])

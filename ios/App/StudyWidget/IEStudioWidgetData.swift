@@ -7,6 +7,9 @@ let kAppGroupID      = "group.com.agustmun.iestudio"
 let kWidgetDataKey   = "iestudio_widget_data"
 /// Copia del checklist web (`iestudio-daily-checklist-v1`) para el widget interactivo y reconciliación.
 let kChecklistMirrorKey = "iestudio_daily_checklist_mirror"
+/// Mirrors para Habit Tracker (web localStorage) para widget y reconciliación.
+let kHabitsMirrorKey = "iestudio_habits_mirror"
+let kHabitLogsMirrorKey = "iestudio_habit_logs_mirror"
 
 // MARK: - Top-level container
 

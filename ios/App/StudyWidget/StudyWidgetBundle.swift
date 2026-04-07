@@ -11,6 +11,7 @@ struct StudyWidgetBundle: WidgetBundle {
         BBDeliveriesWidget()
         StudyTrendWidget()
         DailyTasksWidget()
+        HabitsWidget()
 
         // Live Activity (iOS 16.2+)
         if #available(iOS 16.2, *) {

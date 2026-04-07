@@ -16,6 +16,7 @@ import { DeadlinesPanel } from "./DeadlinesPanel";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { DashboardOverviewPanel } from "./DashboardOverviewPanel";
 import { StudyPlannerPanel } from "./StudyPlannerPanel";
+import { HabitTrackerPanel } from "./HabitTrackerPanel";
 import { StudyArenaPanel } from "@/components/study-arena/StudyArenaPanel";
 import { AppBlockingPanel } from "@/components/app-blocking/AppBlockingPanel";
 import {
@@ -49,6 +50,7 @@ const BASE_TABS: {
   { id: "class-notes",   label: "Class Notes",       Icon: IconClassNotes },
   { id: "fechas",        label: "Exámenes y fechas", Icon: IconDeadlines },
   { id: "daily-tasks",   label: "Tareas",            Icon: IconChecklist },
+  { id: "habits",        label: "Habit Tracker",     Icon: IconChecklist },
   { id: "documentos",    label: "Documentos",        Icon: IconFolder },
   { id: "assignments",   label: "Assignments",       Icon: IconAssignments },
   { id: "study-planner", label: "Study Planner",     Icon: IconStudyPlanner },
@@ -379,6 +381,11 @@ export function DashboardApp() {
           {mainTab === "daily-tasks" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <DailyTasksPanel />
+            </div>
+          ) : null}
+          {mainTab === "habits" ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              <HabitTrackerPanel />
             </div>
           ) : null}
           {mainTab === "documentos" ? (

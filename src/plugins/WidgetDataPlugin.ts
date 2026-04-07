@@ -8,6 +8,12 @@ export interface WidgetDataPlugin {
   syncDailyChecklistMirror(options: { json: string }): Promise<void>;
   /** Lee el mirror del App Group para fusionar en la web si el usuario editó desde el widget. */
   reconcileChecklistFromAppGroup(): Promise<{ mirror: string | null }>;
+  /** JSON completo `iestudio-habits-v1` para widget de hábitos. */
+  syncHabitsMirror(options: { json: string }): Promise<void>;
+  /** JSON completo `iestudio-habit-logs-v1` para widget de hábitos. */
+  syncHabitLogsMirror(options: { json: string }): Promise<void>;
+  reconcileHabitsFromAppGroup(): Promise<{ mirror: string | null }>;
+  reconcileHabitLogsFromAppGroup(): Promise<{ mirror: string | null }>;
 }
 
 const WidgetData = registerPlugin<WidgetDataPlugin>("WidgetData");
