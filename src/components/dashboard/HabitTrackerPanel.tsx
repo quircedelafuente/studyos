@@ -4,12 +4,51 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HabitDefinition, HabitKind, HabitSchedule } from "@/types/dashboard";
 import { IconPlus, IconTrash } from "@/components/dashboard/icons";
 import { HABITS_CHANGED_EVENT, createHabitDraft, loadHabits, saveHabits } from "@/lib/habits-storage";
-import { HABIT_LOGS_CHANGED_EVENT, getHabitLog, patchHabitLog } from "@/lib/habit-logs-storage";
-import { isHabitLogDone, periodKeyForHabitToday } from "@/lib/habits-schedule";
+import { loadHabitLogsFile, HABIT_LOGS_CHANGED_EVENT, getHabitLog, patchHabitLog } from "@/lib/habit-logs-storage";
+import { isHabitLogDone, isHabitScheduledOnDate, periodKeyForHabitOnDate, periodKeyForHabitToday } from "@/lib/habits-schedule";
 import { requestCloudSyncPushDebounced } from "@/lib/cloud-sync-push";
 
 function weekdayLabel(n: number): string {
   return ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][n] ?? String(n);
+}
+
+type CalCell = { ymd: string; inMonth: boolean };
+
+function dateToYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** 42 celdas desde el lunes anterior al día 1 hasta completar 6 semanas. */
+function buildCalendarCells(viewYear: number, monthIndex: number): CalCell[] {
+  const first = new Date(viewYear, monthIndex, 1);
+  const pad = (first.getDay() + 6) % 7;
+  const start = new Date(viewYear, monthIndex, 1 - pad);
+  const out: CalCell[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    out.push({
+      ymd: dateToYmd(d),
+      inMonth: d.getMonth() === monthIndex,
+    });
+  }
+  return out;
+}
+
+function monthLabelEs(viewYear: number, monthIndex: number): string {
+  return new Date(viewYear, monthIndex, 1).toLocaleDateString("es", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function ymdToDate(ymd: string): Date | null {
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
 }
 
 function SchedulePill({ schedule }: { schedule: HabitSchedule }) {
@@ -327,6 +366,9 @@ export function HabitTrackerPanel() {
   const [habits, setHabits] = useState<HabitDefinition[]>([]);
   const [logsRevision, setLogsRevision] = useState(0);
   const [creating, setCreating] = useState(false);
+  const now = new Date();
+  const [calYear, setCalYear] = useState(() => now.getFullYear());
+  const [calMonth, setCalMonth] = useState(() => now.getMonth());
 
   const refresh = useCallback(() => {
     setHabits(loadHabits().filter((h) => !h.archived));
@@ -366,6 +408,42 @@ export function HabitTrackerPanel() {
     // v1: mostramos todos los hábitos no archivados; el schedule afecta el periodo (day vs week) y el pill.
     return habits;
   }, [habits, logsRevision]);
+
+  const calendarCells = useMemo(() => buildCalendarCells(calYear, calMonth), [calYear, calMonth]);
+
+  const habitCalendarMeta = useMemo(() => {
+    void logsRevision;
+    const logs = loadHabitLogsFile();
+    const byDay: Record<string, { pct: number; done: number; total: number }> = {};
+    for (const cell of calendarCells) {
+      const dt = ymdToDate(cell.ymd);
+      if (!dt) continue;
+      // Para el calendario diario, usamos solo hábitos "programados ese día" (weekdays) + también times/week como “aplican siempre”.
+      // En times/week, el periodo es semanal; el día muestra el estado de esa semana.
+      const scheduled = habits.filter((h) => isHabitScheduledOnDate(h, dt));
+      const total = scheduled.length;
+      if (total === 0) {
+        byDay[cell.ymd] = { pct: 0, done: 0, total: 0 };
+        continue;
+      }
+      let done = 0;
+      for (const h of scheduled) {
+        const pk = periodKeyForHabitOnDate(h, dt);
+        const e = logs.byPeriod[pk]?.[h.id];
+        if (isHabitLogDone(h, e)) done++;
+      }
+      byDay[cell.ymd] = { pct: Math.round((100 * done) / total), done, total };
+    }
+    return byDay;
+  }, [calendarCells, habits, logsRevision]);
+
+  function cellTone(pct: number, total: number): "empty" | "low" | "mid" | "high" | "full" {
+    if (total === 0) return "empty";
+    if (pct >= 100) return "full";
+    if (pct >= 67) return "high";
+    if (pct >= 34) return "mid";
+    return "low";
+  }
 
   function toggleDone(h: HabitDefinition) {
     const pk = periodKeyForHabitToday(h);
@@ -512,6 +590,107 @@ export function HabitTrackerPanel() {
               })}
             </ul>
           )}
+
+          <div className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-[var(--ink)]">Calendario</p>
+                <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                  Cada día se colorea según el % de hábitos completados (para los hábitos que aplican ese día).
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(calYear, calMonth, 1);
+                    d.setMonth(d.getMonth() - 1);
+                    setCalYear(d.getFullYear());
+                    setCalMonth(d.getMonth());
+                  }}
+                  className="min-h-[36px] rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+                  aria-label="Mes anterior"
+                >
+                  ←
+                </button>
+                <div className="min-w-[10rem] text-center text-xs font-bold capitalize text-[var(--ink)]">
+                  {monthLabelEs(calYear, calMonth)}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(calYear, calMonth, 1);
+                    d.setMonth(d.getMonth() + 1);
+                    setCalYear(d.getFullYear());
+                    setCalMonth(d.getMonth());
+                  }}
+                  className="min-h-[36px] rounded-xl border border-[var(--border)] bg-[var(--canvas)] px-3 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+                  aria-label="Mes siguiente"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-7 gap-2">
+              {["L", "M", "X", "J", "V", "S", "D"].map((w) => (
+                <div key={w} className="text-center text-[10px] font-semibold text-[var(--ink-faint)]">
+                  {w}
+                </div>
+              ))}
+              {calendarCells.map((c) => {
+                const meta = habitCalendarMeta[c.ymd] ?? { pct: 0, done: 0, total: 0 };
+                const tone = cellTone(meta.pct, meta.total);
+                const base =
+                  tone === "empty"
+                    ? "bg-[var(--surface-muted)] text-[var(--ink-faint)] border-[var(--border)]"
+                    : tone === "full"
+                      ? "bg-emerald-100/80 text-emerald-900 border-emerald-200"
+                      : tone === "high"
+                        ? "bg-emerald-50/70 text-emerald-900 border-emerald-200/70"
+                        : tone === "mid"
+                          ? "bg-amber-50/80 text-amber-900 border-amber-200/70"
+                          : "bg-red-50/85 text-red-900 border-red-200/70";
+                const dayNum = Number(c.ymd.slice(-2));
+                const isToday = c.ymd === dateToYmd(new Date());
+                const tooltip =
+                  meta.total === 0
+                    ? `${c.ymd} · Sin hábitos`
+                    : `${c.ymd} · ${meta.done}/${meta.total} · ${meta.pct}%`;
+                return (
+                  <div key={c.ymd} className="flex justify-center">
+                    <div
+                      title={tooltip}
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl border text-xs font-bold tabular-nums ${base} ${
+                        c.inMonth ? "" : "opacity-45"
+                      } ${isToday ? "ring-2 ring-[var(--ink)]/20" : ""}`}
+                    >
+                      {Number.isFinite(dayNum) ? dayNum : "·"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-[var(--ink-muted)]">
+              <span className="text-[var(--ink-faint)]">Leyenda:</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-3 w-3 rounded bg-red-100 ring-1 ring-red-200/70" /> 0–33%
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-200/70" /> 34–66%
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-3 w-3 rounded bg-emerald-50 ring-1 ring-emerald-200/70" /> 67–99%
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-200" /> 100%
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-3 w-3 rounded bg-[var(--surface-muted)] ring-1 ring-[var(--border)]" /> sin hábitos
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
