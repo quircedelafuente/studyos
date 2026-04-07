@@ -2,6 +2,22 @@ import type {
   ChecklistPriority,
   ChecklistTaskItem,
 } from "@/types/dashboard";
+
+const PRI_ORDER: Record<ChecklistPriority, number> = {
+  red: 0,
+  orange: 1,
+  green: 2,
+};
+
+/** Prioridad (rojo primero) y luego antigüedad. */
+export function sortChecklistTasks(list: readonly ChecklistTaskItem[]): ChecklistTaskItem[] {
+  return [...list].sort((a, b) => {
+    const pa = PRI_ORDER[a.priority];
+    const pb = PRI_ORDER[b.priority];
+    if (pa !== pb) return pa - pb;
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
+}
 import { Capacitor } from "@capacitor/core";
 import { requestCloudSyncPushDebounced } from "@/lib/cloud-sync-push";
 
