@@ -13,10 +13,7 @@ import { buildStudyTrendChartData } from "@/lib/study-trend-chart-data";
 import { loadStudyPlans } from "@/lib/study-plans-storage";
 import { formatLocalYmd } from "@/lib/study-plan-loose-parse";
 import { loadStudyArenaState } from "@/lib/study-arena-storage";
-import {
-  filterCoursesByMode,
-  resolveGradebookColumnUltraUrl,
-} from "@/lib/blackboard-api";
+import { filterCoursesByMode } from "@/lib/blackboard-api";
 import {
   loadBbGradebook,
   loadBbContentFirstLastModifiedMs,
@@ -81,6 +78,7 @@ export async function syncWidgetData(): Promise<void> {
       todaySessions: (parsed.todaySessions as unknown[])?.length ?? 0,
       activeSession: parsed.activeSession !== null,
       bbDeliveries: (parsed.bbDeliveries as unknown[])?.length ?? 0,
+      upcomingEntregas: (parsed.upcomingEntregas as unknown[])?.length ?? 0,
       studyTrend: (parsed.studyTrend as unknown[])?.length ?? 0,
       dailyTasksRing: ring
         ? {
@@ -95,6 +93,132 @@ export async function syncWidgetData(): Promise<void> {
     console.log("[WidgetDataSync] ✅ sync OK");
   } catch (e) {
     console.error("[WidgetDataSync] ❌ sync failed:", e);
+  }
+}
+
+/** Misma lógica que el widget «Entregas / Próximas 3» del dashboard (`DashboardOverviewPanel`). */
+function buildUpcomingEntregasWidgetRows(): Array<{
+  id: string;
+  courseName: string;
+  title: string;
+  dueIso: string | null;
+  relLabel: string;
+  relTone: string;
+}> {
+  if (typeof window === "undefined") return [];
+  try {
+    const snap = readBbDisplayedCoursesSnapshot();
+    if (!snap.hasConfig) return [];
+    const now = Date.now();
+    const semesterCourses = filterCoursesByMode(snap.curatedCourses, "__auto__");
+    const byId = new Map(semesterCourses.map((c) => [c.learnCourseId, c]));
+
+    type Tmp = {
+      key: string;
+      courseName: string;
+      title: string;
+      dueIso: string | null;
+      creationMs: number | null;
+      light: "red" | "yellow";
+    };
+
+    const out: Tmp[] = [];
+    for (const c of semesterCourses) {
+      const gb = loadBbGradebook(c.learnCourseId);
+      const cols = gb?.columns ?? [];
+      for (const col of cols) {
+        const due = col.grading?.due;
+        const light = getSubmissionLight(
+          col.submissionReason,
+          col.submissionSubmitted,
+        );
+        if (light !== "red" && light !== "yellow") continue;
+
+        const courseName = byId.get(c.learnCourseId)?.name ?? c.name;
+        const title =
+          (col.displayName ?? col.name ?? "Entrega").trim() || "Entrega";
+        if (due) {
+          const t = new Date(due).getTime();
+          if (Number.isNaN(t)) continue;
+          if (t < now) continue;
+          out.push({
+            key: `${c.learnCourseId}\u0000${col.id}`,
+            courseName,
+            title,
+            dueIso: due,
+            creationMs: null,
+            light,
+          });
+        } else {
+          const contentId = col.contentId ? String(col.contentId) : null;
+          const creationMs =
+            contentId != null
+              ? loadBbContentFirstLastModifiedMs(c.learnCourseId, contentId)
+              : null;
+          out.push({
+            key: `${c.learnCourseId}\u0000${col.id}`,
+            courseName,
+            title,
+            dueIso: null,
+            creationMs,
+            light,
+          });
+        }
+      }
+    }
+
+    const dueTs = (iso: string): number | null => {
+      const t = new Date(iso).getTime();
+      return Number.isNaN(t) ? null : t;
+    };
+    const relativeDue = (
+      iso: string,
+    ): { label: string; tone: "red" | "amber" | "default" } => {
+      const t = dueTs(iso);
+      if (t == null) return { label: "—", tone: "default" };
+      const diff = t - Date.now();
+      const mins = Math.round(diff / 60_000);
+      const hrs = Math.round(diff / 3_600_000);
+      const days = Math.round(diff / 86_400_000);
+      if (mins < 0) return { label: "Vencida", tone: "red" };
+      if (mins < 90) return { label: `En ${Math.max(1, mins)} min`, tone: "red" };
+      if (hrs < 30)
+        return { label: `En ${Math.max(1, hrs)} h`, tone: "amber" };
+      return { label: `En ${Math.max(1, days)} d`, tone: "default" };
+    };
+
+    const withDue = out
+      .filter((x) => x.dueIso)
+      .sort((a, b) => (dueTs(a.dueIso!) ?? 0) - (dueTs(b.dueIso!) ?? 0));
+    const noDue = out
+      .filter((x) => !x.dueIso)
+      .sort((a, b) => {
+        const am = a.creationMs ?? -1;
+        const bm = b.creationMs ?? -1;
+        return bm - am;
+      });
+    const top = [...withDue, ...noDue].slice(0, 3);
+
+    return top.map((it) => {
+      const rel = it.dueIso ? relativeDue(it.dueIso) : null;
+      const relLabel = rel?.label ?? "Sin fecha";
+      const relTone = rel
+        ? rel.tone
+        : it.light === "red"
+          ? "red"
+          : "amber";
+      const idSafe = it.key.split("\u0000").join("::");
+      return {
+        id: idSafe,
+        courseName: it.courseName,
+        title: it.title,
+        dueIso: it.dueIso,
+        relLabel,
+        relTone,
+      };
+    });
+  } catch {
+    return [];
   }
 }
 
@@ -196,12 +320,14 @@ function buildWidgetJson(): string {
 
   const studyTrend = buildStudyTrendChartData();
   const dailyTasksRing = dailyRingMetaFromTasks(loadChecklistTasks());
+  const upcomingEntregas = buildUpcomingEntregasWidgetRows();
 
   return JSON.stringify({
     deadlines,
     todaySessions,
     activeSession,
     bbDeliveries,
+    upcomingEntregas,
     studyTrend,
     dailyTasksRing,
     lastUpdated: nowMs,

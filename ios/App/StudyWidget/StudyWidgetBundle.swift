@@ -9,6 +9,7 @@ struct StudyWidgetBundle: WidgetBundle {
         TodaySessionWidget()
         ActiveSessionWidget()
         BBDeliveriesWidget()
+        UpcomingEntregasWidget()
         StudyTrendWidget()
         DailyTasksWidget()
         HabitsWidget()

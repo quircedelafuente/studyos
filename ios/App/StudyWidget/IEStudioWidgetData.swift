@@ -18,6 +18,8 @@ struct IEWidgetData: Codable {
     var todaySessions:[IEWidgetSession]
     var activeSession:IEWidgetActiveSession?
     var bbDeliveries: [IEWidgetDelivery]
+    /// Próximas 3 entregas BB (mismo criterio que el widget «Entregas» del dashboard).
+    var upcomingEntregas: [IEWidgetUpcomingEntrega]?
     /// Puntos del gráfico StudyTrend (±6 días); opcional por compatibilidad con JSON antiguos.
     var studyTrend:   [IEWidgetStudyTrendPoint]?
     /// Anillo "Hoy (diarias)" del checklist (Tareas).
@@ -30,6 +32,7 @@ struct IEWidgetData: Codable {
             todaySessions: [],
             activeSession: nil,
             bbDeliveries: [],
+            upcomingEntregas: nil,
             studyTrend: nil,
             dailyTasksRing: nil,
             lastUpdated: 0,
@@ -45,6 +48,19 @@ struct IEWidgetData: Codable {
         else { return .empty }
         return decoded
     }
+}
+
+// MARK: - Próximas entregas (dashboard)
+
+struct IEWidgetUpcomingEntrega: Codable, Identifiable {
+    var id:         String
+    var courseName: String
+    var title:      String
+    var dueIso:     String?
+    /// Texto ya calculado en la web: "En 2 d", "Sin fecha", etc.
+    var relLabel:   String
+    /// "red" | "amber" | "default"
+    var relTone:    String
 }
 
 // MARK: - Deadlines
