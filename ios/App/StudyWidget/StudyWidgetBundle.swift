@@ -12,6 +12,9 @@ struct StudyWidgetBundle: WidgetBundle {
         UpcomingEntregasWidget()
         StudyTrendWidget()
         DailyTasksWidget()
+        if #available(iOS 17.0, *) {
+            LockScreenDailyTasksWidget()
+        }
         HabitsWidget()
 
         // Live Activity (iOS 16.2+)

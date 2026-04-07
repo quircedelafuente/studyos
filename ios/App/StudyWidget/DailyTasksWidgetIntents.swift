@@ -33,6 +33,17 @@ struct DailyTasksWidgetBuilt {
     let mode: DailyTasksWidgetDisplayMode
 }
 
+/// Kinds de widgets que leen el mirror del checklist diario.
+enum DailyTasksWidgetTimelineKind {
+    static let home = "DailyTasksWidget"
+    static let lockScreen = "LockScreenDailyTasksWidget"
+
+    static func reloadAll() {
+        WidgetCenter.shared.reloadTimelines(ofKind: home)
+        WidgetCenter.shared.reloadTimelines(ofKind: lockScreen)
+    }
+}
+
 enum DailyTasksMirrorStore {
 
     private static func todayYmd() -> String {
@@ -148,7 +159,7 @@ enum DailyTasksMirrorStore {
         let sorted = sortedTodayTasks(root.tasks)
         persistRing(ringFromSortedToday(sorted), defaults: defaults)
         defaults.synchronize()
-        WidgetCenter.shared.reloadTimelines(ofKind: "DailyTasksWidget")
+        DailyTasksWidgetTimelineKind.reloadAll()
     }
 }
 

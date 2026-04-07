@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		05CC1F0F8726B0ABD6EAABFB /* BBDeliveriesWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372B5E9656B0B9E5AB68160B /* BBDeliveriesWidget.swift */; };
 		C8A7B6C5D4E3F2012345678A /* UpcomingEntregasWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A7B6C5D4E3F2012345678B /* UpcomingEntregasWidget.swift */; };
+		E9F0A1B2C3D4E5F6071829301 /* LockScreenDailyTasksWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F0A1B2C3D4E5F6071829302 /* LockScreenDailyTasksWidget.swift */; };
 		B1C2D3E4F5061728394A5B6C7 /* StudyTrendWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5B6C8 /* StudyTrendWidget.swift */; };
 		D5E6F708294A5B6C7D8E9F0A1 /* DailyTasksWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E6F708294A5B6C7D8E9F0A2 /* DailyTasksWidget.swift */; };
 		E8F0A1B2C3D4E5F60718293A4 /* DailyTasksWidgetIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8F0A1B2C3D4E5F60718293A3 /* DailyTasksWidgetIntents.swift */; };
@@ -77,6 +78,7 @@
 		309AEAB4F13A95EF6CD5124D /* StudyWidget */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = StudyWidget; path = StudyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		372B5E9656B0B9E5AB68160B /* BBDeliveriesWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BBDeliveriesWidget.swift; sourceTree = "<group>"; };
 		C8A7B6C5D4E3F2012345678B /* UpcomingEntregasWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UpcomingEntregasWidget.swift; sourceTree = "<group>"; };
+		E9F0A1B2C3D4E5F6071829302 /* LockScreenDailyTasksWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LockScreenDailyTasksWidget.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A5B6C8 /* StudyTrendWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StudyTrendWidget.swift; sourceTree = "<group>"; };
 		D5E6F708294A5B6C7D8E9F0A2 /* DailyTasksWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyTasksWidget.swift; sourceTree = "<group>"; };
 		E8F0A1B2C3D4E5F60718293A3 /* DailyTasksWidgetIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyTasksWidgetIntents.swift; sourceTree = "<group>"; };
@@ -149,6 +151,7 @@
 				C8A7B6C5D4E3F2012345678B /* UpcomingEntregasWidget.swift */,
 				B1C2D3E4F5061728394A5B6C8 /* StudyTrendWidget.swift */,
 				D5E6F708294A5B6C7D8E9F0A2 /* DailyTasksWidget.swift */,
+				E9F0A1B2C3D4E5F6071829302 /* LockScreenDailyTasksWidget.swift */,
 				E8F0A1B2C3D4E5F60718293A3 /* DailyTasksWidgetIntents.swift */,
 				0C7C0E21A1B2C3D4E5F60717 /* HabitsWidget.swift */,
 				0C7C0E21A1B2C3D4E5F60719 /* HabitsWidgetIntents.swift */,
@@ -395,6 +398,7 @@
 				C8A7B6C5D4E3F2012345678A /* UpcomingEntregasWidget.swift in Sources */,
 				B1C2D3E4F5061728394A5B6C7 /* StudyTrendWidget.swift in Sources */,
 				D5E6F708294A5B6C7D8E9F0A1 /* DailyTasksWidget.swift in Sources */,
+				E9F0A1B2C3D4E5F6071829301 /* LockScreenDailyTasksWidget.swift in Sources */,
 				E8F0A1B2C3D4E5F60718293A4 /* DailyTasksWidgetIntents.swift in Sources */,
 				0C7C0E21A1B2C3D4E5F60718 /* HabitsWidget.swift in Sources */,
 				0C7C0E21A1B2C3D4E5F6071A /* HabitsWidgetIntents.swift in Sources */,

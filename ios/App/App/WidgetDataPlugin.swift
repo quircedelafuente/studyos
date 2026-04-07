@@ -113,6 +113,7 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
                     }
                     defaults.synchronize()
                     WidgetCenter.shared.reloadTimelines(ofKind: "DailyTasksWidget")
+                    WidgetCenter.shared.reloadTimelines(ofKind: "LockScreenDailyTasksWidget")
                 }
             }
         }
@@ -207,6 +208,7 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
         defaults.synchronize()
         print("[WidgetDataPlugin] ✅ daily tasks ring (JS explícito) → \(miniStr)")
         WidgetCenter.shared.reloadTimelines(ofKind: "DailyTasksWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "LockScreenDailyTasksWidget")
         call.resolve()
     }
 
@@ -229,6 +231,7 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         defaults.synchronize()
         WidgetCenter.shared.reloadTimelines(ofKind: "DailyTasksWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "LockScreenDailyTasksWidget")
         call.resolve()
     }
 
@@ -331,6 +334,7 @@ public class WidgetDataPlugin: CAPPlugin, CAPBridgedPlugin {
 
         WidgetCenter.shared.reloadAllTimelines()
         WidgetCenter.shared.reloadTimelines(ofKind: "DailyTasksWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "LockScreenDailyTasksWidget")
         print("[WidgetDataPlugin] ✅ WidgetCenter reload timelines triggered")
 
         call.resolve()
