@@ -5,6 +5,11 @@ import WidgetKit
 
 private let studyTrendBrand = Color(red: 99 / 255, green: 102 / 255, blue: 241 / 255)
 
+private func todayHours(from points: [IEWidgetStudyTrendPoint]) -> Double {
+    if let t = points.first(where: { $0.isToday }) { return t.hours }
+    return points.last?.hours ?? 0
+}
+
 // MARK: - Timeline
 
 struct StudyTrendEntry: TimelineEntry {
@@ -182,6 +187,70 @@ struct StudyTrendMediumView: View {
     }
 }
 
+// MARK: - Vista pequeña (1×1): valor de hoy + mini sparkline
+
+struct StudyTrendSmallView: View {
+    let points: [IEWidgetStudyTrendPoint]
+
+    private var hrsToday: Double {
+        todayHours(from: points)
+    }
+
+    private var sparkPoints: [Double] {
+        // Reduce a 7 puntos (hoy ±3 si existe; si no, últimos 7).
+        if let idx = points.firstIndex(where: { $0.isToday }) {
+            let start = max(0, idx - 3)
+            let end = min(points.count, start + 7)
+            return Array(points[start..<end]).map(\.hours)
+        }
+        return Array(points.suffix(7)).map(\.hours)
+    }
+
+    var body: some View {
+        let vals = sparkPoints
+        let maxH = max(0.5, vals.max() ?? 0.5)
+
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(String(format: "%.1f", hrsToday))
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .foregroundColor(studyTrendBrand)
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                Text("h")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(Color.white.opacity(0.55))
+                Spacer(minLength: 0)
+            }
+
+            GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+                let n = max(vals.count, 1)
+                let gap: CGFloat = 3
+                let barW = max(3, (w - gap * CGFloat(n - 1)) / CGFloat(n))
+
+                HStack(alignment: .bottom, spacing: gap) {
+                    ForEach(Array(vals.enumerated()), id: \.offset) { i, v in
+                        let frac = CGFloat(min(1, max(0, v / maxH)))
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(i == min(3, n - 1) ? studyTrendBrand : Color.white.opacity(0.18))
+                            .frame(width: barW, height: max(3, h * frac))
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            }
+            .frame(height: 26)
+
+            Text("StudyTrend")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(Color.white.opacity(0.4))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+}
+
 struct StudyTrendEntryView: View {
     var entry: StudyTrendEntry
 
@@ -190,20 +259,37 @@ struct StudyTrendEntryView: View {
     }
 }
 
-// MARK: - Widget (solo mediano: 2 celdas de ancho × 1 de alto en la pantalla de inicio)
+private struct StudyTrendRootView: View {
+    let entry: StudyTrendEntry
+
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        Group {
+            switch family {
+            case .systemSmall:
+                StudyTrendSmallView(points: entry.points)
+            default:
+                StudyTrendEntryView(entry: entry)
+            }
+        }
+        .ieStudyTrendWidgetBackground()
+        .widgetURL(URL(string: "iestudio://dashboard"))
+    }
+}
+
+// MARK: - Widget (small + medium)
 
 struct StudyTrendWidget: Widget {
     let kind = "StudyTrendWidget"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: StudyTrendProvider()) { entry in
-            StudyTrendEntryView(entry: entry)
-                .ieStudyTrendWidgetBackground()
-                .widgetURL(URL(string: "iestudio://dashboard"))
+            StudyTrendRootView(entry: entry)
         }
         .configurationDisplayName("StudyTrend")
         .description("Horas de estudio por día (sesiones en calendario), misma escala que el panel.")
-        .supportedFamilies([.systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
 }
