@@ -23,6 +23,12 @@ export function studyPlanAiScheduleToCalendarEvents(plans: StudyPlan[]): GoogleC
   const out: GoogleCalendarEventItem[] = [];
 
   for (const p of plans) {
+    // Only render preview events for plans that have NEVER been saved to the
+    // calendar (savedAt empty). Plans that were saved — even if later removed
+    // via "Borrar del calendario" — must not re-appear as previews; their
+    // sessions live exclusively in importantDeadlines while saved.
+    if (p.aiSchedule?.savedAt?.trim()) continue;
+
     const linked = p.targetDeadlineId
       ? deadlines.find((d) => d.id === p.targetDeadlineId)
       : undefined;
