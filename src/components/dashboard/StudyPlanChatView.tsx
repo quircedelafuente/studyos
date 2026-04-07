@@ -374,6 +374,20 @@ export function StudyPlanChatView({ plan, onBack, onPlansChanged }: Props) {
         aiSchedule: clean,
         updatedAt: new Date().toISOString(),
       });
+      // If the plan was already saved to calendar (savedAt set), keep calendar
+      // in sync: remove deadline entries for days that no longer exist.
+      if (clean.savedAt?.trim()) {
+        const studyPrefix = `study-${plan.id}-`;
+        const validDates = new Set((clean.days ?? []).map((d) => d.date));
+        const allDeadlines = loadImportantDeadlines();
+        const synced = allDeadlines.filter((d) => {
+          if (!d.id.startsWith(studyPrefix)) return true;
+          return validDates.has(d.id.slice(studyPrefix.length));
+        });
+        if (synced.length !== allDeadlines.length) {
+          saveImportantDeadlines(synced);
+        }
+      }
       onPlansChanged();
     },
     [plan.id, onPlansChanged],

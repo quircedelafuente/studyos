@@ -1,6 +1,6 @@
 "use client";
 
-import { requestCloudSyncPush } from "@/lib/cloud-sync-push";
+import { requestCloudSyncPush, requestCloudSyncPushDebounced } from "@/lib/cloud-sync-push";
 
 export const STUDY_ARENA_COMPLETED_STORAGE_KEY = "iestudio-study-arena-completed";
 export const STUDY_ARENA_COMPLETED_CHANGED_EVENT = "iestudio-study-arena-completed-changed";
@@ -65,9 +65,7 @@ export function loadCompletedSessions(): CompletedSession[] {
   }
 }
 
-let completedPushDebounce: ReturnType<typeof setTimeout> | null = null;
-
-function saveCompletedSessionsList(sessions: CompletedSession[]): void {
+function saveCompletedSessionsList(sessions: CompletedSession[], immediate = false): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(
@@ -78,16 +76,16 @@ function saveCompletedSessionsList(sessions: CompletedSession[]): void {
   } catch {
     // quota
   }
-  if (completedPushDebounce) clearTimeout(completedPushDebounce);
-  completedPushDebounce = setTimeout(() => {
-    completedPushDebounce = null;
+  if (immediate) {
     requestCloudSyncPush();
-  }, 2500);
+  } else {
+    requestCloudSyncPushDebounced(2500);
+  }
 }
 
 export function deleteCompletedSession(completionId: string): void {
   const existing = loadCompletedSessions();
-  saveCompletedSessionsList(existing.filter((s) => s.completionId !== completionId));
+  saveCompletedSessionsList(existing.filter((s) => s.completionId !== completionId), true);
 }
 
 export function saveCompletedSession(session: Omit<CompletedSession, "completionId" | "completedAt">): void {

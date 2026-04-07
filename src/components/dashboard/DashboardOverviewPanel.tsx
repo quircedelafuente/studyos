@@ -1540,7 +1540,7 @@ export function DashboardOverviewPanel() {
   }, [deadlinesRevision]);
 
   // ── StudyTrend ────────────────────────────────────────────────────────────
-  const studyTrendData = useMemo(() => buildStudyTrendChartData(), [studyPlansRevision, deadlinesRevision, arenaCompletedRevision]);
+  const studyTrendData = useMemo(() => buildStudyTrendChartData(), [studyPlansRevision, deadlinesRevision]);
 
   const taskAdherence = useMemo(() => {
     if (typeof window === "undefined") {
