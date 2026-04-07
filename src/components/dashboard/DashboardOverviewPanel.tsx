@@ -33,6 +33,9 @@ import {
   DAILY_CHECKLIST_STORAGE_KEY,
   loadChecklistTasks,
 } from "@/lib/daily-checklist-storage";
+import { HABITS_CHANGED_EVENT, HABITS_STORAGE_KEY, loadHabits } from "@/lib/habits-storage";
+import { HABIT_LOGS_CHANGED_EVENT, HABIT_LOGS_STORAGE_KEY, loadHabitLogsFile } from "@/lib/habit-logs-storage";
+import { isHabitLogDone, isHabitScheduledOnDate, periodKeyForHabitOnDate, periodKeyForHabitToday } from "@/lib/habits-schedule";
 
 type WidgetShellProps = {
   title: string;
@@ -165,6 +168,82 @@ function ProgressRing({
             {detail}
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function DualProgressRing({
+  innerPct,
+  outerPct,
+  innerLabel,
+  outerLabel,
+}: {
+  innerPct: number;
+  outerPct: number;
+  innerLabel: string;
+  outerLabel: string;
+}) {
+  const size = 80;
+  const cx = size / 2;
+  const cy = size / 2;
+  const rOuter = 30;
+  const rInner = 20;
+  const cOuter = 2 * Math.PI * rOuter;
+  const cInner = 2 * Math.PI * rInner;
+  const o = Math.max(0, Math.min(100, outerPct));
+  const i = Math.max(0, Math.min(100, innerPct));
+  const oDash = (o / 100) * cOuter;
+  const iDash = (i / 100) * cInner;
+  const oRest = cOuter - oDash;
+  const iRest = cInner - iDash;
+
+  const outerColor = rgbForAdherencePct(o, false);
+  const innerColor = rgbForAdherencePct(i, false);
+
+  return (
+    <div className="flex items-center gap-4">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+        <circle cx={cx} cy={cy} r={rOuter} stroke="rgba(0,0,0,0.08)" strokeWidth="8" fill="none" />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={rOuter}
+          stroke={outerColor}
+          strokeWidth="8"
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${oDash} ${oRest}`}
+          transform={`rotate(-90 ${cx} ${cy})`}
+        />
+
+        <circle cx={cx} cy={cy} r={rInner} stroke="rgba(0,0,0,0.08)" strokeWidth="8" fill="none" />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={rInner}
+          stroke={innerColor}
+          strokeWidth="8"
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${iDash} ${iRest}`}
+          transform={`rotate(-90 ${cx} ${cy})`}
+        />
+      </svg>
+
+      <div className="min-w-0">
+        <div className="text-[10px] font-semibold text-[var(--ink-muted)]">
+          <span className="font-extrabold tabular-nums" style={{ color: innerColor }}>
+            {Math.round(i)}%
+          </span>{" "}
+          · {innerLabel}
+        </div>
+        <div className="mt-1 text-[10px] font-semibold text-[var(--ink-muted)]">
+          <span className="font-extrabold tabular-nums" style={{ color: outerColor }}>
+            {Math.round(o)}%
+          </span>{" "}
+          · {outerLabel}
+        </div>
       </div>
     </div>
   );
@@ -743,6 +822,7 @@ const MOBILE_HEIGHTS_KEY = "iestudio-dashboard-mobile-heights-v1";
 const WIDGET_IDS = [
   "entregas", "prioridad", "sesiones",
   "enfoque", "examenes", "adherencia",
+  "habits",
   "carga", "studytrend",
   "esfuerzo", "burnout",
   "racha", "foco",
@@ -759,10 +839,11 @@ const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "enfoque",    x: 0, y: 8,  w: 4, h: 8, minW: 2, minH: 3 },
   { i: "examenes",   x: 4, y: 8,  w: 4, h: 8, minW: 2, minH: 3 },
   { i: "adherencia", x: 8, y: 8,  w: 4, h: 11, minW: 2, minH: 5 },
-  { i: "carga",      x: 0, y: 19, w: 8, h: 8, minW: 2, minH: 3 },
-  { i: "studytrend", x: 8, y: 19, w: 4, h: 8, minW: 2, minH: 3 },
-  { i: "esfuerzo",   x: 0, y: 27, w: 6, h: 8, minW: 2, minH: 3 },
-  { i: "burnout",    x: 6, y: 27, w: 6, h: 8, minW: 2, minH: 3 },
+  { i: "habits",     x: 0, y: 19, w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "carga",      x: 4, y: 19, w: 8, h: 8, minW: 2, minH: 3 },
+  { i: "studytrend", x: 0, y: 27, w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "esfuerzo",   x: 4, y: 27, w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "burnout",    x: 8, y: 27, w: 4, h: 8, minW: 2, minH: 3 },
   { i: "racha",      x: 0, y: 35, w: 4, h: 8, minW: 2, minH: 3 },
   { i: "foco",       x: 4, y: 35, w: 8, h: 8, minW: 2, minH: 3 },
 ];
@@ -904,6 +985,94 @@ function EisenhowerMatrix() {
   );
 }
 
+function isoToDateOrNull(iso: string): Date | null {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  return new Date(ms);
+}
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function computeHabitRates(): {
+  today: { pct: number; done: number; total: number; empty: boolean };
+  overall: { pct: number; done: number; total: number; empty: boolean };
+} {
+  const habits = loadHabits();
+  const logs = loadHabitLogsFile();
+  const today = startOfDay(new Date());
+
+  // ── Hoy: hábitos programados hoy (incluye archived=false por UX)
+  const todayHabits = habits.filter((h) => !h.archived).filter((h) => isHabitScheduledOnDate(h, today));
+  let todayTotal = todayHabits.length;
+  let todayDone = 0;
+  for (const h of todayHabits) {
+    const pk = periodKeyForHabitToday(h);
+    const e = logs.byPeriod[pk]?.[h.id];
+    if (isHabitLogDone(h, e)) todayDone++;
+  }
+  const todayEmpty = todayTotal === 0;
+  const todayPct = todayEmpty ? 0 : Math.round((100 * todayDone) / todayTotal);
+
+  // ── Overall (histórico): contamos “oportunidades” por periodo:
+  // - weekdays → cada día programado desde createdAt hasta hoy
+  // - times_per_week → cada semana (lunes) desde createdAt hasta hoy
+  let overallTotal = 0;
+  let overallDone = 0;
+  const maxDaysScan = 365 * 3; // safety
+
+  for (const h of habits) {
+    const created = isoToDateOrNull(h.createdAt) ?? today;
+
+    if (h.schedule.mode === "times_per_week") {
+      // iterate weeks (by monday ymd key)
+      const curMonday = startOfDay(today);
+      const baseMonday = startOfDay(created);
+      // align baseMonday to Monday
+      const dow = baseMonday.getDay(); // 0=Dom
+      const monday = new Date(baseMonday);
+      monday.setDate(baseMonday.getDate() - (dow === 0 ? 6 : dow - 1));
+      monday.setHours(0, 0, 0, 0);
+
+      let w = new Date(monday);
+      let safety = 0;
+      while (w.getTime() <= curMonday.getTime() && safety < 400) {
+        const pk = periodKeyForHabitOnDate(h, w);
+        overallTotal++;
+        const e = logs.byPeriod[pk]?.[h.id];
+        if (isHabitLogDone(h, e)) overallDone++;
+        w.setDate(w.getDate() + 7);
+        safety++;
+      }
+      continue;
+    }
+
+    // weekdays daily scan
+    let d = startOfDay(created);
+    let safety = 0;
+    while (d.getTime() <= today.getTime() && safety < maxDaysScan) {
+      if (isHabitScheduledOnDate(h, d)) {
+        const pk = periodKeyForHabitOnDate(h, d);
+        overallTotal++;
+        const e = logs.byPeriod[pk]?.[h.id];
+        if (isHabitLogDone(h, e)) overallDone++;
+      }
+      d.setDate(d.getDate() + 1);
+      safety++;
+    }
+  }
+
+  const overallEmpty = overallTotal === 0;
+  const overallPct = overallEmpty ? 0 : Math.round((100 * overallDone) / overallTotal);
+  return {
+    today: { pct: todayPct, done: todayDone, total: todayTotal, empty: todayEmpty },
+    overall: { pct: overallPct, done: overallDone, total: overallTotal, empty: overallEmpty },
+  };
+}
+
 export function DashboardOverviewPanel() {
   const cloudSync = useCloudSyncStatus();
   const [upcomingModalOpen, setUpcomingModalOpen] = useState(false);
@@ -915,6 +1084,8 @@ export function DashboardOverviewPanel() {
   const [deadlinesRevision, setDeadlinesRevision] = useState(0);
   const [checklistRevision, setChecklistRevision] = useState(0);
   const [arenaCompletedRevision, setArenaCompletedRevision] = useState(0);
+  const [habitsRevision, setHabitsRevision] = useState(0);
+  const [habitLogsRevision, setHabitLogsRevision] = useState(0);
 
   useEffect(() => {
     if (cloudSync?.initialSyncDone) {
@@ -1004,6 +1175,36 @@ export function DashboardOverviewPanel() {
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(STUDY_ARENA_COMPLETED_CHANGED_EVENT, bump);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    function bump() {
+      setHabitsRevision((n) => n + 1);
+    }
+    window.addEventListener(HABITS_CHANGED_EVENT, bump);
+    function onStorage(e: StorageEvent) {
+      if (e.key === HABITS_STORAGE_KEY) bump();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(HABITS_CHANGED_EVENT, bump);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    function bump() {
+      setHabitLogsRevision((n) => n + 1);
+    }
+    window.addEventListener(HABIT_LOGS_CHANGED_EVENT, bump);
+    function onStorage(e: StorageEvent) {
+      if (e.key === HABIT_LOGS_STORAGE_KEY) bump();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(HABIT_LOGS_CHANGED_EVENT, bump);
       window.removeEventListener("storage", onStorage);
     };
   }, []);
@@ -1370,6 +1571,12 @@ export function DashboardOverviewPanel() {
       weekScope: completionMeta(weekScopeList),
     };
   }, [checklistRevision]);
+
+  const habitRates = useMemo(() => {
+    void habitsRevision;
+    void habitLogsRevision;
+    return computeHabitRates();
+  }, [habitsRevision, habitLogsRevision]);
 
   const taskAdherenceHint = useMemo(() => {
     const { today: t, weekDaily: w, weekScope: s } = taskAdherence;
@@ -1909,6 +2116,32 @@ export function DashboardOverviewPanel() {
                       {taskAdherenceHint}
                     </p>
                   </div>
+                </WidgetShell>
+              )}
+
+              {/* ── Hábitos (doble ring) ── */}
+              {wid === "habits" && (
+                <WidgetShell
+                  title="Hábitos"
+                  subtitle="Hoy vs histórico"
+                >
+                  <DualProgressRing
+                    innerPct={habitRates.today.empty ? 0 : habitRates.today.pct}
+                    outerPct={habitRates.overall.empty ? 0 : habitRates.overall.pct}
+                    innerLabel={
+                      habitRates.today.empty
+                        ? "Sin hábitos hoy"
+                        : `Hoy ${habitRates.today.done}/${habitRates.today.total}`
+                    }
+                    outerLabel={
+                      habitRates.overall.empty
+                        ? "Sin historial"
+                        : `Total ${habitRates.overall.done}/${habitRates.overall.total}`
+                    }
+                  />
+                  <p className="mt-3 text-[10px] font-semibold leading-snug text-[var(--ink-muted)]">
+                    Anillo interior: hábitos programados hoy. Anillo exterior: histórico (incluye hábitos archivados).
+                  </p>
                 </WidgetShell>
               )}
 
