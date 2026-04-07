@@ -1,7 +1,6 @@
 "use client";
 
 import { loadImportantDeadlines } from "@/lib/deadlines-storage";
-import { loadStudyPlans } from "@/lib/study-plans-storage";
 import { formatLocalYmd } from "@/lib/study-plan-loose-parse";
 
 export type StudyTrendChartPoint = {
@@ -15,25 +14,13 @@ function finiteHour(h: number): number {
   return Math.round(h * 100) / 100;
 }
 
-/** `study-<planId>-<YYYY-MM-DD>` → planId; cualquier otro formato → null. */
-function studyDeadlinePlanId(deadlineId: string): string | null {
-  if (!deadlineId.startsWith("study-")) return null;
-  const m = deadlineId.match(/-(\d{4}-\d{2}-\d{2})$/);
-  if (!m) return null;
-  const ymd = m[1]!;
-  const planId = deadlineId.slice("study-".length, deadlineId.length - ymd.length - 1);
-  return planId.length ? planId : null;
-}
-
 /**
- * 13 días (±6) centrados en hoy: solo planes de estudio activos (Study Planner).
- * Muestra siempre las horas planificadas del schedule; las sesiones completadas
- * no afectan al gráfico (el gráfico refleja el plan, no el tiempo real invertido).
+ * 13 días (±6) centrados en hoy.
+ * Solo cuenta horas de sesiones de estudio que el usuario haya añadido
+ * al calendario (deadline entries con id `study-*` en importantDeadlines).
  */
 export function buildStudyTrendChartData(): StudyTrendChartPoint[] {
   if (typeof window === "undefined") return [];
-
-  const activePlanIds = new Set(loadStudyPlans().map((p) => p.id));
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -56,37 +43,11 @@ export function buildStudyTrendChartData(): StudyTrendChartPoint[] {
   });
   const ymdSet = new Set(slots.map((s) => s.date));
 
-  const deadlines = loadImportantDeadlines();
-  for (const dl of deadlines) {
+  for (const dl of loadImportantDeadlines()) {
     if (!dl.id.startsWith("study-") || !ymdSet.has(dl.date)) continue;
-    const sid = studyDeadlinePlanId(dl.id);
-    if (!sid || !activePlanIds.has(sid)) continue;
     const slot = slots.find((s) => s.date === dl.date);
     if (slot) {
       slot.hours += (dl.durationMinutes ?? 60) / 60;
-    }
-  }
-
-  const coveredIds = new Set(
-    deadlines
-      .filter((d) => {
-        const pid = studyDeadlinePlanId(d.id);
-        return pid != null && activePlanIds.has(pid);
-      })
-      .map((d) => d.id),
-  );
-  for (const p of loadStudyPlans()) {
-    const sched = p.aiSchedule;
-    if (!sched?.days?.length) continue;
-
-    for (const day of sched.days) {
-      if (!day?.date || !ymdSet.has(day.date)) continue;
-      const syncId = `study-${p.id}-${day.date}`;
-      if (coveredIds.has(syncId)) continue;
-      const slot = slots.find((s) => s.date === day.date);
-      if (slot) {
-        slot.hours += Math.max(0, day.studyHours ?? 0);
-      }
     }
   }
 

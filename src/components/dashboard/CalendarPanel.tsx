@@ -29,7 +29,6 @@ import { signInWithGoogle } from "@/lib/capacitor-auth";
 import { loadStudyPlans, saveStudyPlans, STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
 import {
   STUDY_PLAN_PREVIEW_CALENDAR_ID,
-  studyPlanAiScheduleToCalendarEvents,
 } from "@/lib/study-plans-calendar-events";
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -130,7 +129,6 @@ export function CalendarPanel() {
   const [weekStart, setWeekStart] = useState(() => startOfWeekMonday(now));
   const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEventItem[]>([]);
   const [deadlinesRevision, setDeadlinesRevision] = useState(0);
-  const [studyPlansRevision, setStudyPlansRevision] = useState(0);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
@@ -217,26 +215,10 @@ export function CalendarPanel() {
     };
   }, []);
 
-  useEffect(() => {
-    function bumpPlans() {
-      setStudyPlansRevision((n) => n + 1);
-    }
-    window.addEventListener(STUDY_PLANS_CHANGED_EVENT, bumpPlans);
-    function onStorage(e: StorageEvent) {
-      if (e.key === "iestudio-study-plans") bumpPlans();
-    }
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(STUDY_PLANS_CHANGED_EVENT, bumpPlans);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-
   const events = useMemo(() => {
-    const fromStudyPlans = studyPlanAiScheduleToCalendarEvents(loadStudyPlans());
     const local = importantDeadlinesToCalendarEvents(loadImportantDeadlines());
-    return [...fromStudyPlans, ...local, ...googleEvents];
-  }, [googleEvents, deadlinesRevision, studyPlansRevision]);
+    return [...local, ...googleEvents];
+  }, [googleEvents, deadlinesRevision]);
 
   const byDay = useMemo(
     () => mapGoogleEventsToMonthDays(events, viewYear, viewMonthIndex),
