@@ -148,6 +148,20 @@ export async function reconcileHabitsFromAppGroupIfIos(): Promise<boolean> {
     if (!mirror || typeof mirror !== "string") return false;
     const cur = window.localStorage.getItem(HABITS_STORAGE_KEY) ?? "";
     if (cur === mirror) return false;
+
+    /**
+     * IMPORTANTE:
+     * El App Group (widget) NO es la fuente de verdad para *definiciones* de hábitos:
+     * el widget interactivo solo escribe logs. Si aplicamos el mirror sin comprobar,
+     * podemos pisar hábitos recién creados (localStorage) con un mirror viejo.
+     *
+     * Política segura:
+     * - Solo rellenar desde App Group si localStorage está vacío.
+     * - Si ya hay hábitos locales, NO sobrescribir (evita “se añaden y se quitan”).
+     */
+    const localHasHabits = loadHabits().length > 0;
+    if (localHasHabits) return false;
+
     window.localStorage.setItem(HABITS_STORAGE_KEY, mirror);
     window.dispatchEvent(new CustomEvent(HABITS_CHANGED_EVENT));
     requestCloudSyncPushDebounced();
