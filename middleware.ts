@@ -28,7 +28,16 @@ export async function middleware(req: NextRequest) {
   const gateCookie = req.cookies.get(APP_GATE_COOKIE_NAME)?.value;
   if (gateCookie === "1") return NextResponse.next();
 
-  // Block everything else
+  // Si es navegación de navegador (HTML), redirigir a /gate.
+  // Si es fetch/XHR/API, devolver 403 JSON.
+  const accept = req.headers.get("accept") ?? "";
+  if (accept.includes("text/html")) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/gate";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
   return NextResponse.json(
     { error: "forbidden", detail: "App Gate: acceso restringido." },
     { status: 403 },
