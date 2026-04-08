@@ -51,6 +51,47 @@ async function tryReadPayload(
   }
 }
 
+/**
+ * Extrae un ID estable de un elemento de array, buscando los campos más comunes.
+ * Devuelve null si el item no es un objeto con id reconocible.
+ */
+function itemId(item: unknown): string | null {
+  if (!item || typeof item !== "object") return null;
+  const o = item as Record<string, unknown>;
+  if (typeof o.completionId === "string") return o.completionId;
+  if (typeof o.id === "string") return o.id;
+  if (typeof o.completedAt === "string" && typeof o.key === "string")
+    return `${o.key}:${o.completedAt}`;
+  return null;
+}
+
+/**
+ * Fusiona dos valores JSON (strings) de la misma clave:
+ * - Si ambos parsean como arrays: unión por ID (el incoming va primero).
+ * - Si alguno no parsea o no es array: gana incoming (comportamiento anterior).
+ */
+function mergeEntryValue(existingStr: string, incomingStr: string): string {
+  try {
+    const existing = JSON.parse(existingStr) as unknown;
+    const incoming = JSON.parse(incomingStr) as unknown;
+    if (Array.isArray(existing) && Array.isArray(incoming)) {
+      const incomingIds = new Set<string>();
+      for (const item of incoming) {
+        const id = itemId(item);
+        if (id) incomingIds.add(id);
+      }
+      const onlyInExisting = (existing as unknown[]).filter((item) => {
+        const id = itemId(item);
+        return id ? !incomingIds.has(id) : false;
+      });
+      return JSON.stringify([...(incoming as unknown[]), ...onlyInExisting]);
+    }
+  } catch {
+    // no es JSON parseable → incoming gana
+  }
+  return incomingStr;
+}
+
 export async function GET() {
   const sql = getSql();
   if (!sql) {
@@ -126,16 +167,21 @@ export async function PUT(request: Request) {
 
   try {
     /**
-     * Fusión con lo ya guardado: el móvil suele tener menos claves `iestudio-*` en
-     * localStorage que el escritorio. El PUT anterior rechazaba la subida
-     * (`skipped`) y el checklist del teléfono nunca llegaba a la nube.
-     * Las claves del cliente sobrescriben las del servidor; el resto se conserva.
+     * Fusión con lo ya guardado.
+     * Para claves que contienen arrays JSON (p.ej. sesiones completadas, hábitos-log),
+     * hacemos union por id en lugar de sobreescribir — así dos dispositivos distintos
+     * nunca se borran datos mutuamente.  Para el resto de claves gana el cliente.
      */
     const existingEntries = (await tryReadPayload(sql, emailKey)) ?? {};
-    const merged = sanitizeEntriesForUpload({
-      ...existingEntries,
-      ...sanitized,
-    });
+    const base: Record<string, string> = { ...existingEntries };
+    for (const [k, v] of Object.entries(sanitized)) {
+      if (k in base) {
+        base[k] = mergeEntryValue(base[k], v);
+      } else {
+        base[k] = v;
+      }
+    }
+    const merged = sanitizeEntriesForUpload(base);
     delete merged[MANUAL_COURSES_STORAGE_KEY];
 
     let payloadText = JSON.stringify(merged);

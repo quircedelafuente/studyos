@@ -15,6 +15,7 @@ export type SessionNotesEntry = {
   updatedAt: string;
   generatedAt?: string;
   sourceSummary?: SessionNotesSourceSummary;
+  transcript?: string;
 };
 
 export type SessionNotesState = {
@@ -64,6 +65,7 @@ export function loadSessionNotes(): SessionNotesState {
         updatedAt: e.updatedAt,
       };
       if (typeof e.generatedAt === "string") entry.generatedAt = e.generatedAt;
+      if (typeof e.transcript === "string") entry.transcript = e.transcript;
       if (e.sourceSummary && typeof e.sourceSummary === "object") {
         const s = e.sourceSummary as Record<string, unknown>;
         entry.sourceSummary = {
@@ -110,6 +112,7 @@ export function upsertSessionNotesEntry(
     markdown: string;
     generatedAt?: string;
     sourceSummary?: SessionNotesSourceSummary;
+    transcript?: string;
   },
 ): void {
   const prev = loadSessionNotes();
@@ -123,6 +126,7 @@ export function upsertSessionNotesEntry(
         updatedAt: new Date().toISOString(),
         ...(partial.generatedAt ? { generatedAt: partial.generatedAt } : {}),
         ...(partial.sourceSummary ? { sourceSummary: partial.sourceSummary } : {}),
+        ...(partial.transcript ? { transcript: partial.transcript } : {}),
       },
     },
   };

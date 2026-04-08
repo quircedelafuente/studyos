@@ -43,6 +43,7 @@ export function ClassSessionDetailView({
   const [error, setError] = useState<string | null>(null);
   const [warn, setWarn] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const notesRef = useRef<HTMLDivElement>(null);
   const notesContentRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +59,13 @@ export function ClassSessionDetailView({
   );
 
   const hasNotes = Boolean(saved?.markdown?.trim());
+
+  // Pre-fill transcript from saved entry when navigating to this session
+  useEffect(() => {
+    const entry = getSessionNotesEntry(courseKey, sessionId);
+    if (entry?.transcript) setTranscript(entry.transcript);
+    else setTranscript("");
+  }, [courseKey, sessionId]);
 
   const persistCompanionUrl = useCallback((url: string) => {
     setCompanionUrlState(url);
@@ -190,7 +198,12 @@ ${cleanContent}
         photoCount: data.meta?.photoCount ?? boardFiles.length,
         hadDocs: data.meta?.hadDocs ?? docFiles.length > 0,
       };
-      upsertSessionNotesEntry(courseKey, sessionId, { markdown: md, generatedAt, sourceSummary });
+      upsertSessionNotesEntry(courseKey, sessionId, {
+        markdown: md,
+        generatedAt,
+        sourceSummary,
+        transcript: finalTranscript.trim() || undefined,
+      });
       setRevision((r) => r + 1);
       setTimeout(() => notesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
     } catch (e) {
@@ -254,6 +267,23 @@ ${cleanContent}
                     Generados: {new Date(saved!.generatedAt).toLocaleString("es", { dateStyle: "short", timeStyle: "short" })}
                   </p>
                 ) : null}
+                {saved!.transcript ? (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setTranscriptOpen((o) => !o)}
+                      className="flex w-full items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-left text-xs font-semibold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
+                    >
+                      <span>{transcriptOpen ? "▼" : "▶"}</span>
+                      <span>Transcripción del audio</span>
+                    </button>
+                    {transcriptOpen ? (
+                      <pre className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border border-[var(--border)] bg-[var(--canvas)] p-3 font-sans text-xs text-[var(--ink)]">
+                        {saved!.transcript}
+                      </pre>
+                    ) : null}
+                  </div>
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-[var(--ink-muted)]">Todavía no hay apuntes generados para esta sesión.</p>
@@ -297,6 +327,23 @@ ${cleanContent}
                   <p className="mt-2 text-xs text-[var(--ink-faint)]">
                     Generados: {new Date(saved!.generatedAt).toLocaleString("es", { dateStyle: "short", timeStyle: "short" })}
                   </p>
+                ) : null}
+                {saved!.transcript ? (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setTranscriptOpen((o) => !o)}
+                      className="flex w-full items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-left text-xs font-semibold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
+                    >
+                      <span>{transcriptOpen ? "▼" : "▶"}</span>
+                      <span>Transcripción del audio</span>
+                    </button>
+                    {transcriptOpen ? (
+                      <pre className="mt-2 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-xl border border-[var(--border)] bg-[var(--canvas)] p-3 font-sans text-xs text-[var(--ink)]">
+                        {saved!.transcript}
+                      </pre>
+                    ) : null}
+                  </div>
                 ) : null}
               </section>
             ) : (

@@ -20,6 +20,8 @@ import {
   DAILY_CHECKLIST_CHANGED_EVENT,
   pushDailyTasksRingToNativeIfIos,
 } from "@/lib/daily-checklist-storage";
+import { CLASS_NOTES_CHANGED_EVENT } from "@/lib/class-notes-storage";
+import { SESSION_NOTES_CHANGED_EVENT } from "@/lib/session-notes-storage";
 
 const SYNC_PREFIX = "iestudio-";
 
@@ -178,5 +180,7 @@ export function dispatchCloudRefreshEvents(): void {
   window.dispatchEvent(new Event(STUDY_ARENA_CHANGED_EVENT));
   window.dispatchEvent(new CustomEvent(STUDY_ARENA_COMPLETED_CHANGED_EVENT));
   window.dispatchEvent(new CustomEvent(DAILY_CHECKLIST_CHANGED_EVENT));
+  window.dispatchEvent(new Event(CLASS_NOTES_CHANGED_EVENT));
+  window.dispatchEvent(new Event(SESSION_NOTES_CHANGED_EVENT));
   pushDailyTasksRingToNativeIfIos();
 }

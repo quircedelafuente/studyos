@@ -184,8 +184,22 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       const localNotChanged = localSig === lastPushedSig.current;
 
       if (localIsEmpty || localNotChanged) {
+        // Servidor tiene datos distintos y local no ha cambiado → aplicar nube
         applyCloudEntries(serverEntries);
         lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
+      } else {
+        /**
+         * Local tiene cambios no pusheados Y el servidor tiene datos distintos.
+         * Subimos nuestros datos primero (el servidor hace merge de arrays),
+         * luego bajamos el resultado fusionado.
+         */
+        await push();
+        const res2 = await fetch("/api/user-sync", { credentials: "same-origin" });
+        if (res2.ok) {
+          const data2 = (await res2.json()) as { entries?: Record<string, string> };
+          applyCloudEntries(data2.entries ?? {});
+          lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
+        }
       }
     } catch (e) {
       patch({
@@ -196,7 +210,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       pullInFlight.current = false;
       patch({ isReceiving: false });
     }
-  }, [userId, patch]);
+  }, [userId, patch, push]);
 
   useEffect(() => {
     if (status !== "authenticated" || !userId) {
