@@ -151,7 +151,8 @@ export function StudyArenaPanel() {
   const todayYmd = useMemo(() => formatLocalYmd(new Date()), []);
   const [options, setOptions] = useState<StudyArenaSessionOption[]>([]);
   const [completedKeys, setCompletedKeys] = useState<Set<string>>(() => {
-    return new Set(loadCompletedSessions().map((s) => s.key));
+    const y = formatLocalYmd(new Date());
+    return new Set(loadCompletedSessions().filter((s) => s.date === y).map((s) => s.key));
   });
 
   const [parkingDraft, setParkingDraft] = useState("");
@@ -265,7 +266,8 @@ export function StudyArenaPanel() {
 
   useEffect(() => {
     function refreshCompleted() {
-      setCompletedKeys(new Set(loadCompletedSessions().map((s) => s.key)));
+      const y = formatLocalYmd(new Date());
+      setCompletedKeys(new Set(loadCompletedSessions().filter((s) => s.date === y).map((s) => s.key)));
     }
     window.addEventListener(STUDY_ARENA_COMPLETED_CHANGED_EVENT, refreshCompleted);
     return () => window.removeEventListener(STUDY_ARENA_COMPLETED_CHANGED_EVENT, refreshCompleted);

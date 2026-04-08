@@ -29,7 +29,8 @@ export type CompletedSession = {
   startedAtMs: number;
 };
 
-const MAX_COMPLETED_SESSIONS = 200;
+/** Historial largo: todas las sesiones completadas por día (mismo esquema de sync en nube). */
+export const MAX_COMPLETED_SESSIONS = 10_000;
 
 function isCompletedSession(x: unknown): x is CompletedSession {
   if (!x || typeof x !== "object") return false;
@@ -59,7 +60,9 @@ export function loadCompletedSessions(): CompletedSession[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isCompletedSession);
+    const list = parsed.filter(isCompletedSession);
+    // Más recientes primero (por fecha de finalización)
+    return list.sort((a, b) => b.completedAt.localeCompare(a.completedAt));
   } catch {
     return [];
   }
