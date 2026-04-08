@@ -19,8 +19,8 @@ import {
   syncSnapshotSignature,
 } from "@/lib/user-cloud-storage";
 
-const PUSH_INTERVAL_MS = 12_000;
-const PULL_INTERVAL_MS = 12_000;
+const PUSH_INTERVAL_MS = 120_000;
+const PULL_INTERVAL_MS = 120_000;
 
 /** Mensaje legible desde JSON `{ error, detail }` o cuerpo texto. */
 async function readApiErrorMessage(res: Response): Promise<string> {
