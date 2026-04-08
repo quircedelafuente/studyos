@@ -1,5 +1,8 @@
 export const DEFAULT_COMPANION_ORIGIN = "http://127.0.0.1:16789";
 
+/** Comando recomendado desde la raíz del repo para arrancar el companion WhisperX. */
+export const WHISPERX_START_NPM_SCRIPT = "npm run class-notes:companion-whisperx";
+
 export const COMPANION_URL_STORAGE_KEY = "iestudio-class-notes-companion-url";
 
 export function getCompanionBaseUrl(): string {
@@ -10,6 +13,34 @@ export function getCompanionBaseUrl(): string {
 
 export function setCompanionBaseUrl(url: string): void {
   window.localStorage.setItem(COMPANION_URL_STORAGE_KEY, url.trim());
+}
+
+const COMPANION_HEALTH_MS = 4500;
+
+/**
+ * Comprueba si el companion responde en /health (modelo listo).
+ * Devuelve false ante fallo de red, timeout o respuesta no OK.
+ */
+export async function isCompanionReachable(baseUrl: string): Promise<boolean> {
+  const origin = baseUrl.replace(/\/$/, "");
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), COMPANION_HEALTH_MS);
+  try {
+    const res = await fetch(`${origin}/health`, {
+      method: "GET",
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return false;
+    const data: unknown = await res.json().catch(() => null);
+    if (typeof data === "object" && data !== null && "ok" in data) {
+      return Boolean((data as { ok: unknown }).ok);
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 export type CompanionTranscribeResult = {

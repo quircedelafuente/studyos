@@ -11,6 +11,7 @@ import { HABIT_LOGS_STORAGE_KEY } from "@/lib/habit-logs-storage";
 import { loadImportantDeadlines } from "@/lib/deadlines-storage";
 import { buildStudyTrendChartData } from "@/lib/study-trend-chart-data";
 import { loadStudyPlans } from "@/lib/study-plans-storage";
+import { loadCompletedSessions } from "@/lib/study-arena-completed-storage";
 import { formatLocalYmd } from "@/lib/study-plan-loose-parse";
 import { loadStudyArenaState } from "@/lib/study-arena-storage";
 import { filterCoursesByMode } from "@/lib/blackboard-api";
@@ -246,18 +247,21 @@ function buildWidgetJson(): string {
 
   // ── Today sessions ─────────────────────────────────────────────────────────
   const plans = loadStudyPlans();
+  const completedArenaKeys = new Set(loadCompletedSessions().map((s) => s.key));
   const todaySessions: object[] = [];
   for (const p of plans) {
     if (!p.aiSchedule?.savedAt) continue;
     for (const d of p.aiSchedule?.days ?? []) {
       if (d?.date !== todayYmd) continue;
+      const sessionKey = `${p.id}::${d.date}`;
       todaySessions.push({
-        id: `${p.id}::${d.date}`,
+        id: sessionKey,
         sessionTitle: d.sessionTitle ?? "Sesión de estudio",
         planTitle: p.title,
         studyHours: finiteNumber(Number(d.studyHours), 0),
         focus: d.focus ?? "",
         date: d.date,
+        completed: completedArenaKeys.has(sessionKey),
       });
     }
   }

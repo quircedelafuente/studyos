@@ -132,6 +132,8 @@ struct IEWidgetSession: Codable, Identifiable {
     var studyHours:   Double
     var focus:        String
     var date:         String
+    /// Completada en Study Arena (mismo día del plan).
+    var completed:    Bool?
 }
 
 // MARK: - Active session (Study Arena)

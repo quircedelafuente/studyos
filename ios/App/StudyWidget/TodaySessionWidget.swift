@@ -9,7 +9,7 @@ struct TodaySessionEntry: TimelineEntry {
 struct TodaySessionProvider: TimelineProvider {
     func placeholder(in context: Context) -> TodaySessionEntry {
         TodaySessionEntry(date: Date(), sessions: [
-            IEWidgetSession(id: "1", sessionTitle: "Álgebra – Repaso Tema 3", planTitle: "Plan Q2", studyHours: 2.0, focus: "Integrales · Derivadas · Límites", date: ""),
+            IEWidgetSession(id: "1", sessionTitle: "Álgebra – Repaso Tema 3", planTitle: "Plan Q2", studyHours: 2.0, focus: "Integrales · Derivadas · Límites", date: "", completed: false),
         ])
     }
     func getSnapshot(in context: Context, completion: @escaping (TodaySessionEntry) -> Void) {
@@ -25,6 +25,14 @@ struct TodaySessionProvider: TimelineProvider {
 
 private let brandColor = Color(red: 0.39, green: 0.40, blue: 0.95)
 
+private func sessionDone(_ s: IEWidgetSession) -> Bool {
+    s.completed ?? false
+}
+
+private func statusDotColor(_ s: IEWidgetSession) -> Color {
+    sessionDone(s) ? Color(red: 0.13, green: 0.77, blue: 0.37) : Color(red: 0.93, green: 0.27, blue: 0.27)
+}
+
 private func hoursLabel(_ h: Double) -> String {
     let rounded = (h * 10).rounded() / 10
     return rounded == rounded.rounded() ? "\(Int(rounded))h" : "\(rounded)h"
@@ -36,6 +44,9 @@ struct TodaySessionSmallView: View {
         if let s = sessions.first {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 4) {
+                    Circle()
+                        .fill(statusDotColor(s))
+                        .frame(width: 8, height: 8)
                     Image(systemName: "brain.head.profile")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(brandColor)
@@ -87,6 +98,10 @@ struct TodaySessionMediumView: View {
                 ForEach(Array(sessions.prefix(2).enumerated()), id: \.offset) { idx, s in
                     if idx > 0 { Divider().padding(.horizontal, 12) }
                     HStack(spacing: 10) {
+                        Circle()
+                            .fill(statusDotColor(s))
+                            .frame(width: 8, height: 8)
+                            .padding(.top, 2)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(s.sessionTitle).font(.system(size: 13, weight: .semibold)).foregroundColor(.primary).lineLimit(1)
                             if !s.focus.isEmpty {
@@ -124,7 +139,10 @@ struct TodaySessionLargeView: View {
                 ForEach(Array(sessions.prefix(3).enumerated()), id: \.offset) { idx, s in
                     if idx > 0 { Divider().padding(.leading, 16) }
                     VStack(alignment: .leading, spacing: 4) {
-                        HStack {
+                        HStack(alignment: .center, spacing: 8) {
+                            Circle()
+                                .fill(statusDotColor(s))
+                                .frame(width: 9, height: 9)
                             Text(s.sessionTitle).font(.system(size: 14, weight: .semibold)).foregroundColor(.primary).lineLimit(1)
                             Spacer()
                             Text(hoursLabel(s.studyHours)).font(.system(size: 13, weight: .heavy, design: .rounded)).foregroundColor(brandColor)
@@ -164,7 +182,7 @@ struct TodaySessionWidget: Widget {
                 .widgetURL(URL(string: "iestudio://study-arena"))
         }
         .configurationDisplayName("Sesión de Hoy")
-        .description("Tus sesiones de estudio programadas para hoy.")
+        .description("Solo sesiones de hoy. Punto rojo: pendiente; verde: completada en Study Arena.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()
     }

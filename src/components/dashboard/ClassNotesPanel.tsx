@@ -29,6 +29,11 @@ import {
   updateSessionLabel,
   type ClassNotesState,
 } from "@/lib/class-notes-storage";
+import {
+  getCompanionBaseUrl,
+  isCompanionReachable,
+  WHISPERX_START_NPM_SCRIPT,
+} from "@/lib/class-notes-companion-client";
 import { ClassSessionDetailView } from "./ClassSessionDetailView";
 import { CourseGlyph } from "./CourseGlyph";
 import { IconPlus } from "./icons";
@@ -133,6 +138,10 @@ export function ClassNotesPanel() {
     null,
   );
   const [desktopWide, setDesktopWide] = useState(false);
+  /** null: aún no comprobado; true/false: resultado del último ping a /health */
+  const [companionReachable, setCompanionReachable] = useState<boolean | null>(
+    null,
+  );
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -173,6 +182,27 @@ export function ClassNotesPanel() {
     window.addEventListener(SESSION_NOTES_CHANGED_EVENT, on);
     return () => window.removeEventListener(SESSION_NOTES_CHANGED_EVENT, on);
   }, []);
+
+  useEffect(() => {
+    if (status !== "authenticated") {
+      setCompanionReachable(null);
+      return;
+    }
+    let cancelled = false;
+    async function probe() {
+      const ok = await isCompanionReachable(getCompanionBaseUrl());
+      if (!cancelled) setCompanionReachable(ok);
+    }
+    void probe();
+    const interval = window.setInterval(probe, 45_000);
+    const onFocus = () => void probe();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [status]);
 
   /** Rango fijo para Class Notes: 1 ene → 30 jun (año en curso), todas las sesiones con hora. */
   const loadEvents = useCallback(async () => {
@@ -401,6 +431,41 @@ export function ClassNotesPanel() {
           </div>
         </div>
       </div>
+
+      {status === "authenticated" && companionReachable === false ? (
+        <div className="border-b border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100 md:px-6">
+          <p className="font-semibold">Compañero WhisperX no detectado</p>
+          <p className="mt-1 text-amber-900/90 dark:text-amber-200/90">
+            En la raíz del proyecto, en una terminal:
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <code className="block max-w-full overflow-x-auto rounded-lg bg-amber-100/90 px-2 py-1.5 font-mono text-xs dark:bg-amber-900/50">
+              {WHISPERX_START_NPM_SCRIPT}
+            </code>
+            <button
+              type="button"
+              className="shrink-0 rounded-lg border border-amber-800/30 bg-white px-2 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-100 dark:border-amber-400/40 dark:bg-amber-900 dark:text-amber-50 dark:hover:bg-amber-800"
+              onClick={() => void navigator.clipboard.writeText(WHISPERX_START_NPM_SCRIPT)}
+            >
+              Copiar
+            </button>
+            <button
+              type="button"
+              className="shrink-0 text-xs font-semibold text-amber-800 underline decoration-amber-800/40 hover:decoration-amber-800 dark:text-amber-200"
+              onClick={async () => {
+                const ok = await isCompanionReachable(getCompanionBaseUrl());
+                setCompanionReachable(ok);
+              }}
+            >
+              Comprobar de nuevo
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-amber-800/80 dark:text-amber-300/80">
+            URL configurada:{" "}
+            <span className="font-mono">{getCompanionBaseUrl()}</span>
+          </p>
+        </div>
+      ) : null}
 
       <div className="px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:min-h-0 md:flex-1 md:overflow-y-auto md:overflow-x-hidden md:px-6">
         {sessionDetail ? (

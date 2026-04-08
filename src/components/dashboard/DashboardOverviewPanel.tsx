@@ -22,7 +22,11 @@ import {
 import { getSubmissionLight } from "@/lib/blackboard-submission-status";
 import { loadStudyPlans, STUDY_PLANS_CHANGED_EVENT } from "@/lib/study-plans-storage";
 import { buildStudyTrendChartData } from "@/lib/study-trend-chart-data";
-import { STUDY_ARENA_COMPLETED_CHANGED_EVENT, STUDY_ARENA_COMPLETED_STORAGE_KEY } from "@/lib/study-arena-completed-storage";
+import {
+  loadCompletedSessions,
+  STUDY_ARENA_COMPLETED_CHANGED_EVENT,
+  STUDY_ARENA_COMPLETED_STORAGE_KEY,
+} from "@/lib/study-arena-completed-storage";
 import {
   DEADLINES_CHANGED_EVENT,
   DEADLINES_STORAGE_KEY,
@@ -1369,10 +1373,53 @@ export function DashboardOverviewPanel() {
     return out;
   }, [studyPlansRevision, deadlinesRevision]);
 
-  const topStudy3 = useMemo(
-    () => upcomingStudySessions.slice(0, 3),
-    [upcomingStudySessions],
-  );
+  /** Sesiones del plan solo para hoy + estado Study Arena (mismo `key` que al completar). */
+  const todayPlanningSessions = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    void arenaCompletedRevision;
+    const todayYmd = formatLocalYmd(new Date());
+    const completedKeys = new Set(loadCompletedSessions().map((s) => s.key));
+    const deadlines = loadImportantDeadlines();
+    const deadlineById = new Map(deadlines.map((d) => [d.id, d]));
+    const plans = loadStudyPlans();
+    const out: {
+      arenaKey: string;
+      planTitle: string;
+      date: string;
+      hours: number;
+      sessionTitle?: string;
+      focus?: string;
+      sessionTextColor: string;
+      completed: boolean;
+    }[] = [];
+    for (const p of plans) {
+      const linkedDeadline = p.targetDeadlineId
+        ? deadlineById.get(p.targetDeadlineId)
+        : undefined;
+      const colorText = getGoogleEventColorStyle(linkedDeadline?.calendarColorId).text;
+      const days = p.aiSchedule?.days ?? [];
+      for (const d of days) {
+        if (!d?.date || d.date !== todayYmd) continue;
+        const arenaKey = `${p.id}::${d.date}`;
+        out.push({
+          arenaKey,
+          planTitle: p.title,
+          date: d.date,
+          hours: d.studyHours,
+          sessionTitle: d.sessionTitle,
+          focus: d.focus,
+          sessionTextColor: colorText,
+          completed: completedKeys.has(arenaKey),
+        });
+      }
+    }
+    out.sort((a, b) => {
+      const ca = a.completed === b.completed ? 0 : a.completed ? 1 : -1;
+      if (ca !== 0) return ca;
+      return a.planTitle.localeCompare(b.planTitle, "es");
+    });
+    return out;
+  }, [studyPlansRevision, deadlinesRevision, arenaCompletedRevision]);
 
   const effortByObjective = useMemo(() => {
     type Item = {
@@ -1946,6 +1993,9 @@ export function DashboardOverviewPanel() {
                       <div className="min-w-0">
                         <h3 className="text-sm font-black uppercase tracking-widest text-blue-400">Planificación</h3>
                         <p className="text-xl font-black tracking-tight text-blue-900">Sesiones</p>
+                        <p className="mt-0.5 text-[10px] font-bold text-blue-600/70 uppercase tracking-wide">
+                          Solo hoy · rojo pendiente · verde hecha
+                        </p>
                       </div>
                       <button type="button" onClick={() => setStudyModalOpen(true)}
                         className="rounded-2xl bg-blue-600/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-blue-700 hover:bg-blue-600/20 transition-colors">
@@ -1953,15 +2003,24 @@ export function DashboardOverviewPanel() {
                       </button>
                     </header>
                     <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-                      {topStudy3.length === 0 ? (
+                      {todayPlanningSessions.length === 0 ? (
                         <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-blue-200 bg-white/40 px-4 text-center">
-                          <p className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Sin sesiones</p>
+                          <p className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Sin sesiones hoy</p>
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 gap-2">
-                          {topStudy3.map((s) => (
-                            <div key={s.key}
-                              className="group flex items-center h-[4.25rem] gap-2.5 rounded-xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md hover:translate-y-[-1px]">
+                          {todayPlanningSessions.map((s) => (
+                            <div
+                              key={s.arenaKey}
+                              className="group flex items-center min-h-[4.25rem] gap-2.5 rounded-xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md hover:translate-y-[-1px]"
+                            >
+                              <span
+                                className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white ${
+                                  s.completed ? "bg-emerald-500" : "bg-red-500"
+                                }`}
+                                title={s.completed ? "Completada en Study Arena" : "Pendiente"}
+                                aria-hidden
+                              />
                               <div className="flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-lg"
                                 style={{ backgroundColor: `color-mix(in srgb, ${s.sessionTextColor} 12%, white)`, color: s.sessionTextColor }}>
                                 <span className="text-[10px] font-black uppercase leading-none">{s.date.split("-")[2]}</span>
