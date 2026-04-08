@@ -2,12 +2,12 @@
 
 Este proyecto usa un **middleware** para bloquear el sitio en producción:
 
-- **Navegador (tú)**: solo pasa si tu sesión de Auth.js tiene el email permitido.
-- **App móvil**: hace un `POST /api/app-gate/exchange` con headers HMAC y recibe una cookie httpOnly `__Host-iestudio-app-gate=1`.
+- **Navegador (cualquier)**: accede con un **código** (`/gate`) y recibe una cookie httpOnly `__Host-iestudio-app-gate=1`.
+- **App móvil**: hace un `POST /api/app-gate/exchange` con headers HMAC y recibe la misma cookie httpOnly.
 
 ## Variables de entorno (Vercel → Production)
 
-- `APP_GATE_OWNER_EMAIL`: tu email (ej. `tu@correo.com`)
+- `APP_GATE_PASSWORD`: código de acceso para humanos (largo y aleatorio)
 - `APP_GATE_SECRET`: secreto HMAC (larga y aleatoria)
 
 ## Flujo para la app móvil
@@ -23,5 +23,11 @@ Este proyecto usa un **middleware** para bloquear el sitio en producción:
 
 ## Mensajes de bloqueo
 
-Si no hay cookie y no estás logueado como `APP_GATE_OWNER_EMAIL`, el middleware devuelve `403`.
+Si no hay cookie de App Gate, el middleware devuelve `403`.
+
+## Acceso desde navegador
+
+1. Abre `/gate`
+2. Introduce `APP_GATE_PASSWORD`
+3. El servidor deja cookie por 90 días (por navegador).
 
