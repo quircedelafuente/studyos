@@ -133,6 +133,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const pull = useCallback(async () => {
     if (!userId || pullInFlight.current) return;
     pullInFlight.current = true;
+    // Capturar ANTES del fetch: si push completa mientras esperamos la respuesta,
+    // no queremos usar el nuevo sig para decidir si aplicar datos del servidor.
+    const pushedSigAtPullStart = lastPushedSig.current;
     patch({ isReceiving: true, lastReceiveError: null });
     try {
       const res = await fetch("/api/user-sync", { credentials: "same-origin" });
@@ -181,7 +184,10 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       }
 
       const localIsEmpty = Object.keys(localEntries).length === 0;
-      const localNotChanged = localSig === lastPushedSig.current;
+      // Usar el sig capturado al inicio, no el actual: push puede haber completado
+      // mientras el GET estaba en vuelo, lo que haría localNotChanged=true con datos
+      // del servidor anteriores al push (causando que datos borrados reaparezcan).
+      const localNotChanged = localSig === pushedSigAtPullStart;
 
       if (localIsEmpty || localNotChanged) {
         // Servidor tiene datos distintos y local no ha cambiado → aplicar nube
