@@ -16,12 +16,18 @@ function timingSafeEq(a: string, b: string): boolean {
 }
 
 export async function POST(request: Request) {
-  const gatePassword = envOrEmpty("APP_GATE_PASSWORD");
+  // Compat: soporta alias por si el usuario configuró otro nombre en Vercel.
+  const gatePassword =
+    envOrEmpty("APP_GATE_PASSWORD") || envOrEmpty("APP_GATE_PASSCODE");
   if (!gatePassword) {
+    const envHint = envOrEmpty("VERCEL_ENV") || envOrEmpty("NODE_ENV") || "unknown";
     return NextResponse.json(
       {
         error: "misconfigured",
-        detail: "Falta APP_GATE_PASSWORD en el entorno (Vercel).",
+        detail:
+          "Falta APP_GATE_PASSWORD en el entorno (Vercel). " +
+          `Entorno detectado: ${envHint}. ` +
+          "Recuerda: en Vercel hay que añadirla en Production (si usas el dominio prod) y redeployar.",
       },
       { status: 500 },
     );
