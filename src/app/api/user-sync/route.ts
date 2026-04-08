@@ -52,6 +52,14 @@ async function tryReadPayload(
 }
 
 /**
+ * Claves cuyo valor es un array de append-only (nunca se borran items individualmente).
+ * Solo estas reciben merge por unión — el resto usa "client wins" para respetar borrados.
+ */
+const ARRAY_UNION_MERGE_KEYS = new Set([
+  "iestudio-study-arena-completed",
+]);
+
+/**
  * Extrae un ID estable de un elemento de array, buscando los campos más comunes.
  * Devuelve null si el item no es un objeto con id reconocible.
  */
@@ -67,10 +75,11 @@ function itemId(item: unknown): string | null {
 
 /**
  * Fusiona dos valores JSON (strings) de la misma clave:
- * - Si ambos parsean como arrays: unión por ID (el incoming va primero).
- * - Si alguno no parsea o no es array: gana incoming (comportamiento anterior).
+ * - Si la clave es append-only y ambos son arrays: unión por ID (incoming primero).
+ * - Para el resto: gana incoming (client wins), respetando borrados explícitos.
  */
-function mergeEntryValue(existingStr: string, incomingStr: string): string {
+function mergeEntryValue(key: string, existingStr: string, incomingStr: string): string {
+  if (!ARRAY_UNION_MERGE_KEYS.has(key)) return incomingStr;
   try {
     const existing = JSON.parse(existingStr) as unknown;
     const incoming = JSON.parse(incomingStr) as unknown;
@@ -176,7 +185,7 @@ export async function PUT(request: Request) {
     const base: Record<string, string> = { ...existingEntries };
     for (const [k, v] of Object.entries(sanitized)) {
       if (k in base) {
-        base[k] = mergeEntryValue(base[k], v);
+        base[k] = mergeEntryValue(k, base[k], v);
       } else {
         base[k] = v;
       }
