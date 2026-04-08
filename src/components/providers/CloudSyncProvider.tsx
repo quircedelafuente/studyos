@@ -252,11 +252,23 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           applyCloudEntries(server);
           lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
         } else if (serverKeyCount > 0 && localKeyCount > 0) {
-          if (serverKeyCount >= localKeyCount) {
-            applyCloudEntries(server);
+          /**
+           * Importante: NO sobrescribir localStorage con la nube en el arranque
+           * si ya hay datos locales. Eso puede borrar cambios locales recientes
+           * (p. ej. sesiones completadas guardadas manualmente) si el servidor
+           * aún no los tiene.
+           *
+           * Estrategia:
+           * - primero subimos el snapshot local (PUT hace merge con lo existente)
+           * - luego hacemos un GET y aplicamos el estado del servidor (ahora incluye
+           *   lo local + las claves que este dispositivo no tenía).
+           */
+          await push();
+          const res2 = await fetch("/api/user-sync", { credentials: "same-origin" });
+          if (res2.ok) {
+            const data2 = (await res2.json()) as { entries?: Record<string, string> };
+            applyCloudEntries(data2.entries ?? {});
             lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
-          } else {
-            await push();
           }
         }
       } catch (e) {
