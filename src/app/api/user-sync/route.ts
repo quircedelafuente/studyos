@@ -57,6 +57,7 @@ async function tryReadPayload(
  */
 const ARRAY_UNION_MERGE_KEYS = new Set([
   "iestudio-study-arena-completed",
+  "iestudio-study-arena-completed-deleted",
 ]);
 
 /**
@@ -84,6 +85,15 @@ function mergeEntryValue(key: string, existingStr: string, incomingStr: string):
     const existing = JSON.parse(existingStr) as unknown;
     const incoming = JSON.parse(incomingStr) as unknown;
     if (Array.isArray(existing) && Array.isArray(incoming)) {
+      // Arrays de strings (p.ej. tombstones): unión directa por valor
+      if (typeof (incoming as unknown[])[0] === "string" || typeof (existing as unknown[])[0] === "string") {
+        const merged = new Set<string>([
+          ...(existing as unknown[]).filter((x): x is string => typeof x === "string"),
+          ...(incoming as unknown[]).filter((x): x is string => typeof x === "string"),
+        ]);
+        return JSON.stringify([...merged]);
+      }
+      // Arrays de objetos: unión por ID
       const incomingIds = new Set<string>();
       for (const item of incoming) {
         const id = itemId(item);

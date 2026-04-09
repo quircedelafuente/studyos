@@ -3,6 +3,7 @@
 import { requestCloudSyncPush, requestCloudSyncPushDebounced } from "@/lib/cloud-sync-push";
 
 export const STUDY_ARENA_COMPLETED_STORAGE_KEY = "iestudio-study-arena-completed";
+export const STUDY_ARENA_COMPLETED_DELETED_KEY = "iestudio-study-arena-completed-deleted";
 export const STUDY_ARENA_COMPLETED_CHANGED_EVENT = "iestudio-study-arena-completed-changed";
 
 export type CompletedSession = {
@@ -53,19 +54,62 @@ function isCompletedSession(x: unknown): x is CompletedSession {
   );
 }
 
-export function loadCompletedSessions(): CompletedSession[] {
+/** Carga el set de completionIds borrados explícitamente (tombstones). */
+function loadDeletedIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(STUDY_ARENA_COMPLETED_DELETED_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((x): x is string => typeof x === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDeletedIds(ids: Set<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      STUDY_ARENA_COMPLETED_DELETED_KEY,
+      JSON.stringify([...ids]),
+    );
+  } catch {
+    // quota
+  }
+  requestCloudSyncPush();
+}
+
+/** Carga el array raw sin aplicar filtro de tombstones (para uso interno). */
+function loadRawCompletedSessions(): CompletedSession[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STUDY_ARENA_COMPLETED_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    const list = parsed.filter(isCompletedSession);
-    // Más recientes primero (por fecha de finalización)
-    return list.sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+    return parsed.filter(isCompletedSession);
   } catch {
     return [];
   }
+}
+
+export function loadCompletedSessions(): CompletedSession[] {
+  if (typeof window === "undefined") return [];
+  const deleted = loadDeletedIds();
+  const seen = new Set<string>();
+  const list = loadRawCompletedSessions()
+    .filter((s) => {
+      // Filtrar tombstoned
+      if (deleted.has(s.completionId)) return false;
+      // Deduplicar por arenaRunId (puede haber duplicados por race en sync)
+      if (seen.has(s.arenaRunId)) return false;
+      seen.add(s.arenaRunId);
+      return true;
+    });
+  // Más recientes primero
+  return list.sort((a, b) => b.completedAt.localeCompare(a.completedAt));
 }
 
 function saveCompletedSessionsList(sessions: CompletedSession[], immediate = false): void {
@@ -87,17 +131,24 @@ function saveCompletedSessionsList(sessions: CompletedSession[], immediate = fal
 }
 
 export function deleteCompletedSession(completionId: string): void {
-  const existing = loadCompletedSessions();
+  // Añadir tombstone para que el merge del servidor no lo restaure
+  const deleted = loadDeletedIds();
+  deleted.add(completionId);
+  saveDeletedIds(deleted);
+  // Quitar del array local también
+  const existing = loadRawCompletedSessions();
   saveCompletedSessionsList(existing.filter((s) => s.completionId !== completionId), true);
 }
 
 export function saveCompletedSession(session: Omit<CompletedSession, "completionId" | "completedAt">): void {
+  const existing = loadRawCompletedSessions();
+  // Deduplicar: si ya existe una entrada con el mismo arenaRunId, no guardar de nuevo
+  if (existing.some((s) => s.arenaRunId === session.arenaRunId)) return;
   const record: CompletedSession = {
     ...session,
     completionId: crypto.randomUUID(),
     completedAt: new Date().toISOString(),
   };
-  const existing = loadCompletedSessions();
   // Prepend newest first, cap at MAX
   const next = [record, ...existing].slice(0, MAX_COMPLETED_SESSIONS);
   saveCompletedSessionsList(next);
