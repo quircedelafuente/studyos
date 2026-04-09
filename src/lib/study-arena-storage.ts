@@ -32,7 +32,12 @@ let arenaPushDebounce: ReturnType<typeof setTimeout> | null = null;
 export function saveStudyArenaState(state: StudyArenaStoredState): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STUDY_ARENA_STORAGE_KEY, JSON.stringify(state));
+    // _updatedAt permite al servidor elegir la versión más reciente cuando dos
+    // dispositivos tienen estados distintos (ej. uno con sesión activa, otro con null).
+    window.localStorage.setItem(
+      STUDY_ARENA_STORAGE_KEY,
+      JSON.stringify({ ...state, _updatedAt: Date.now() }),
+    );
   } catch {
     // Ignore quota failures; arena continues in-memory.
   }

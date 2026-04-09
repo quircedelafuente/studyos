@@ -61,6 +61,14 @@ const ARRAY_UNION_MERGE_KEYS = new Set([
 ]);
 
 /**
+ * Claves donde gana la versión con `_updatedAt` más reciente (last-write-wins).
+ * Evita que un dispositivo sin sesión activa sobreescriba la sesión de otro.
+ */
+const NEWEST_WINS_KEYS = new Set([
+  "iestudio-study-arena-state",
+]);
+
+/**
  * Extrae un ID estable de un elemento de array, buscando los campos más comunes.
  * Devuelve null si el item no es un objeto con id reconocible.
  */
@@ -80,6 +88,18 @@ function itemId(item: unknown): string | null {
  * - Para el resto: gana incoming (client wins), respetando borrados explícitos.
  */
 function mergeEntryValue(key: string, existingStr: string, incomingStr: string): string {
+  if (NEWEST_WINS_KEYS.has(key)) {
+    try {
+      const existing = JSON.parse(existingStr) as Record<string, unknown>;
+      const incoming = JSON.parse(incomingStr) as Record<string, unknown>;
+      const existingTs = typeof existing._updatedAt === "number" ? existing._updatedAt : 0;
+      const incomingTs = typeof incoming._updatedAt === "number" ? incoming._updatedAt : 0;
+      return incomingTs >= existingTs ? incomingStr : existingStr;
+    } catch {
+      // no parseable → incoming gana
+    }
+    return incomingStr;
+  }
   if (!ARRAY_UNION_MERGE_KEYS.has(key)) return incomingStr;
   try {
     const existing = JSON.parse(existingStr) as unknown;
