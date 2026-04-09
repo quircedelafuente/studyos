@@ -19,8 +19,8 @@ import {
   syncSnapshotSignature,
 } from "@/lib/user-cloud-storage";
 
-const PUSH_INTERVAL_MS = 120_000;
-const PULL_INTERVAL_MS = 120_000;
+const PUSH_INTERVAL_MS = 12_000;
+const PULL_INTERVAL_MS = 12_000;
 
 /** Mensaje legible desde JSON `{ error, detail }` o cuerpo texto. */
 async function readApiErrorMessage(res: Response): Promise<string> {
@@ -133,9 +133,6 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const pull = useCallback(async () => {
     if (!userId || pullInFlight.current) return;
     pullInFlight.current = true;
-    // Capturar ANTES del fetch: si push completa mientras esperamos la respuesta,
-    // no queremos usar el nuevo sig para decidir si aplicar datos del servidor.
-    const pushedSigAtPullStart = lastPushedSig.current;
     patch({ isReceiving: true, lastReceiveError: null });
     try {
       const res = await fetch("/api/user-sync", { credentials: "same-origin" });
@@ -184,28 +181,11 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       }
 
       const localIsEmpty = Object.keys(localEntries).length === 0;
-      // Usar el sig capturado al inicio, no el actual: push puede haber completado
-      // mientras el GET estaba en vuelo, lo que haría localNotChanged=true con datos
-      // del servidor anteriores al push (causando que datos borrados reaparezcan).
-      const localNotChanged = localSig === pushedSigAtPullStart;
+      const localNotChanged = localSig === lastPushedSig.current;
 
       if (localIsEmpty || localNotChanged) {
-        // Servidor tiene datos distintos y local no ha cambiado → aplicar nube
         applyCloudEntries(serverEntries);
         lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
-      } else {
-        /**
-         * Local tiene cambios no pusheados Y el servidor tiene datos distintos.
-         * Subimos nuestros datos primero (el servidor hace merge de arrays),
-         * luego bajamos el resultado fusionado.
-         */
-        await push();
-        const res2 = await fetch("/api/user-sync", { credentials: "same-origin" });
-        if (res2.ok) {
-          const data2 = (await res2.json()) as { entries?: Record<string, string> };
-          applyCloudEntries(data2.entries ?? {});
-          lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
-        }
       }
     } catch (e) {
       patch({
@@ -216,7 +196,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       pullInFlight.current = false;
       patch({ isReceiving: false });
     }
-  }, [userId, patch, push]);
+  }, [userId, patch]);
 
   useEffect(() => {
     if (status !== "authenticated" || !userId) {
