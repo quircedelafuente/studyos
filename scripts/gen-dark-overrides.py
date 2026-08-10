@@ -72,25 +72,28 @@ def used_classes():
 
 GRADIENT_KINDS = ("from", "via", "to")
 
-# Los seis únicos colores que puede usar la interfaz en oscuro. Cada familia de
-# Tailwind se reasigna al neón de matiz más cercano, para que no aparezca ningún
-# rojo ladrillo, ámbar apagado ni verde esmeralda fuera de la paleta.
-NEON = {
-    "fucsia": "#f700d1",
-    "ambar": "#f7ad02",
-    "lima": "#92f705",
-    "agua": "#00f6bd",
-    "azul": "#027ff7",
-    "violeta": "#b130f7",
+# Escalas oscuras de Radix Colors (@radix-ui/colors 3.0.0), copiadas literales.
+# Son escalas diseñadas para tema oscuro: cada paso tiene un papel fijo y los
+# pasos 11 y 12 garantizan contraste sobre los fondos 2-3 de su propia escala.
+# https://www.radix-ui.com/colors/docs/palette-composition/understanding-the-scale
+RADIX_DARK = {
+    "red": {1: "#191111", 2: "#201314", 3: "#3b1219", 4: "#500f1c", 5: "#611623", 6: "#72232d", 7: "#8c333a", 8: "#b54548", 9: "#e5484d", 10: "#ec5d5e", 11: "#ff9592", 12: "#ffd1d9"},
+    "amber": {1: "#16120c", 2: "#1d180f", 3: "#302008", 4: "#3f2700", 5: "#4d3000", 6: "#5c3d05", 7: "#714f19", 8: "#8f6424", 9: "#ffc53d", 10: "#ffd60a", 11: "#ffca16", 12: "#ffe7b3"},
+    "grass": {1: "#0e1511", 2: "#141a15", 3: "#1b2a1e", 4: "#1d3a24", 5: "#25482d", 6: "#2d5736", 7: "#366740", 8: "#3e7949", 9: "#46a758", 10: "#53b365", 11: "#71d083", 12: "#c2f0c2"},
+    "teal": {1: "#0d1514", 2: "#111c1b", 3: "#0d2d2a", 4: "#023b37", 5: "#084843", 6: "#145750", 7: "#1c6961", 8: "#207e73", 9: "#12a594", 10: "#0eb39e", 11: "#0bd8b6", 12: "#adf0dd"},
+    "blue": {1: "#0d1520", 2: "#111927", 3: "#0d2847", 4: "#003362", 5: "#004074", 6: "#104d87", 7: "#205d9e", 8: "#2870bd", 9: "#0090ff", 10: "#3b9eff", 11: "#70b8ff", 12: "#c2e6ff"},
+    "violet": {1: "#14121f", 2: "#1b1525", 3: "#291f43", 4: "#33255b", 5: "#3c2e69", 6: "#473876", 7: "#56468b", 8: "#6958ad", 9: "#6e56cf", 10: "#7d66d9", 11: "#baa7ff", 12: "#e2ddfe"},
 }
 
-HUE_TO_NEON = {
-    "red": "fucsia", "rose": "fucsia", "pink": "fucsia", "fuchsia": "fucsia",
-    "orange": "ambar", "amber": "ambar", "yellow": "ambar",
-    "lime": "lima", "green": "lima",
-    "emerald": "agua", "teal": "agua", "cyan": "agua",
-    "sky": "azul", "blue": "azul",
-    "indigo": "violeta", "violet": "violeta", "purple": "violeta",
+# Cada familia de Tailwind cae en la escala de Radix que conserva su significado:
+# rojo = error, ámbar = aviso, verde = éxito, azul = información.
+HUE_TO_RADIX = {
+    "red": "red", "rose": "red", "pink": "red", "fuchsia": "violet",
+    "orange": "amber", "amber": "amber", "yellow": "amber",
+    "lime": "grass", "green": "grass", "emerald": "grass",
+    "teal": "teal", "cyan": "teal",
+    "sky": "blue", "blue": "blue",
+    "indigo": "violet", "violet": "violet", "purple": "violet",
 }
 
 ARBITRARY_RE = r"(bg|text|border|ring)-\[#[0-9a-fA-F]{3,8}\]"
@@ -187,23 +190,23 @@ def main():
             elif kind in ("border", "ring"):
                 rules.append((sel, "border-color" if kind == "border" else "--tw-ring-color", "var(--border)"))
             continue
-        neon_key = HUE_TO_NEON.get(hue)
-        if not neon_key:
+        scale = RADIX_DARK.get(HUE_TO_RADIX.get(hue, ""))
+        if not scale:
             continue
-        base = hex2rgb(NEON[neon_key])
-        # Los fondos se mantienen oscuros con un tinte del neón: rellenar con el
-        # neón puro dejaría el texto blanco de los botones ilegible.
-        chip = mix(base, surface, 0.18 if s <= 300 else 0.30)
+        # Cada paso de Radix tiene un papel asignado:
+        #   3  fondo de componente     6/7  borde     11/12  texto
         if kind in GRADIENT_KINDS:
             # Las paradas de gradiente NO son background-color: van por variable.
-            rules.append((sel, f"--tw-gradient-{kind}", hexs(chip)))
+            rules.append((sel, f"--tw-gradient-{kind}", scale[2 if s <= 100 else 3]))
         elif kind == "bg":
-            rules.append((sel, "background-color", hexs(chip)))
+            # Incluidos los fondos sólidos (bg-red-600): en oscuro un relleno
+            # saturado deslumbra y deja el texto blanco pegado al límite.
+            rules.append((sel, "background-color", scale[3 if s <= 300 else 4]))
         elif kind == "text":
-            rules.append((sel, "color", readable_on(NEON[neon_key], chip)))
+            rules.append((sel, "color", scale[12 if s >= 800 else 11]))
         elif kind in ("border", "ring"):
             prop = "border-color" if kind == "border" else "--tw-ring-color"
-            rules.append((sel, prop, hexs(mix(base, border, 0.5))))
+            rules.append((sel, prop, scale[6 if s <= 300 else 7]))
         elif kind == "shadow":
             # Sombras de color: sobre negro se ven como halos sucios.
             rules.append((sel, "--tw-shadow-color", "transparent"))
