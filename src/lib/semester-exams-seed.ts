@@ -26,7 +26,7 @@ const COLOR = {
   finance: "9", // azul oscuro
   macro: "10", // verde
   marketing: "3", // morado
-  history: "5", // amarillo
+  history: "12", // marrón (color propio de la app, ver google-calendar-event-colors)
   programming: "7", // azul claro
 } as const;
 
@@ -269,36 +269,49 @@ export function seedSemesterExamsOnce(): number {
 }
 
 /**
- * Flag de la migración de color de Marketing (naranja → morado).
+ * Flag de la migración de colores.
  *
  * Hace falta porque el sembrado solo corre una vez: a quien ya tenga las fechas
- * creadas no le basta con cambiar la constante `COLOR`, hay que reescribir los
- * registros existentes.
+ * creadas no le basta con cambiar `COLOR`, hay que reescribir los registros.
+ * Subir el sufijo (`-v3`, `-v4`…) vuelve a aplicar la tabla de colores actual.
  */
-export const MARKETING_COLOR_MIGRATION_FLAG_KEY =
-  "iestudio-exams-2026-fall-mkt-color-v2";
+export const SEED_COLORS_MIGRATION_FLAG_KEY =
+  "iestudio-exams-2026-fall-colors-v3";
 
-/** Aplica el color nuevo a los deadlines de Marketing ya sembrados. */
-export function migrateMarketingColorOnce(): number {
+/** Trozo del id que identifica la asignatura → color que le toca ahora. */
+const SUBJECT_COLOR_BY_ID_PREFIX: ReadonlyArray<readonly [string, string]> = [
+  ["calc-", COLOR.calculus],
+  ["fin-", COLOR.finance],
+  ["macro-", COLOR.macro],
+  ["mkt-", COLOR.marketing],
+  ["hist-", COLOR.history],
+  ["prog-", COLOR.programming],
+];
+
+/**
+ * Re-aplica la tabla de colores a los deadlines ya sembrados.
+ *
+ * Solo toca los que empiezan por {@link SEED_ID_PREFIX}: los que hayas creado
+ * tú a mano se quedan como estén, aunque sean de la misma asignatura.
+ */
+export function migrateSeedColorsOnce(): number {
   if (typeof window === "undefined") return 0;
   try {
-    if (window.localStorage.getItem(MARKETING_COLOR_MIGRATION_FLAG_KEY) === "1") {
+    if (window.localStorage.getItem(SEED_COLORS_MIGRATION_FLAG_KEY) === "1") {
       return 0;
     }
     const all = loadImportantDeadlines();
     let changed = 0;
     const next = all.map((d) => {
-      if (
-        d.id.startsWith(`${SEED_ID_PREFIX}mkt-`) &&
-        d.calendarColorId !== COLOR.marketing
-      ) {
-        changed += 1;
-        return { ...d, calendarColorId: COLOR.marketing };
-      }
-      return d;
+      if (!d.id.startsWith(SEED_ID_PREFIX)) return d;
+      const rest = d.id.slice(SEED_ID_PREFIX.length);
+      const match = SUBJECT_COLOR_BY_ID_PREFIX.find(([p]) => rest.startsWith(p));
+      if (!match || d.calendarColorId === match[1]) return d;
+      changed += 1;
+      return { ...d, calendarColorId: match[1] };
     });
     if (changed > 0) saveImportantDeadlines(next);
-    window.localStorage.setItem(MARKETING_COLOR_MIGRATION_FLAG_KEY, "1");
+    window.localStorage.setItem(SEED_COLORS_MIGRATION_FLAG_KEY, "1");
     return changed;
   } catch {
     return 0;

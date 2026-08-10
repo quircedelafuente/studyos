@@ -20,6 +20,22 @@ export const GOOGLE_CALENDAR_EVENT_COLOR_IDS = [
 export type GoogleCalendarEventColorId =
   (typeof GOOGLE_CALENDAR_EVENT_COLOR_IDS)[number];
 
+/**
+ * Color propio de la app, fuera de la paleta de Google.
+ *
+ * La API de Google solo acepta `colorId` "1"…"11" y nuestro validador descarta
+ * cualquier otro, así que este id **solo vale para eventos locales**
+ * («Exámenes y fechas»). Si se ofreciera al crear un evento de Google, se
+ * perdería en silencio al guardar.
+ */
+export const LOCAL_ONLY_COLOR_ID = "12";
+
+/** Colores seleccionables para deadlines locales: los de Google + el propio. */
+export const LOCAL_DEADLINE_COLOR_IDS = [
+  ...GOOGLE_CALENDAR_EVENT_COLOR_IDS,
+  LOCAL_ONLY_COLOR_ID,
+] as const;
+
 export type GoogleEventColorStyle = {
   /** Fondo suave del bloque */
   bg: string;
@@ -112,6 +128,19 @@ const PALETTE: Record<string, GoogleEventColorStyle> = {
     text: "#a50e0e",
     textMuted: "#c5221f",
   },
+  /**
+   * Marrón — color propio, no existe en la paleta de Google. Elegido porque es
+   * el único tono que no se confunde con ninguno de los once anteriores: los
+   * huecos que quedaban (coral, azul y verde) chocaban con el rojo, el azul
+   * intenso y el verde bosque ya en uso.
+   */
+  "12": {
+    bg: "#efebe9",
+    border: "rgba(121, 85, 72, 0.4)",
+    borderLeft: "#795548",
+    text: "#4e342e",
+    textMuted: "#6d4c41",
+  },
 };
 
 const DEFAULT_ID = "6";
@@ -142,4 +171,5 @@ export const GOOGLE_EVENT_COLOR_LABELS: Record<string, string> = {
   "9": "Azul intenso",
   "10": "Verde bosque",
   "11": "Rojo",
+  "12": "Marrón",
 };

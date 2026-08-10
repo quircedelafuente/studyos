@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import {
-  migrateMarketingColorOnce,
+  migrateSeedColorsOnce,
   seedSemesterExamsOnce,
 } from "@/lib/semester-exams-seed";
 
@@ -29,9 +29,9 @@ export function SemesterExamsSeeder() {
     if (added > 0) {
       console.log(`[exams-seed] ${added} fechas del semestre añadidas al calendario`);
     }
-    const recolored = migrateMarketingColorOnce();
+    const recolored = migrateSeedColorsOnce();
     if (recolored > 0) {
-      console.log(`[exams-seed] ${recolored} eventos de Marketing recoloreados`);
+      console.log(`[exams-seed] ${recolored} eventos recoloreados`);
     }
   }, [sync?.initialSyncDone, sync?.cloudEnabled]);
 

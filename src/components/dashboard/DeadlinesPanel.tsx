@@ -21,7 +21,7 @@ import { BB_COURSES_STORAGE_CHANGED } from "@/lib/blackboard-storage";
 import { BB_COURSE_CURATION_CHANGED } from "@/lib/bb-course-curation";
 import { BB_COURSE_FILTER_CHANGED } from "@/lib/bb-course-filter-prefs";
 import {
-  GOOGLE_CALENDAR_EVENT_COLOR_IDS,
+  LOCAL_DEADLINE_COLOR_IDS,
   GOOGLE_EVENT_COLOR_LABELS,
   getGoogleEventColorStyle,
   normalizeGoogleEventColorId,
@@ -129,7 +129,7 @@ function DeadlineCalendarColorCompact({
             Color en calendario
           </p>
           <div className="flex flex-wrap gap-1.5" role="listbox" aria-label="Elegir color">
-            {GOOGLE_CALENDAR_EVENT_COLOR_IDS.map((id) => {
+            {LOCAL_DEADLINE_COLOR_IDS.map((id) => {
               const c = getGoogleEventColorStyle(id);
               const sel = v === id;
               return (
