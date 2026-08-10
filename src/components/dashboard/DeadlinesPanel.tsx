@@ -688,16 +688,58 @@ export function DeadlinesPanel() {
     return displayedCourses.filter((c) => bbCourseMatchesQuery(c, courseSearch));
   }, [displayedCourses, courseSearch]);
 
+  /** Orden y filtros de la lista. Viven en memoria: son de consulta, no ajustes. */
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [filterCourseId, setFilterCourseId] = useState<string>("");
+  const [filterTagId, setFilterTagId] = useState<string>("");
+  const [hidePast, setHidePast] = useState(false);
+
+  /** Asignaturas que aparecen realmente en la lista, para no ofrecer vacías. */
+  const courseFilterOptions = useMemo(() => {
+    const ids = new Set(deadlines.map((d) => d.courseId ?? ""));
+    const opts = [...ids]
+      .filter((id) => id !== "")
+      .map((id) => ({ id, label: courseLabel(id) }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es"));
+    if (ids.has("")) opts.push({ id: "__none__", label: "Sin asignatura" });
+    return opts;
+    // `courseLabel` depende de displayedCourses, que ya está en las dependencias.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deadlines, displayedCourses]);
+
+  /** Etiquetas en uso, por el mismo motivo. */
+  const tagFilterOptions = useMemo(() => {
+    const used = new Set(deadlines.flatMap((d) => d.tagIds));
+    return tagRegistry
+      .filter((t) => used.has(t.id))
+      .sort((a, b) => a.label.localeCompare(b.label, "es"));
+  }, [deadlines, tagRegistry]);
+
+  const activeFilterCount =
+    (filterCourseId ? 1 : 0) + (filterTagId ? 1 : 0) + (hidePast ? 1 : 0);
+
   const sorted = useMemo(() => {
-    return [...deadlines].sort((a, b) => {
+    const today = todayYmd();
+    const filtered = deadlines.filter((d) => {
+      if (filterCourseId === "__none__" && d.courseId) return false;
+      if (filterCourseId && filterCourseId !== "__none__" && d.courseId !== filterCourseId) {
+        return false;
+      }
+      if (filterTagId && !d.tagIds.includes(filterTagId)) return false;
+      if (hidePast && d.date < today) return false;
+      return true;
+    });
+    const dir = sortDir === "asc" ? 1 : -1;
+    return filtered.sort((a, b) => {
       const cmp = a.date.localeCompare(b.date);
-      if (cmp !== 0) return cmp;
+      if (cmp !== 0) return cmp * dir;
       const ta = a.time ?? "";
       const tb = b.time ?? "";
-      if (ta !== tb) return ta.localeCompare(tb);
+      if (ta !== tb) return ta.localeCompare(tb) * dir;
+      // El título siempre alfabético: desempata, no es criterio de orden.
       return a.title.localeCompare(b.title, "es");
     });
-  }, [deadlines]);
+  }, [deadlines, sortDir, filterCourseId, filterTagId, hidePast]);
 
   /** Un plan por deadline (el más recientemente actualizado). */
   const planByDeadlineId = useMemo(() => {
@@ -966,10 +1008,94 @@ export function DeadlinesPanel() {
       </section>
 
       <section className="min-h-0 flex-1 overflow-y-auto">
-        <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">Tu lista</h2>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h2 className="mr-auto text-sm font-semibold text-[var(--ink)]">
+            Tu lista
+            <span className="ml-2 text-xs font-normal text-[var(--ink-faint)]">
+              {sorted.length}
+              {sorted.length !== deadlines.length ? ` de ${deadlines.length}` : ""}
+            </span>
+          </h2>
+
+          <button
+            type="button"
+            onClick={() => setSortDir((v) => (v === "asc" ? "desc" : "asc"))}
+            title={
+              sortDir === "asc"
+                ? "Ordenando de más próxima a más lejana"
+                : "Ordenando de más lejana a más próxima"
+            }
+            className="rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+          >
+            {sortDir === "asc" ? "↑ Más próximas" : "↓ Más lejanas"}
+          </button>
+
+          {courseFilterOptions.length > 0 ? (
+            <select
+              value={filterCourseId}
+              onChange={(e) => setFilterCourseId(e.target.value)}
+              aria-label="Filtrar por asignatura"
+              className="max-w-[12rem] rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)]"
+            >
+              <option value="">Todas las asignaturas</option>
+              {courseFilterOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+
+          {tagFilterOptions.length > 0 ? (
+            <select
+              value={filterTagId}
+              onChange={(e) => setFilterTagId(e.target.value)}
+              aria-label="Filtrar por etiqueta"
+              className="max-w-[10rem] rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)]"
+            >
+              <option value="">Todas las etiquetas</option>
+              {tagFilterOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={hidePast}
+            onClick={() => setHidePast((v) => !v)}
+            className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+              hidePast
+                ? "border-[var(--ink)] bg-[var(--ink)] text-white"
+                : "border-[var(--border)] text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
+            }`}
+          >
+            Ocultar pasadas
+          </button>
+
+          {activeFilterCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterCourseId("");
+                setFilterTagId("");
+                setHidePast(false);
+              }}
+              className="text-xs font-semibold text-[var(--ink-muted)] underline underline-offset-2 transition hover:text-[var(--ink)]"
+            >
+              Quitar filtros
+            </button>
+          ) : null}
+        </div>
+
         {sorted.length === 0 ? (
           <p className="rounded-xl border border-dashed border-[var(--border)] px-4 py-8 text-center text-sm text-[var(--ink-faint)]">
-            No hay fechas guardadas. Usa el formulario de arriba para añadir la primera.
+            {deadlines.length === 0
+              ? "No hay fechas guardadas. Usa el formulario de arriba para añadir la primera."
+              : "Ningún resultado con estos filtros."}
           </p>
         ) : (
           <ul className="space-y-2">
