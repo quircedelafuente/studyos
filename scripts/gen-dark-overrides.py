@@ -70,8 +70,36 @@ def used_classes():
     return sorted(set(out.split()))
 
 
+GRADIENT_KINDS = ("from", "via", "to")
+
+ARBITRARY_RE = r"(bg|text|border|ring)-\[#[0-9a-fA-F]{3,8}\]"
+
+
+def arbitrary_classes():
+    """Clases tipo `bg-[#fffafa]`, que no salen de la paleta de Tailwind."""
+    out = subprocess.run(
+        ["grep", "-rohE", ARBITRARY_RE, str(ROOT / "src"), "--include=*.tsx"],
+        capture_output=True, text=True,
+    ).stdout
+    return sorted(set(out.split()))
+
+
+def relative_luminance(rgb):
+    def f(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (f(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
 def esc(c):
-    return c.replace("/", r"\/").replace(".", r"\.")
+    return (
+        c.replace("/", r"\/")
+        .replace(".", r"\.")
+        .replace("[", r"\[")
+        .replace("]", r"\]")
+        .replace("#", r"\#")
+    )
 
 
 def main():
@@ -85,13 +113,27 @@ def main():
         kind, hue, shade = m.group(1), m.group(2), m.group(3)
         sel = f'[data-theme="dark"] .{esc(cls)}'
         if hue == "white":
-            if kind in ("bg", "from", "to"):
+            if kind in GRADIENT_KINDS:
+                rules.append((sel, f"--tw-gradient-{kind}", "var(--surface)"))
+            elif kind == "bg":
                 rules.append((sel, "background-color", "var(--surface)"))
             elif kind == "border":
                 rules.append((sel, "border-color", "var(--border)"))
+            elif kind == "ring":
+                rules.append((sel, "--tw-ring-color", "var(--border)"))
             continue
         if hue == "black":
-            continue  # overlays: en oscuro ya funcionan
+            # Los negros translúcidos se usan como líneas y separadores sobre
+            # fondo claro: sobre negro desaparecen, así que se invierten. Los
+            # opacos (scrims de modal) se dejan, que ahí siguen valiendo.
+            alpha = int(m.group(4).lstrip("/")) if m.group(4) else 100
+            if kind == "bg" and alpha <= 30:
+                rules.append((sel, "background-color", f"rgba(255,255,255,{alpha / 100:.2f})"))
+            elif kind == "border":
+                rules.append((sel, "border-color", "var(--border-strong)"))
+            elif kind == "ring" and alpha <= 30:
+                rules.append((sel, "--tw-ring-color", f"rgba(255,255,255,{alpha / 100:.2f})"))
+            continue
         s = int(shade or 500)
         if hue in NEUTRALS:
             if kind in ("bg", "from", "to"):
@@ -106,7 +148,10 @@ def main():
         base = pal.get((hue, 500))
         if not base:
             continue
-        if kind in ("bg", "from", "to"):
+        if kind in GRADIENT_KINDS:
+            # Las paradas de gradiente NO son background-color: van por variable.
+            rules.append((sel, f"--tw-gradient-{kind}", hexs(mix(base, surface, 0.16 if s <= 300 else 0.5))))
+        elif kind == "bg":
             rules.append((sel, "background-color", hexs(mix(base, surface, 0.16 if s <= 300 else 0.55))))
         elif kind == "text":
             light = pal.get((hue, 300)) or pal.get((hue, 400)) or base
@@ -114,6 +159,34 @@ def main():
         elif kind in ("border", "ring"):
             prop = "border-color" if kind == "border" else "--tw-ring-color"
             rules.append((sel, prop, hexs(mix(base, border, 0.35))))
+
+    # ── Clases con valor arbitrario: bg-[#fffafa], text-[#111], border-[#eee] ──
+    # No las cubre la paleta de Tailwind, así que se clasifican por luminancia:
+    # lo muy claro pasa a superficie oscura, lo muy oscuro a tinta clara.
+    for cls in arbitrary_classes():
+        m = re.match(r"(bg|text|border|ring)-\[#([0-9a-fA-F]{3,8})\]$", cls)
+        if not m:
+            continue
+        kind, raw = m.groups()
+        if len(raw) == 3:
+            raw = "".join(c * 2 for c in raw)
+        rgb = hex2rgb("#" + raw[:6])
+        L = relative_luminance(rgb)
+        sel = f'[data-theme="dark"] .{esc(cls)}'
+        if kind == "bg":
+            if L > 0.75:
+                rules.append((sel, "background-color", "var(--surface)"))
+            elif L > 0.45:
+                rules.append((sel, "background-color", "var(--surface-muted)"))
+        elif kind == "text":
+            if L < 0.25:
+                rules.append((sel, "color", "var(--ink)"))
+            elif L < 0.5:
+                rules.append((sel, "color", "var(--ink-muted)"))
+        elif kind in ("border", "ring"):
+            if L > 0.6:
+                prop = "border-color" if kind == "border" else "--tw-ring-color"
+                rules.append((sel, prop, "var(--border)"))
 
     by = collections.OrderedDict()
     for sel, prop, val in rules:

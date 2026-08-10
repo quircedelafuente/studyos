@@ -18,10 +18,15 @@
 [data-theme="dark"] .bg-amber-950\/40 {
   background-color: #935c07 !important;
 }
+[data-theme="dark"] .bg-black\/10 {
+  background-color: rgba(255,255,255,0.10) !important;
+}
+[data-theme="dark"] .bg-black\/5 {
+  background-color: rgba(255,255,255,0.05) !important;
+}
 [data-theme="dark"] .bg-blue-100,
 [data-theme="dark"] .bg-blue-200\/20,
-[data-theme="dark"] .bg-blue-50,
-[data-theme="dark"] .from-blue-50\/50 {
+[data-theme="dark"] .bg-blue-50 {
   background-color: #142236 !important;
 }
 [data-theme="dark"] .bg-blue-600\/10,
@@ -47,8 +52,7 @@
 [data-theme="dark"] .bg-green-500\/20 {
   background-color: #077633 !important;
 }
-[data-theme="dark"] .bg-indigo-50,
-[data-theme="dark"] .to-indigo-50\/30 {
+[data-theme="dark"] .bg-indigo-50 {
   background-color: #1d1d36 !important;
 }
 [data-theme="dark"] .bg-indigo-500,
@@ -90,10 +94,7 @@
 [data-theme="dark"] .bg-white\/90,
 [data-theme="dark"] .bg-zinc-300,
 [data-theme="dark"] .bg-zinc-300\/40,
-[data-theme="dark"] .from-white,
-[data-theme="dark"] .from-white\/90,
-[data-theme="dark"] .from-white\/98,
-[data-theme="dark"] .to-white\/40 {
+[data-theme="dark"] .bg-\[\#fffafa\] {
   background-color: var(--surface) !important;
 }
 [data-theme="dark"] .bg-zinc-100,
@@ -131,6 +132,10 @@
 [data-theme="dark"] .border-amber-500\/40,
 [data-theme="dark"] .border-amber-900\/40 {
   border-color: #714e19 !important;
+}
+[data-theme="dark"] .border-black,
+[data-theme="dark"] .border-black\/5 {
+  border-color: var(--border-strong) !important;
 }
 [data-theme="dark"] .border-blue-100,
 [data-theme="dark"] .border-blue-200,
@@ -177,9 +182,29 @@
 [data-theme="dark"] .border-zinc-200\/90 {
   border-color: var(--border) !important;
 }
+[data-theme="dark"] .from-blue-50\/50 {
+  --tw-gradient-from: #142236 !important;
+}
+[data-theme="dark"] .from-white,
+[data-theme="dark"] .from-white\/90,
+[data-theme="dark"] .from-white\/98 {
+  --tw-gradient-from: var(--surface) !important;
+}
 [data-theme="dark"] .ring-amber-200\/70,
 [data-theme="dark"] .ring-amber-500\/25 {
   --tw-ring-color: #714e19 !important;
+}
+[data-theme="dark"] .ring-black\/10 {
+  --tw-ring-color: rgba(255,255,255,0.10) !important;
+}
+[data-theme="dark"] .ring-black\/20 {
+  --tw-ring-color: rgba(255,255,255,0.20) !important;
+}
+[data-theme="dark"] .ring-black\/25 {
+  --tw-ring-color: rgba(255,255,255,0.25) !important;
+}
+[data-theme="dark"] .ring-black\/5 {
+  --tw-ring-color: rgba(255,255,255,0.05) !important;
 }
 [data-theme="dark"] .ring-emerald-200,
 [data-theme="dark"] .ring-emerald-200\/70,
@@ -191,6 +216,8 @@
 [data-theme="dark"] .ring-red-200\/70 {
   --tw-ring-color: #70282c !important;
 }
+[data-theme="dark"] .ring-white,
+[data-theme="dark"] .ring-white\/10,
 [data-theme="dark"] .ring-zinc-200\/50,
 [data-theme="dark"] .ring-zinc-200\/60,
 [data-theme="dark"] .ring-zinc-200\/70,
@@ -274,4 +301,10 @@
 [data-theme="dark"] .text-zinc-800,
 [data-theme="dark"] .text-zinc-900 {
   color: var(--ink) !important;
+}
+[data-theme="dark"] .to-indigo-50\/30 {
+  --tw-gradient-to: #1d1d36 !important;
+}
+[data-theme="dark"] .to-white\/40 {
+  --tw-gradient-to: var(--surface) !important;
 }
