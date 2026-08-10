@@ -599,7 +599,9 @@ export function HabitTrackerPanel() {
             </ul>
           )}
 
-          <div className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+          {/* Tope de ancho: sin él, en pantalla panorámica los siete días se
+              estirarían a celdas de más de 300 px. */}
+          <div className="mt-8 max-w-5xl rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-start justify-between gap-3">
@@ -644,9 +646,9 @@ export function HabitTrackerPanel() {
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-7 gap-2">
+            <div className="mt-4 grid grid-cols-7 gap-1.5 md:gap-2">
               {["L", "M", "X", "J", "V", "S", "D"].map((w) => (
-                <div key={w} className="text-center text-[10px] font-semibold text-[var(--ink-faint)]">
+                <div key={w} className="text-center text-xs font-semibold text-[var(--ink-faint)]">
                   {w}
                 </div>
               ))}
@@ -677,15 +679,16 @@ export function HabitTrackerPanel() {
                       ? `${c.ymd} · Sin hábitos`
                       : `${c.ymd} · ${meta.done}/${meta.total} · ${meta.pct}%`;
                 return (
-                  <div key={c.ymd} className="flex justify-center">
-                    <div
-                      title={tooltip}
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl border text-xs font-bold tabular-nums ${base} ${
-                        c.inMonth ? "" : "opacity-45"
-                      } ${isToday ? "ring-2 ring-[var(--ink)]/20" : ""}`}
-                    >
-                      {Number.isFinite(dayNum) ? dayNum : "·"}
-                    </div>
+                  /* La celda llena su columna en vez de ser un cuadrado fijo de
+                     40 px: así crece con el ancho disponible y no deja huecos. */
+                  <div
+                    key={c.ymd}
+                    title={tooltip}
+                    className={`flex aspect-square w-full items-center justify-center rounded-xl border text-sm font-bold tabular-nums md:text-base ${base} ${
+                      c.inMonth ? "" : "opacity-45"
+                    } ${isToday ? "ring-2 ring-[var(--ink)]/20" : ""}`}
+                  >
+                    {Number.isFinite(dayNum) ? dayNum : "·"}
                   </div>
                 );
               })}
