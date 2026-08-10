@@ -20,7 +20,18 @@ import {
 } from "@/lib/user-cloud-storage";
 
 const PUSH_INTERVAL_MS = 12_000;
-const PULL_INTERVAL_MS = 12_000;
+
+/**
+ * Cadencia del pull. Es adaptativa porque desde que el pull es condicional
+ * (304 + ETag) una comprobación cuesta ~200 B en vez de ~450 KB: podemos
+ * mirar cada 3 s mientras estás usando la app y espaciar a 30 s cuando no.
+ * Con la pestaña oculta no se pulsa nada — al volver, el listener de foco
+ * dispara un pull inmediato.
+ */
+const PULL_INTERVAL_ACTIVE_MS = 3_000;
+const PULL_INTERVAL_IDLE_MS = 30_000;
+/** Tiempo sin interacción tras el cual se considera que estás inactivo. */
+const ACTIVITY_WINDOW_MS = 60_000;
 
 /** Mensaje legible desde JSON `{ error, detail }` o cuerpo texto. */
 async function readApiErrorMessage(res: Response): Promise<string> {
@@ -79,6 +90,10 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const userId = session?.user?.id;
   const lastPushedSig = useRef<string>("");
   const pullInFlight = useRef(false);
+  /** ETag de la última versión recibida del servidor (para el pull condicional). */
+  const etagRef = useRef<string | null>(null);
+  /** Marca de la última interacción del usuario, para la cadencia adaptativa. */
+  const lastActivityRef = useRef<number>(Date.now());
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>(initialStatus);
 
   const patch = useCallback((partial: Partial<CloudSyncStatus>) => {
@@ -135,7 +150,22 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     pullInFlight.current = true;
     patch({ isReceiving: true, lastReceiveError: null });
     try {
-      const res = await fetch("/api/user-sync", { credentials: "same-origin" });
+      const headers: Record<string, string> = {};
+      if (etagRef.current) headers["If-None-Match"] = etagRef.current;
+      const res = await fetch("/api/user-sync", {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers,
+      });
+      /** Nada ha cambiado en el servidor: no hay payload que procesar. */
+      if (res.status === 304) {
+        patch({
+          cloudEnabled: true,
+          lastReceiveOkAt: Date.now(),
+          lastReceiveError: null,
+        });
+        return;
+      }
       if (res.status === 503) {
         const data = (await res.json().catch(() => ({}))) as {
           disabled?: boolean;
@@ -164,6 +194,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         patch({ cloudEnabled: false });
         return;
       }
+      etagRef.current = res.headers.get("ETag") ?? etagRef.current;
       patch({
         cloudEnabled: true,
         lastReceiveOkAt: Date.now(),
@@ -201,6 +232,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (status !== "authenticated" || !userId) {
       lastPushedSig.current = "";
+      etagRef.current = null;
       setSyncStatus(initialStatus);
       return;
     }
@@ -236,6 +268,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           patch({ cloudEnabled: false, isReceiving: false, initialSyncDone: true });
           return;
         }
+        etagRef.current = res.headers.get("ETag") ?? null;
         patch({
           cloudEnabled: true,
           lastReceiveOkAt: Date.now(),
@@ -264,9 +297,13 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
            *   lo local + las claves que este dispositivo no tenía).
            */
           await push();
-          const res2 = await fetch("/api/user-sync", { credentials: "same-origin" });
+          const res2 = await fetch("/api/user-sync", {
+            credentials: "same-origin",
+            cache: "no-store",
+          });
           if (res2.ok) {
             const data2 = (await res2.json()) as { entries?: Record<string, string> };
+            etagRef.current = res2.headers.get("ETag") ?? etagRef.current;
             applyCloudEntries(data2.entries ?? {});
             lastPushedSig.current = syncSnapshotSignature(collectSyncableEntries());
           }
@@ -306,26 +343,84 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     };
   }, [status, userId, push, pull]);
 
+  /** Registra interacción para decidir si la cadencia es rápida o lenta. */
   useEffect(() => {
     if (status !== "authenticated" || !userId) return;
+    const bump = () => {
+      lastActivityRef.current = Date.now();
+    };
+    const opts: AddEventListenerOptions = { passive: true };
+    window.addEventListener("pointerdown", bump, opts);
+    window.addEventListener("keydown", bump, opts);
+    window.addEventListener("wheel", bump, opts);
+    window.addEventListener("touchstart", bump, opts);
+    return () => {
+      window.removeEventListener("pointerdown", bump, opts);
+      window.removeEventListener("keydown", bump, opts);
+      window.removeEventListener("wheel", bump, opts);
+      window.removeEventListener("touchstart", bump, opts);
+    };
+  }, [status, userId]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !userId) return;
+
+    /**
+     * El push mantiene su cadencia fija: `push()` sale antes de tocar la red si
+     * la firma local no ha cambiado, así que en reposo no cuesta nada.
+     */
     const pushId = window.setInterval(() => {
       void push();
     }, PUSH_INTERVAL_MS);
-    const pullId = window.setInterval(() => {
+
+    /**
+     * El pull se auto-reprograma en vez de usar setInterval, para poder cambiar
+     * el ritmo sobre la marcha y no disparar nada con la pestaña oculta.
+     */
+    let stopped = false;
+    let pullTimer: number | undefined;
+
+    const nextDelay = () =>
+      Date.now() - lastActivityRef.current < ACTIVITY_WINDOW_MS
+        ? PULL_INTERVAL_ACTIVE_MS
+        : PULL_INTERVAL_IDLE_MS;
+
+    const schedule = (delay: number) => {
+      if (stopped) return;
+      pullTimer = window.setTimeout(tick, delay);
+    };
+
+    const tick = async () => {
+      if (stopped) return;
+      if (document.visibilityState === "visible") {
+        await pull();
+      }
+      schedule(nextDelay());
+    };
+
+    schedule(nextDelay());
+
+    /** Al volver a la app: pull inmediato. Al irte: push para no perder nada. */
+    const onVisible = () => {
+      lastActivityRef.current = Date.now();
       void pull();
-    }, PULL_INTERVAL_MS);
+    };
     const onVis = () => {
       if (document.visibilityState === "hidden") {
         void push();
       } else {
-        void pull();
+        onVisible();
       }
     };
     document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVisible);
+
     return () => {
+      stopped = true;
       window.clearInterval(pushId);
-      window.clearInterval(pullId);
+      if (pullTimer) window.clearTimeout(pullTimer);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onVisible);
     };
   }, [status, userId, pull, push]);
 

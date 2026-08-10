@@ -20,6 +20,27 @@ function stableUserKey(session: { user?: { email?: string | null; id?: string } 
   return email || null;
 }
 
+/**
+ * ETag opaco derivado de `updated_at`. Se compara por igualdad exacta, no por
+ * orden, así que no depende de relojes sincronizados entre dispositivos.
+ */
+function etagFrom(updatedAt: unknown): string | null {
+  if (updatedAt === null || updatedAt === undefined) return null;
+  const date = updatedAt instanceof Date ? updatedAt : new Date(String(updatedAt));
+  const ms = date.getTime();
+  return Number.isFinite(ms) ? `W/"${ms}"` : null;
+}
+
+/** Lee solo la marca de tiempo: no toca `payload`, así que no gasta egress. */
+async function readEtag(
+  sql: ReturnType<typeof getSql> & object,
+  userId: string,
+): Promise<string | null> {
+  const rows = await sql`SELECT updated_at FROM user_app_kv WHERE user_id = ${userId}`;
+  const row = rows[0] as { updated_at?: unknown } | undefined;
+  return row ? etagFrom(row.updated_at) : null;
+}
+
 async function tryReadPayload(
   sql: ReturnType<typeof getSql> & object,
   userId: string,
@@ -131,7 +152,7 @@ function mergeEntryValue(key: string, existingStr: string, incomingStr: string):
   return incomingStr;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const sql = getSql();
   if (!sql) {
     return NextResponse.json({ disabled: true, entries: {} }, { status: 503 });
@@ -142,8 +163,25 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const legacyId = session?.user?.id;
+  const ifNoneMatch = request.headers.get("if-none-match");
 
   try {
+    /**
+     * Pull condicional: si el cliente ya tiene la última versión, respondemos
+     * 304 sin leer `payload`. Es la diferencia entre mover ~450 KB o ~200 B.
+     * Sin `If-None-Match` (primer pull tras autenticarse) seguimos por el
+     * camino completo, que además hace la migración de `legacyId`.
+     */
+    if (ifNoneMatch) {
+      const currentEtag = await readEtag(sql, emailKey);
+      if (currentEtag && currentEtag === ifNoneMatch) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: { ETag: currentEtag, "Cache-Control": "no-store" },
+        });
+      }
+    }
+
     const emailEntries = await tryReadPayload(sql, emailKey);
     let entries = emailEntries;
 
@@ -166,7 +204,16 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ entries: entries ?? {} });
+    const etag = await readEtag(sql, emailKey);
+    return NextResponse.json(
+      { entries: entries ?? {} },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+          ...(etag ? { ETag: etag } : {}),
+        },
+      },
+    );
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     console.error("[user-sync GET]", detail);
