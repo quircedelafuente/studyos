@@ -215,6 +215,11 @@ const SEED: SeedEntry[] = [
   },
 ];
 
+function subjectForSeedId(id: string): string | null {
+  const hit = SUBJECT_NAME_BY_ID_PREFIX.find(([p]) => id.startsWith(p));
+  return hit ? hit[1] : null;
+}
+
 function toDeadline(entry: SeedEntry, createdAt: string): ImportantDeadline {
   return {
     id: `${SEED_ID_PREFIX}${entry.id}`,
@@ -223,6 +228,7 @@ function toDeadline(entry: SeedEntry, createdAt: string): ImportantDeadline {
     time: entry.time,
     durationMinutes: entry.time ? SLOT_MINUTES : null,
     courseId: null,
+    subject: subjectForSeedId(entry.id),
     tagIds: [],
     calendarColorId: entry.color,
     createdAt,
@@ -281,6 +287,16 @@ export function seedSemesterExamsOnce(): number {
 export const SEED_COLORS_MIGRATION_FLAG_KEY =
   "iestudio-exams-2026-fall-colors-v4";
 
+/** Trozo del id que identifica la asignatura → su nombre para filtrar. */
+export const SUBJECT_NAME_BY_ID_PREFIX: ReadonlyArray<readonly [string, string]> = [
+  ["calc-", "Calculus for Computer Science"],
+  ["fin-", "Corporate Finance"],
+  ["macro-", "Macroeconomics"],
+  ["mkt-", "Marketing Management"],
+  ["hist-", "Big History of Ideas and Innovation"],
+  ["prog-", "Computer Programming 1"],
+];
+
 /** Trozo del id que identifica la asignatura → color que le toca ahora. */
 const SUBJECT_COLOR_BY_ID_PREFIX: ReadonlyArray<readonly [string, string]> = [
   ["calc-", COLOR.calculus],
@@ -315,6 +331,35 @@ export function migrateSeedColorsOnce(): number {
     });
     if (changed > 0) saveImportantDeadlines(next);
     window.localStorage.setItem(SEED_COLORS_MIGRATION_FLAG_KEY, "1");
+    return changed;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Rellena `subject` en los deadlines ya sembrados.
+ *
+ * Los primeros se crearon sin asignatura, así que el filtro por asignatura de
+ * «Exámenes y fechas» no tenía nada que ofrecer. Se deduce del prefijo del id.
+ */
+export const SUBJECT_BACKFILL_FLAG_KEY = "iestudio-exams-2026-fall-subjects-v1";
+
+export function backfillSeedSubjectsOnce(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    if (window.localStorage.getItem(SUBJECT_BACKFILL_FLAG_KEY) === "1") return 0;
+    const all = loadImportantDeadlines();
+    let changed = 0;
+    const next = all.map((d) => {
+      if (!d.id.startsWith(SEED_ID_PREFIX) || d.subject) return d;
+      const name = subjectForSeedId(d.id.slice(SEED_ID_PREFIX.length));
+      if (!name) return d;
+      changed += 1;
+      return { ...d, subject: name };
+    });
+    if (changed > 0) saveImportantDeadlines(next);
+    window.localStorage.setItem(SUBJECT_BACKFILL_FLAG_KEY, "1");
     return changed;
   } catch {
     return 0;

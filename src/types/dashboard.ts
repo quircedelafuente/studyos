@@ -135,6 +135,15 @@ export type ImportantDeadline = {
   durationMinutes?: number | null;
   /** Curso manual (`ManualCourse.id`); null = sin asignatura. */
   courseId: string | null;
+  /**
+   * Nombre de la asignatura escrito en el propio deadline.
+   *
+   * Existe porque `courseId` apunta al registro de cursos, que es **local de
+   * cada dispositivo** (queda fuera de la sincronización): en el iPad no
+   * resolvería a nada. Guardando el nombre aquí, la asignatura viaja con el
+   * deadline y se puede filtrar en cualquier dispositivo.
+   */
+  subject?: string | null;
   /** Ids de {@link DeadlineTag}; vacío si no hay etiquetas. */
   tagIds: string[];
   /** colorId de la paleta Google Calendar ("1"…"11") en vistas del calendario. */

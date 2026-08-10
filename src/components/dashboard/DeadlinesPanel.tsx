@@ -694,14 +694,28 @@ export function DeadlinesPanel() {
   const [filterTagId, setFilterTagId] = useState<string>("");
   const [hidePast, setHidePast] = useState(false);
 
+  /**
+   * Clave de asignatura de un deadline. Se prefiere `subject`, que viaja dentro
+   * del propio deadline, sobre `courseId`, que apunta al registro local de
+   * cursos y no existe en los demás dispositivos.
+   */
+  function subjectKeyOf(d: ImportantDeadline): string {
+    if (d.subject) return `s:${d.subject}`;
+    if (d.courseId) return `c:${d.courseId}`;
+    return "";
+  }
+
   /** Asignaturas que aparecen realmente en la lista, para no ofrecer vacías. */
   const courseFilterOptions = useMemo(() => {
-    const ids = new Set(deadlines.map((d) => d.courseId ?? ""));
-    const opts = [...ids]
-      .filter((id) => id !== "")
-      .map((id) => ({ id, label: courseLabel(id) }))
+    const keys = new Set(deadlines.map(subjectKeyOf));
+    const opts = [...keys]
+      .filter((k) => k !== "")
+      .map((k) => ({
+        id: k,
+        label: k.startsWith("s:") ? k.slice(2) : courseLabel(k.slice(2)),
+      }))
       .sort((a, b) => a.label.localeCompare(b.label, "es"));
-    if (ids.has("")) opts.push({ id: "__none__", label: "Sin asignatura" });
+    if (keys.has("")) opts.push({ id: "__none__", label: "Sin asignatura" });
     return opts;
     // `courseLabel` depende de displayedCourses, que ya está en las dependencias.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -721,8 +735,9 @@ export function DeadlinesPanel() {
   const sorted = useMemo(() => {
     const today = todayYmd();
     const filtered = deadlines.filter((d) => {
-      if (filterCourseId === "__none__" && d.courseId) return false;
-      if (filterCourseId && filterCourseId !== "__none__" && d.courseId !== filterCourseId) {
+      const key = subjectKeyOf(d);
+      if (filterCourseId === "__none__" && key !== "") return false;
+      if (filterCourseId && filterCourseId !== "__none__" && key !== filterCourseId) {
         return false;
       }
       if (filterTagId && !d.tagIds.includes(filterTagId)) return false;

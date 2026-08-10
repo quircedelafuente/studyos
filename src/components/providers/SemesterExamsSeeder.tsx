@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
 import {
+  backfillSeedSubjectsOnce,
   migrateSeedColorsOnce,
   seedSemesterExamsOnce,
 } from "@/lib/semester-exams-seed";
@@ -32,6 +33,10 @@ export function SemesterExamsSeeder() {
     const recolored = migrateSeedColorsOnce();
     if (recolored > 0) {
       console.log(`[exams-seed] ${recolored} eventos recoloreados`);
+    }
+    const subjects = backfillSeedSubjectsOnce();
+    if (subjects > 0) {
+      console.log(`[exams-seed] ${subjects} fechas con asignatura asignada`);
     }
   }, [sync?.initialSyncDone, sync?.cloudEnabled]);
 

@@ -57,6 +57,8 @@ function toImportantDeadline(x: unknown): ImportantDeadline | null {
     time: normalizeTime(o.time),
     durationMinutes: durationMinutes ?? null,
     courseId: typeof o.courseId === "string" ? o.courseId : null,
+    subject:
+      typeof o.subject === "string" && o.subject.trim() ? o.subject.trim() : null,
     tagIds,
     calendarColorId,
     createdAt: o.createdAt as string,
