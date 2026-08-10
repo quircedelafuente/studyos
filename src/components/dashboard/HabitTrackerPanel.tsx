@@ -498,8 +498,10 @@ export function HabitTrackerPanel() {
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-6">
-        <div className="mx-auto max-w-3xl">
+      {/* Mismo respiro que la página de Tareas, y sin columna centrada: el
+          contenido usa todo el ancho disponible. */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-10 md:py-8">
+        <div>
           <div className="mb-4 flex items-end justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-[var(--ink)]">Hoy</p>
@@ -514,7 +516,7 @@ export function HabitTrackerPanel() {
               No tienes hábitos todavía. Pulsa <strong className="text-[var(--ink)]">Nuevo</strong> para crear el primero.
             </div>
           ) : (
-            <ul className="space-y-3">
+            <ul className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
               {activeToday.map((h) => {
                 const pk = periodKeyForHabitToday(h);
                 const meta = progressMeta(h, pk);
