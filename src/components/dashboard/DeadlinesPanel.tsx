@@ -21,6 +21,7 @@ import { BB_COURSES_STORAGE_CHANGED } from "@/lib/blackboard-storage";
 import { BB_COURSE_CURATION_CHANGED } from "@/lib/bb-course-curation";
 import { BB_COURSE_FILTER_CHANGED } from "@/lib/bb-course-filter-prefs";
 import {
+  DEFAULT_DEADLINE_COLOR_ID,
   LOCAL_DEADLINE_COLOR_IDS,
   GOOGLE_EVENT_COLOR_LABELS,
   getGoogleEventColorStyle,
@@ -597,7 +598,7 @@ export function DeadlinesPanel() {
   const coursePickerRef = useRef<HTMLDivElement>(null);
   const courseSearchInputRef = useRef<HTMLInputElement>(null);
   const [formTagIds, setFormTagIds] = useState<string[]>([]);
-  const [formColorId, setFormColorId] = useState("6");
+  const [formColorId, setFormColorId] = useState(DEFAULT_DEADLINE_COLOR_ID);
   const [editingDeadline, setEditingDeadline] = useState<ImportantDeadline | null>(null);
   const [studyPlansRevision, setStudyPlansRevision] = useState(0);
 
@@ -737,7 +738,7 @@ export function DeadlinesPanel() {
     setCourseSearch("");
     setCoursePickerOpen(false);
     setFormTagIds([]);
-    setFormColorId("6");
+    setFormColorId(DEFAULT_DEADLINE_COLOR_ID);
   }
 
   function updateDeadlineCalendarColor(id: string, calendarColorId: string) {

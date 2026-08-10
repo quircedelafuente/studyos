@@ -884,30 +884,30 @@ function StudyTrendChart({
   const todayIdx = data.findIndex((d) => d.isToday);
   return (
     <div className="w-full">
-      <svg className="w-full" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="StudyTrend: sesiones de estudio">
+      <svg className="w-full text-[var(--ink)]" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="StudyTrend: sesiones de estudio">
         <defs>
           <linearGradient id="stArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(99,102,241,0.18)" />
-            <stop offset="100%" stopColor="rgba(99,102,241,0)" />
+            <stop offset="0%" stopColor="rgba(2,127,247,0.22)" />
+            <stop offset="100%" stopColor="rgba(2,127,247,0)" />
           </linearGradient>
         </defs>
         {[0.25, 0.5, 0.75, 1].map((f) => (
           <line key={f} x1={PX} x2={W - PX} y1={toY(f * maxH)} y2={toY(f * maxH)}
-            stroke="rgba(0,0,0,0.06)" strokeDasharray="3 6" />
+            stroke="currentColor" strokeOpacity={0.12} strokeDasharray="3 6" />
         ))}
         {todayIdx >= 0 && (
           <line x1={pts[todayIdx]!.x} x2={pts[todayIdx]!.x} y1={PY} y2={PY + CHART_H}
-            stroke="rgba(99,102,241,0.3)" strokeWidth={1} strokeDasharray="3 4" />
+            stroke="rgba(2,127,247,0.35)" strokeWidth={1} strokeDasharray="3 4" />
         )}
         {areaPath && <path d={areaPath} fill="url(#stArea)" />}
-        <path d={linePath} fill="none" stroke="rgb(99,102,241)" strokeWidth="2"
+        <path d={linePath} fill="none" stroke="rgb(2,127,247)" strokeWidth="2"
           strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
         {pts.map((p, i) => {
           if (p.hours === 0 && !p.isToday) return null;
           return (
             <circle key={i} cx={p.x} cy={p.y} r={p.isToday ? 4 : 2.5}
-              fill={p.isToday ? "rgb(99,102,241)" : "white"}
-              stroke="rgb(99,102,241)" strokeWidth={p.isToday ? 2 : 1.5} />
+              style={{ fill: p.isToday ? "rgb(2,127,247)" : "var(--surface)" }}
+              stroke="rgb(2,127,247)" strokeWidth={p.isToday ? 2 : 1.5} />
           );
         })}
         {pts.map((p, i) => {
@@ -916,13 +916,13 @@ function StudyTrendChart({
           return (
             <text key={i} x={p.x} y={H - 2} textAnchor="middle" fontSize="8"
               fontWeight={p.isToday ? "800" : "500"}
-              fill={p.isToday ? "rgb(99,102,241)" : "rgba(0,0,0,0.35)"}>
+              style={{ fill: p.isToday ? "rgb(2,127,247)" : "var(--ink-muted)" }}>
               {p.label}
             </text>
           );
         })}
         {maxH > 0.5 && (
-          <text x={PX + 1} y={PY + 9} fontSize="7" fill="rgba(99,102,241,0.55)">{maxH.toFixed(1)}h</text>
+          <text x={PX + 1} y={PY + 9} fontSize="7" fill="rgba(2,127,247,0.65)">{maxH.toFixed(1)}h</text>
         )}
       </svg>
     </div>

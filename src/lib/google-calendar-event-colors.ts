@@ -30,6 +30,12 @@ export type GoogleCalendarEventColorId =
  */
 export const LOCAL_ONLY_COLOR_IDS = ["12", "13", "14", "15", "16", "17"] as const;
 
+/**
+ * Color preseleccionado al crear un deadline en «Exámenes y fechas».
+ * Es el fucsia (#F700D1), uno de los seis neón; antes era el naranja de Google.
+ */
+export const DEFAULT_DEADLINE_COLOR_ID = "12";
+
 /** Colores seleccionables para deadlines locales: los de Google + los propios. */
 export const LOCAL_DEADLINE_COLOR_IDS = [
   ...GOOGLE_CALENDAR_EVENT_COLOR_IDS,
