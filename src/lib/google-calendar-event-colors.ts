@@ -21,19 +21,19 @@ export type GoogleCalendarEventColorId =
   (typeof GOOGLE_CALENDAR_EVENT_COLOR_IDS)[number];
 
 /**
- * Color propio de la app, fuera de la paleta de Google.
+ * Colores propios de la app, fuera de la paleta de Google ("12"…"17").
  *
  * La API de Google solo acepta `colorId` "1"…"11" y nuestro validador descarta
- * cualquier otro, así que este id **solo vale para eventos locales**
- * («Exámenes y fechas»). Si se ofreciera al crear un evento de Google, se
- * perdería en silencio al guardar.
+ * cualquier otro, así que estos ids **solo valen para eventos locales**
+ * («Exámenes y fechas»). Si se ofrecieran al crear un evento de Google, se
+ * perderían en silencio al guardar.
  */
-export const LOCAL_ONLY_COLOR_ID = "12";
+export const LOCAL_ONLY_COLOR_IDS = ["12", "13", "14", "15", "16", "17"] as const;
 
-/** Colores seleccionables para deadlines locales: los de Google + el propio. */
+/** Colores seleccionables para deadlines locales: los de Google + los propios. */
 export const LOCAL_DEADLINE_COLOR_IDS = [
   ...GOOGLE_CALENDAR_EVENT_COLOR_IDS,
-  LOCAL_ONLY_COLOR_ID,
+  ...LOCAL_ONLY_COLOR_IDS,
 ] as const;
 
 export type GoogleEventColorStyle = {
@@ -129,17 +129,59 @@ const PALETTE: Record<string, GoogleEventColorStyle> = {
     textMuted: "#c5221f",
   },
   /**
-   * Marrón — color propio, no existe en la paleta de Google. Elegido porque es
-   * el único tono que no se confunde con ninguno de los once anteriores: los
-   * huecos que quedaban (coral, azul y verde) chocaban con el rojo, el azul
-   * intenso y el verde bosque ya en uso.
+   * Colores propios de la asignatura ("12"…"17"), fuera de la paleta de Google.
+   *
+   * `borderLeft` es el hex elegido tal cual; el fondo y los dos tonos de texto
+   * se derivaron de él manteniendo el matiz, con el texto oscurecido hasta
+   * cumplir contraste AA (≥ 4.5:1) sobre su propio fondo.
    */
+  /** Fucsia — Calculus */
   "12": {
-    bg: "#efebe9",
-    border: "rgba(121, 85, 72, 0.4)",
-    borderLeft: "#795548",
-    text: "#4e342e",
-    textMuted: "#6d4c41",
+    bg: "#fee7fa",
+    border: "rgba(247, 0, 209, 0.45)",
+    borderLeft: "#f700d1",
+    text: "#c700a8",
+    textMuted: "#f000cb",
+  },
+  /** Azul — Corporate Finance */
+  "13": {
+    bg: "#e7f2fe",
+    border: "rgba(2, 127, 247, 0.45)",
+    borderLeft: "#027ff7",
+    text: "#0268ca",
+    textMuted: "#027df3",
+  },
+  /** Verde lima — Macroeconomics */
+  "14": {
+    bg: "#f4fee7",
+    border: "rgba(146, 247, 5, 0.45)",
+    borderLeft: "#92f705",
+    text: "#4a7d03",
+    textMuted: "#62a503",
+  },
+  /** Violeta — Marketing */
+  "15": {
+    bg: "#f6e7fe",
+    border: "rgba(177, 48, 247, 0.45)",
+    borderLeft: "#b130f7",
+    text: "#8208c4",
+    textMuted: "#9c09ec",
+  },
+  /** Aguamarina — Big History */
+  "16": {
+    bg: "#e7fef8",
+    border: "rgba(0, 246, 189, 0.45)",
+    borderLeft: "#00f6bd",
+    text: "#008062",
+    textMuted: "#00a881",
+  },
+  /** Ámbar — Computer Programming 1 */
+  "17": {
+    bg: "#fef7e7",
+    border: "rgba(247, 173, 2, 0.45)",
+    borderLeft: "#f7ad02",
+    text: "#936701",
+    textMuted: "#bb8302",
   },
 };
 
@@ -171,5 +213,10 @@ export const GOOGLE_EVENT_COLOR_LABELS: Record<string, string> = {
   "9": "Azul intenso",
   "10": "Verde bosque",
   "11": "Rojo",
-  "12": "Marrón",
+  "12": "Fucsia",
+  "13": "Azul eléctrico",
+  "14": "Verde lima",
+  "15": "Violeta",
+  "16": "Aguamarina",
+  "17": "Ámbar",
 };

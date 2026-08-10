@@ -20,14 +20,17 @@ export const SEMESTER_EXAMS_SEED_FLAG_KEY = "iestudio-seeded-exams-2026-fall";
 /** Prefijo de los ids sembrados, para poder identificarlos después. */
 const SEED_ID_PREFIX = "exam-2026f-";
 
-/** Color por asignatura, en la paleta de Google Calendar ("1"…"11"). */
+/**
+ * Color por asignatura. Son los ids propios de la app ("12"…"17"), definidos en
+ * `google-calendar-event-colors`; no existen en la paleta de Google.
+ */
 const COLOR = {
-  calculus: "11", // rojo
-  finance: "9", // azul oscuro
-  macro: "10", // verde
-  marketing: "3", // morado
-  history: "12", // marrón (color propio de la app, ver google-calendar-event-colors)
-  programming: "7", // azul claro
+  calculus: "12", // #F700D1 fucsia
+  finance: "13", // #027FF7 azul
+  macro: "14", // #92F705 verde lima
+  marketing: "15", // #B130F7 violeta
+  history: "16", // #00F6BD aguamarina
+  programming: "17", // #F7AD02 ámbar
 } as const;
 
 /** Las clases duran 80 min y los exámenes ocupan el hueco completo. */
@@ -276,7 +279,7 @@ export function seedSemesterExamsOnce(): number {
  * Subir el sufijo (`-v3`, `-v4`…) vuelve a aplicar la tabla de colores actual.
  */
 export const SEED_COLORS_MIGRATION_FLAG_KEY =
-  "iestudio-exams-2026-fall-colors-v3";
+  "iestudio-exams-2026-fall-colors-v4";
 
 /** Trozo del id que identifica la asignatura → color que le toca ahora. */
 const SUBJECT_COLOR_BY_ID_PREFIX: ReadonlyArray<readonly [string, string]> = [
