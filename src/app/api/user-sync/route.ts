@@ -96,6 +96,14 @@ const NEWEST_WINS_KEYS = new Set([
 function itemId(item: unknown): string | null {
   if (!item || typeof item !== "object") return null;
   const o = item as Record<string, unknown>;
+  /**
+   * `arenaRunId` va primero a propósito: identifica la ejecución real, mientras
+   * que `completionId` se genera nuevo en cada guardado. Si dos dispositivos
+   * guardan la misma sesión, o uno la guarda antes de recibir la nube, salen
+   * dos registros del mismo run con completionIds distintos y la unión los
+   * conservaba los dos. Deduplicar por run evita esos clones.
+   */
+  if (typeof o.arenaRunId === "string") return o.arenaRunId;
   if (typeof o.completionId === "string") return o.completionId;
   if (typeof o.id === "string") return o.id;
   if (typeof o.completedAt === "string" && typeof o.key === "string")

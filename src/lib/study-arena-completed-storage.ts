@@ -101,8 +101,10 @@ export function loadCompletedSessions(): CompletedSession[] {
   const seen = new Set<string>();
   const list = loadRawCompletedSessions()
     .filter((s) => {
-      // Filtrar tombstoned
-      if (deleted.has(s.completionId)) return false;
+      // Tombstones: se guardan tanto completionId (histórico) como arenaRunId.
+      // Mirar los dos es lo que hace que borrar elimine también los clones del
+      // mismo run que haya podido crear la sincronización.
+      if (deleted.has(s.completionId) || deleted.has(s.arenaRunId)) return false;
       // Deduplicar por arenaRunId (puede haber duplicados por race en sync)
       if (seen.has(s.arenaRunId)) return false;
       seen.add(s.arenaRunId);
@@ -130,14 +132,29 @@ function saveCompletedSessionsList(sessions: CompletedSession[], immediate = fal
   }
 }
 
+/**
+ * Borra una sesión completada.
+ *
+ * Se marca el `arenaRunId` además del `completionId` porque la fusión en la nube
+ * puede haber dejado varios registros del mismo run con completionIds
+ * distintos. Marcando solo uno, los clones sobrevivían y al recargar la sesión
+ * reaparecía: se veía como si el borrado no hubiera funcionado.
+ */
 export function deleteCompletedSession(completionId: string): void {
-  // Añadir tombstone para que el merge del servidor no lo restaure
+  const existing = loadRawCompletedSessions();
+  const target = existing.find((s) => s.completionId === completionId);
+  const runId = target?.arenaRunId;
+
   const deleted = loadDeletedIds();
   deleted.add(completionId);
+  if (runId) deleted.add(runId);
   saveDeletedIds(deleted);
-  // Quitar del array local también
-  const existing = loadRawCompletedSessions();
-  saveCompletedSessionsList(existing.filter((s) => s.completionId !== completionId), true);
+
+  // Fuera del array local todos los registros de ese run, no solo el pulsado.
+  const next = existing.filter(
+    (s) => s.completionId !== completionId && (!runId || s.arenaRunId !== runId),
+  );
+  saveCompletedSessionsList(next, true);
 }
 
 export function saveCompletedSession(session: Omit<CompletedSession, "completionId" | "completedAt">): void {
