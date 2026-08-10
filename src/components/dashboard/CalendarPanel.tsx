@@ -422,7 +422,10 @@ export function CalendarPanel() {
   }
 
   return (
-    <div className="flex min-h-0 min-h-[70vh] flex-1 flex-col gap-4 px-3 py-4 md:px-6 md:py-5">
+    <div
+      data-calendar-dark
+      className="flex min-h-0 min-h-[70vh] flex-1 flex-col gap-4 px-3 py-4 md:px-6 md:py-5"
+    >
       {status === "unauthenticated" ? (
         <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 py-4">
           <button

@@ -119,6 +119,46 @@
   color: var(--on-accent) !important;
 }
 
+/*
+ * Calendario en oscuro: negro sólido, sin bandas claras.
+ *
+ * En lugar de perseguir clase por clase, se redefinen los tokens dentro del
+ * subárbol del calendario. Todas las reglas generadas resuelven a
+ * var(--surface) / var(--surface-muted), así que con esto la cabecera de días,
+ * el fondo de la rejilla, las celdas y las pastillas de número caen a negro de
+ * una vez. Los bordes se quedan en gris muy oscuro para que la rejilla siga
+ * siendo legible sin convertirse en una banda clara.
+ */
+[data-theme="dark"] [data-calendar-dark] {
+  --canvas: #000000;
+  --sidebar: #000000;
+  --surface: #000000;
+  --surface-muted: #000000;
+  --ink: #ffffff;
+  --ink-muted: #d4d4d4;
+  --ink-faint: #8a8a8a;
+  --border: #242424;
+}
+
+/*
+ * Los gradientes del calendario pintan por encima del fondo, así que se anulan
+ * para que quede el negro plano. Las pastillas de evento no se ven afectadas:
+ * llevan estilo en línea y ese gana siempre.
+ */
+[data-theme="dark"] [data-calendar-dark],
+[data-theme="dark"] [data-calendar-dark] [class*="bg-gradient-"],
+[data-theme="dark"] [data-calendar-dark] [class*="bg-linear-"] {
+  background-image: none !important;
+  background-color: #000000 !important;
+}
+
+/*
+ * Las sombras del calendario se dejan a propósito: son rgba negras, que sobre
+ * negro no se ven. Anularlas con `box-shadow: none` se llevaría por delante los
+ * `ring-*`, que en Tailwind se pintan como box-shadow y son las únicas líneas
+ * de la rejilla.
+ */
+
 /* Las imágenes y mapas de bits no deben invertirse, pero sí bajar de brillo. */
 [data-theme="dark"] img:not([src*=".svg"]) {
   filter: brightness(0.92);

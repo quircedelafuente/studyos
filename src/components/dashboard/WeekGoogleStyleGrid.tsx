@@ -201,7 +201,10 @@ export function WeekGoogleStyleGrid({
   );
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-white via-zinc-50/95 to-zinc-100/50 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.14)] ring-1 ring-zinc-200/70">
+    <div
+      data-calendar-dark
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-white via-zinc-50/95 to-zinc-100/50 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.14)] ring-1 ring-zinc-200/70"
+    >
       <div
         ref={scrollBodyRef}
         className="min-h-0 flex-1 overflow-y-auto overflow-x-auto scrollbar-hide"
