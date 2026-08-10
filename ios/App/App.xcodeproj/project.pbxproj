@@ -28,6 +28,7 @@
 		609F91D4499EB165C6EE8998 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1EC6900D695F1C0BD6E8C1FE /* ManagedSettings.framework */; };
 		648B1BBE4D92148CAA990368 /* WidgetDataPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41587BDF097B033E70ED9D3B /* WidgetDataPlugin.swift */; };
 		796276FC484176E20E262447 /* StudyWidget in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 309AEAB4F13A95EF6CD5124D /* StudyWidget */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7AE14BE30CBDF13DC3CB9A10 /* IEStudioWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D05DD8810632A6DB3F4940 /* IEStudioWidgetData.swift */; };
 		7E4A9C8C75F43037937DD937 /* TodaySessionWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A769A75E2CB0C359342C585D /* TodaySessionWidget.swift */; };
 		82D562DB4B2367D7560D044A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C28FFAC998FF4434FC648C66 /* WidgetKit.framework */; };
 		843B62EA64045A74632B67D9 /* SyncStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4831C4EA79661CE6759E89E /* SyncStore.swift */; };
@@ -40,6 +41,7 @@
 		9FFADD24B0A3CBE52BDA4636 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA2D7721DF7D58453FA6B23C /* AppSession.swift */; };
 		A05E434E3684065DD9E3E6EE /* Task.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59510917C1F0E98C4A9AB1C0 /* Task.swift */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
+		AEDEAC94B1C2798EDEF02DAE /* WidgetDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADE9F56A872EB6331F17D2D /* WidgetDataService.swift */; };
 		B1C2D3E4F5061728394A5B6C7 /* StudyTrendWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5B6C8 /* StudyTrendWidget.swift */; };
 		BD2779AFFD603D1EEA7D83FC /* StudySession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31A85CE38FAF09A0F518A57F /* StudySession.swift */; };
 		C71C08E3FE11E94E7654B72C /* ScreenTimePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47634CDE2B2654664E7D864 /* ScreenTimePlugin.swift */; };
@@ -108,6 +110,7 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		59510917C1F0E98C4A9AB1C0 /* Task.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Task.swift; path = Native/Models/Task.swift; sourceTree = "<group>"; };
+		5E34173382834D8630DDFEA2 /* IEStudioWidgetData.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IEStudioWidgetData.swift; path = ./StudyWidget/IEStudioWidgetData.swift; sourceTree = "<group>"; };
 		6603FD7FDF4DACBCB0E8F4C0 /* IEStudioApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IEStudioApp.swift; path = Native/IEStudioApp.swift; sourceTree = "<group>"; };
 		68B3C26B565138636E270789 /* Theme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Theme.swift; path = Native/DesignSystem/Theme.swift; sourceTree = "<group>"; };
 		83C08C24265EA0DC36EB8ED7 /* WidgetDataPlugin.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = WidgetDataPlugin.m; sourceTree = "<group>"; };
@@ -135,6 +138,7 @@
 		E870D315C3F550EA363D9A96 /* StudyWidgetLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StudyWidgetLiveActivity.swift; sourceTree = "<group>"; };
 		E8F0A1B2C3D4E5F60718293A3 /* DailyTasksWidgetIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyTasksWidgetIntents.swift; sourceTree = "<group>"; };
 		E9F0A1B2C3D4E5F6071829302 /* LockScreenDailyTasksWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LockScreenDailyTasksWidget.swift; sourceTree = "<group>"; };
+		EADE9F56A872EB6331F17D2D /* WidgetDataService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WidgetDataService.swift; path = Native/Core/WidgetDataService.swift; sourceTree = "<group>"; };
 		F3A98A4B8F8E125EAAE11ED4 /* EventColors.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EventColors.swift; path = Native/DesignSystem/EventColors.swift; sourceTree = "<group>"; };
 		F47634CDE2B2654664E7D864 /* ScreenTimePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenTimePlugin.swift; sourceTree = "<group>"; };
 		F9D05DD8810632A6DB3F4940 /* IEStudioWidgetData.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IEStudioWidgetData.swift; sourceTree = "<group>"; };
@@ -185,6 +189,7 @@
 				E8F0A1B2C3D4E5F60718293A3 /* DailyTasksWidgetIntents.swift */,
 				0C7C0E21A1B2C3D4E5F60717 /* HabitsWidget.swift */,
 				0C7C0E21A1B2C3D4E5F60719 /* HabitsWidgetIntents.swift */,
+				5E34173382834D8630DDFEA2 /* IEStudioWidgetData.swift */,
 			);
 			path = StudyWidget;
 			sourceTree = "<group>";
@@ -277,6 +282,7 @@
 				CA2D7721DF7D58453FA6B23C /* AppSession.swift */,
 				2291CCA57D444BD31AD24BEE /* StorageKeys.swift */,
 				B4831C4EA79661CE6759E89E /* SyncStore.swift */,
+				EADE9F56A872EB6331F17D2D /* WidgetDataService.swift */,
 			);
 			name = Core;
 			sourceTree = "<group>";
@@ -479,6 +485,8 @@
 				49904710F63A4082D40D25EC /* Habit.swift in Sources */,
 				BD2779AFFD603D1EEA7D83FC /* StudySession.swift in Sources */,
 				A05E434E3684065DD9E3E6EE /* Task.swift in Sources */,
+				AEDEAC94B1C2798EDEF02DAE /* WidgetDataService.swift in Sources */,
+				7AE14BE30CBDF13DC3CB9A10 /* IEStudioWidgetData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

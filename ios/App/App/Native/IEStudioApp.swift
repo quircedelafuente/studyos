@@ -108,7 +108,11 @@ struct IEStudioApp: App {
         // GET de sincronización contestaría 401 y marcaría `.unauthorized`.
         await session.start()
         didBootstrap = true
+        // Primero lo que hayan marcado los widgets interactivos: si se hiciera
+        // después del refresh, la descarga lo sobrescribiría.
+        await WidgetDataService.reconcileFromWidgets()
         await SyncStore.shared.refresh()
+        await WidgetDataService.rebuild()
     }
 
     private func handle(phase: ScenePhase) {
@@ -117,7 +121,7 @@ struct IEStudioApp: App {
             // Al volver de segundo plano puede haber cambios hechos en el
             // portátil; el GET es condicional, así que un 304 no cuesta nada.
             guard didBootstrap else { return }
-            Task { await SyncStore.shared.refresh() }
+            Task { await SyncStore.shared.refresh(); await WidgetDataService.rebuild() }
         case .background:
             // Se sube lo pendiente y se vuelca a disco antes de que el sistema
             // pueda matar el proceso: `flush` solo no persiste lo no confirmado.
@@ -244,7 +248,7 @@ private struct MainTabsView: View {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Button {
-                    Task { await SyncStore.shared.refresh() }
+                    Task { await SyncStore.shared.refresh(); await WidgetDataService.rebuild() }
                 } label: {
                     Label("Sincronizar ahora", systemImage: "arrow.triangle.2.circlepath")
                 }
