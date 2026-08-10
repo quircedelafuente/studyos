@@ -167,11 +167,10 @@
  * blanco se aplica solo a la raíz del widget, no a lo de dentro.
  */
 [data-theme="dark"] [data-dark-flat] {
-  --surface: #000000;
-  --surface-muted: #000000;
-  background-color: #000000 !important;
+  /* Mismas superficie y borde que «Entregas», que usa bg-white/40 y
+     border-zinc-200/50: así los tres widgets se ven iguales. */
+  background-color: var(--surface) !important;
   background-image: none !important;
-  /* Mismo borde que el resto de widgets, que usan border-zinc-200/50. */
   border-color: var(--border) !important;
 }
 

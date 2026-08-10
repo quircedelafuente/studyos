@@ -7,34 +7,9 @@
 [data-theme="dark"] .bg-amber-50\/40,
 [data-theme="dark"] .bg-amber-50\/70,
 [data-theme="dark"] .bg-amber-50\/80,
-[data-theme="dark"] .bg-orange-100\/80 {
-  background-color: #302008 !important;
-}
-[data-theme="dark"] .bg-amber-400,
-[data-theme="dark"] .bg-amber-400\/80,
-[data-theme="dark"] .bg-amber-500,
-[data-theme="dark"] .bg-amber-500\/10,
-[data-theme="dark"] .bg-amber-500\/12,
-[data-theme="dark"] .bg-amber-500\/15,
-[data-theme="dark"] .bg-amber-950\/40 {
-  background-color: #3f2700 !important;
-}
-[data-theme="dark"] .bg-black\/10 {
-  background-color: rgba(255,255,255,0.10) !important;
-}
-[data-theme="dark"] .bg-black\/5 {
-  background-color: rgba(255,255,255,0.05) !important;
-}
 [data-theme="dark"] .bg-blue-100,
 [data-theme="dark"] .bg-blue-200\/20,
-[data-theme="dark"] .bg-blue-50 {
-  background-color: #0d2847 !important;
-}
-[data-theme="dark"] .bg-blue-600\/10,
-[data-theme="dark"] .bg-blue-600\/20,
-[data-theme="dark"] .bg-sky-500\/10 {
-  background-color: #003362 !important;
-}
+[data-theme="dark"] .bg-blue-50,
 [data-theme="dark"] .bg-emerald-100,
 [data-theme="dark"] .bg-emerald-100\/70,
 [data-theme="dark"] .bg-emerald-100\/80,
@@ -42,40 +17,64 @@
 [data-theme="dark"] .bg-emerald-50,
 [data-theme="dark"] .bg-emerald-50\/35,
 [data-theme="dark"] .bg-emerald-50\/70,
-[data-theme="dark"] .bg-emerald-50\/80 {
-  background-color: #1b2a1e !important;
-}
-[data-theme="dark"] .bg-emerald-500,
-[data-theme="dark"] .bg-emerald-500\/15,
-[data-theme="dark"] .bg-emerald-600\/90,
-[data-theme="dark"] .bg-green-500,
-[data-theme="dark"] .bg-green-500\/20 {
-  background-color: #1d3a24 !important;
-}
-[data-theme="dark"] .bg-indigo-50 {
-  background-color: #291f43 !important;
-}
-[data-theme="dark"] .bg-indigo-500,
-[data-theme="dark"] .bg-indigo-500\/10,
-[data-theme="dark"] .bg-indigo-600\/90 {
-  background-color: #33255b !important;
-}
+[data-theme="dark"] .bg-emerald-50\/80,
+[data-theme="dark"] .bg-indigo-50,
+[data-theme="dark"] .bg-orange-100\/80,
 [data-theme="dark"] .bg-red-100,
 [data-theme="dark"] .bg-red-100\/90,
 [data-theme="dark"] .bg-red-50,
 [data-theme="dark"] .bg-red-50\/40,
 [data-theme="dark"] .bg-red-50\/60,
 [data-theme="dark"] .bg-red-50\/85,
-[data-theme="dark"] .bg-red-50\/90 {
-  background-color: #3b1219 !important;
+[data-theme="dark"] .bg-red-50\/90,
+[data-theme="dark"] .bg-zinc-100,
+[data-theme="dark"] .bg-zinc-100\/40,
+[data-theme="dark"] .bg-zinc-100\/50,
+[data-theme="dark"] .bg-zinc-100\/80,
+[data-theme="dark"] .bg-zinc-100\/90,
+[data-theme="dark"] .bg-zinc-200,
+[data-theme="dark"] .bg-zinc-200\/50,
+[data-theme="dark"] .bg-zinc-200\/60,
+[data-theme="dark"] .bg-zinc-50,
+[data-theme="dark"] .bg-zinc-50\/20,
+[data-theme="dark"] .bg-zinc-50\/30,
+[data-theme="dark"] .bg-zinc-50\/50 {
+  background-color: var(--surface-muted) !important;
 }
+[data-theme="dark"] .bg-amber-400,
+[data-theme="dark"] .bg-amber-400\/80,
+[data-theme="dark"] .bg-amber-500,
+[data-theme="dark"] .bg-amber-500\/10,
+[data-theme="dark"] .bg-amber-500\/12,
+[data-theme="dark"] .bg-amber-500\/15,
+[data-theme="dark"] .bg-amber-950\/40,
+[data-theme="dark"] .bg-blue-600\/10,
+[data-theme="dark"] .bg-blue-600\/20,
+[data-theme="dark"] .bg-emerald-500,
+[data-theme="dark"] .bg-emerald-500\/15,
+[data-theme="dark"] .bg-emerald-600\/90,
+[data-theme="dark"] .bg-green-500,
+[data-theme="dark"] .bg-green-500\/20,
+[data-theme="dark"] .bg-indigo-500,
+[data-theme="dark"] .bg-indigo-500\/10,
+[data-theme="dark"] .bg-indigo-600\/90,
 [data-theme="dark"] .bg-red-500,
 [data-theme="dark"] .bg-red-500\/10,
 [data-theme="dark"] .bg-red-600,
 [data-theme="dark"] .bg-red-700,
 [data-theme="dark"] .bg-red-950\/30,
-[data-theme="dark"] .bg-red-950\/40 {
-  background-color: #500f1c !important;
+[data-theme="dark"] .bg-red-950\/40,
+[data-theme="dark"] .bg-sky-500\/10,
+[data-theme="dark"] .bg-zinc-800,
+[data-theme="dark"] .bg-zinc-900,
+[data-theme="dark"] .bg-zinc-950 {
+  background-color: var(--ink-faint) !important;
+}
+[data-theme="dark"] .bg-black\/10 {
+  background-color: rgba(255,255,255,0.10) !important;
+}
+[data-theme="dark"] .bg-black\/5 {
+  background-color: rgba(255,255,255,0.05) !important;
 }
 [data-theme="dark"] .bg-white,
 [data-theme="dark"] .bg-white\/10,
@@ -91,77 +90,36 @@
 [data-theme="dark"] .bg-\[\#fffafa\] {
   background-color: var(--surface) !important;
 }
-[data-theme="dark"] .bg-zinc-100,
-[data-theme="dark"] .bg-zinc-100\/40,
-[data-theme="dark"] .bg-zinc-100\/50,
-[data-theme="dark"] .bg-zinc-100\/80,
-[data-theme="dark"] .bg-zinc-100\/90,
-[data-theme="dark"] .bg-zinc-200,
-[data-theme="dark"] .bg-zinc-200\/50,
-[data-theme="dark"] .bg-zinc-200\/60,
-[data-theme="dark"] .bg-zinc-50,
-[data-theme="dark"] .bg-zinc-50\/20,
-[data-theme="dark"] .bg-zinc-50\/30,
-[data-theme="dark"] .bg-zinc-50\/50 {
-  background-color: var(--surface-muted) !important;
-}
-[data-theme="dark"] .bg-zinc-800,
-[data-theme="dark"] .bg-zinc-900,
-[data-theme="dark"] .bg-zinc-950 {
-  background-color: var(--ink-faint) !important;
-}
 [data-theme="dark"] .border-amber-200,
 [data-theme="dark"] .border-amber-200\/70,
 [data-theme="dark"] .border-amber-200\/80,
 [data-theme="dark"] .border-amber-300,
-[data-theme="dark"] .border-orange-200 {
-  border-color: #5c3d05 !important;
-}
 [data-theme="dark"] .border-amber-400\/40,
 [data-theme="dark"] .border-amber-500\/40,
-[data-theme="dark"] .border-amber-900\/40 {
-  border-color: #714f19 !important;
-}
-[data-theme="dark"] .border-black,
-[data-theme="dark"] .border-black\/5 {
-  border-color: var(--border-strong) !important;
-}
+[data-theme="dark"] .border-amber-900\/40,
 [data-theme="dark"] .border-blue-100,
 [data-theme="dark"] .border-blue-200,
-[data-theme="dark"] .border-blue-300 {
-  border-color: #104d87 !important;
-}
+[data-theme="dark"] .border-blue-300,
 [data-theme="dark"] .border-emerald-100,
 [data-theme="dark"] .border-emerald-200,
 [data-theme="dark"] .border-emerald-200\/70,
-[data-theme="dark"] .border-emerald-300 {
-  border-color: #2d5736 !important;
-}
+[data-theme="dark"] .border-emerald-300,
 [data-theme="dark"] .border-emerald-400\/40,
-[data-theme="dark"] .border-emerald-600\/30 {
-  border-color: #366740 !important;
-}
-[data-theme="dark"] .border-indigo-400 {
-  border-color: #56468b !important;
-}
+[data-theme="dark"] .border-emerald-600\/30,
+[data-theme="dark"] .border-indigo-400,
+[data-theme="dark"] .border-orange-200,
 [data-theme="dark"] .border-red-100,
 [data-theme="dark"] .border-red-200,
 [data-theme="dark"] .border-red-200\/70,
 [data-theme="dark"] .border-red-200\/80,
-[data-theme="dark"] .border-red-300 {
-  border-color: #72232d !important;
-}
+[data-theme="dark"] .border-red-300,
 [data-theme="dark"] .border-red-400\/30,
 [data-theme="dark"] .border-red-400\/40,
 [data-theme="dark"] .border-red-500\/20,
 [data-theme="dark"] .border-red-500\/30,
 [data-theme="dark"] .border-red-900\/40,
-[data-theme="dark"] .border-red-900\/50 {
-  border-color: #8c333a !important;
-}
-[data-theme="dark"] .border-sky-500\/35 {
-  border-color: #205d9e !important;
-}
+[data-theme="dark"] .border-red-900\/50,
+[data-theme="dark"] .border-sky-500\/35,
 [data-theme="dark"] .border-white,
 [data-theme="dark"] .border-zinc-100,
 [data-theme="dark"] .border-zinc-100\/90,
@@ -172,9 +130,11 @@
 [data-theme="dark"] .border-zinc-200\/90 {
   border-color: var(--border) !important;
 }
-[data-theme="dark"] .from-blue-50\/50 {
-  --tw-gradient-from: #111927 !important;
+[data-theme="dark"] .border-black,
+[data-theme="dark"] .border-black\/5 {
+  border-color: var(--border-strong) !important;
 }
+[data-theme="dark"] .from-blue-50\/50,
 [data-theme="dark"] .from-white,
 [data-theme="dark"] .from-white\/90,
 [data-theme="dark"] .from-white\/98,
@@ -185,11 +145,23 @@
 [data-theme="dark"] .from-zinc-50\/80 {
   --tw-gradient-from: var(--surface-muted) !important;
 }
-[data-theme="dark"] .ring-amber-200\/70 {
-  --tw-ring-color: #5c3d05 !important;
-}
-[data-theme="dark"] .ring-amber-500\/25 {
-  --tw-ring-color: #714f19 !important;
+[data-theme="dark"] .ring-amber-200\/70,
+[data-theme="dark"] .ring-amber-500\/25,
+[data-theme="dark"] .ring-emerald-200,
+[data-theme="dark"] .ring-emerald-200\/70,
+[data-theme="dark"] .ring-emerald-500\/20,
+[data-theme="dark"] .ring-emerald-500\/25,
+[data-theme="dark"] .ring-red-100,
+[data-theme="dark"] .ring-red-200\/70,
+[data-theme="dark"] .ring-white,
+[data-theme="dark"] .ring-white\/10,
+[data-theme="dark"] .ring-zinc-200\/50,
+[data-theme="dark"] .ring-zinc-200\/60,
+[data-theme="dark"] .ring-zinc-200\/70,
+[data-theme="dark"] .ring-zinc-200\/80,
+[data-theme="dark"] .ring-zinc-300,
+[data-theme="dark"] .ring-zinc-800 {
+  --tw-ring-color: var(--border) !important;
 }
 [data-theme="dark"] .ring-black\/10 {
   --tw-ring-color: rgba(255,255,255,0.10) !important;
@@ -203,28 +175,6 @@
 [data-theme="dark"] .ring-black\/5 {
   --tw-ring-color: rgba(255,255,255,0.05) !important;
 }
-[data-theme="dark"] .ring-emerald-200,
-[data-theme="dark"] .ring-emerald-200\/70 {
-  --tw-ring-color: #2d5736 !important;
-}
-[data-theme="dark"] .ring-emerald-500\/20,
-[data-theme="dark"] .ring-emerald-500\/25 {
-  --tw-ring-color: #366740 !important;
-}
-[data-theme="dark"] .ring-red-100,
-[data-theme="dark"] .ring-red-200\/70 {
-  --tw-ring-color: #72232d !important;
-}
-[data-theme="dark"] .ring-white,
-[data-theme="dark"] .ring-white\/10,
-[data-theme="dark"] .ring-zinc-200\/50,
-[data-theme="dark"] .ring-zinc-200\/60,
-[data-theme="dark"] .ring-zinc-200\/70,
-[data-theme="dark"] .ring-zinc-200\/80,
-[data-theme="dark"] .ring-zinc-300,
-[data-theme="dark"] .ring-zinc-800 {
-  --tw-ring-color: var(--border) !important;
-}
 [data-theme="dark"] .shadow-red-200 {
   --tw-shadow-color: transparent !important;
 }
@@ -233,38 +183,32 @@
 [data-theme="dark"] .text-amber-500,
 [data-theme="dark"] .text-amber-700,
 [data-theme="dark"] .text-amber-700\/90,
-[data-theme="dark"] .text-yellow-400 {
-  color: #ffca16 !important;
-}
 [data-theme="dark"] .text-amber-800,
 [data-theme="dark"] .text-amber-900,
 [data-theme="dark"] .text-amber-950,
-[data-theme="dark"] .text-orange-950 {
-  color: #ffe7b3 !important;
+[data-theme="dark"] .text-orange-950,
+[data-theme="dark"] .text-yellow-400 {
+  color: #ffca16 !important;
 }
 [data-theme="dark"] .text-blue-300,
 [data-theme="dark"] .text-blue-400,
 [data-theme="dark"] .text-blue-600\/70,
 [data-theme="dark"] .text-blue-700,
-[data-theme="dark"] .text-sky-100\/95 {
-  color: #70b8ff !important;
-}
 [data-theme="dark"] .text-blue-800,
 [data-theme="dark"] .text-blue-900,
 [data-theme="dark"] .text-blue-900\/40,
 [data-theme="dark"] .text-blue-950,
+[data-theme="dark"] .text-sky-100\/95,
 [data-theme="dark"] .text-sky-950 {
-  color: #c2e6ff !important;
+  color: #70b8ff !important;
 }
 [data-theme="dark"] .text-emerald-700,
 [data-theme="dark"] .text-emerald-700\/90,
-[data-theme="dark"] .text-green-400 {
-  color: #71d083 !important;
-}
 [data-theme="dark"] .text-emerald-800,
 [data-theme="dark"] .text-emerald-900,
-[data-theme="dark"] .text-emerald-950 {
-  color: #c2f0c2 !important;
+[data-theme="dark"] .text-emerald-950,
+[data-theme="dark"] .text-green-400 {
+  color: #71d083 !important;
 }
 [data-theme="dark"] .text-indigo-400,
 [data-theme="dark"] .text-indigo-700 {
@@ -276,13 +220,11 @@
 [data-theme="dark"] .text-red-500,
 [data-theme="dark"] .text-red-600,
 [data-theme="dark"] .text-red-600\/90,
-[data-theme="dark"] .text-red-700 {
-  color: #ff9592 !important;
-}
+[data-theme="dark"] .text-red-700,
 [data-theme="dark"] .text-red-800,
 [data-theme="dark"] .text-red-900,
 [data-theme="dark"] .text-red-950 {
-  color: #ffd1d9 !important;
+  color: #ff9592 !important;
 }
 [data-theme="dark"] .text-zinc-400,
 [data-theme="dark"] .text-zinc-500,
@@ -294,9 +236,7 @@
 [data-theme="dark"] .text-zinc-900 {
   color: var(--ink) !important;
 }
-[data-theme="dark"] .to-indigo-50\/30 {
-  --tw-gradient-to: #1b1525 !important;
-}
+[data-theme="dark"] .to-indigo-50\/30,
 [data-theme="dark"] .to-white\/40,
 [data-theme="dark"] .to-zinc-900 {
   --tw-gradient-to: var(--surface) !important;

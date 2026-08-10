@@ -193,20 +193,25 @@ def main():
         scale = RADIX_DARK.get(HUE_TO_RADIX.get(hue, ""))
         if not scale:
             continue
-        # Cada paso de Radix tiene un papel asignado:
-        #   3  fondo de componente     6/7  borde     11/12  texto
+        # Estilo «Entregas»: los widgets son monocromos. Fondos y bordes con
+        # matiz se neutralizan a superficies del tema —igual que ese widget, que
+        # solo usa zinc— y el color se reserva para el acento de texto, que allí
+        # son las etiquetas de vencimiento en rojo y ámbar.
         if kind in GRADIENT_KINDS:
             # Las paradas de gradiente NO son background-color: van por variable.
-            rules.append((sel, f"--tw-gradient-{kind}", scale[2 if s <= 100 else 3]))
+            rules.append((sel, f"--tw-gradient-{kind}", "var(--surface)"))
         elif kind == "bg":
-            # Incluidos los fondos sólidos (bg-red-600): en oscuro un relleno
-            # saturado deslumbra y deja el texto blanco pegado al límite.
-            rules.append((sel, "background-color", scale[3 if s <= 300 else 4]))
+            # Los rellenos sólidos (bg-red-600) pasan al gris del botón de
+            # acción de «Entregas», que es bg-zinc-900.
+            v = "var(--surface-muted)" if s <= 300 else "var(--ink-faint)"
+            rules.append((sel, "background-color", v))
         elif kind == "text":
-            rules.append((sel, "color", scale[12 if s >= 800 else 11]))
+            # Único sitio donde sobrevive el matiz. Paso 11 de Radix: legible
+            # sobre negro sin deslumbrar.
+            rules.append((sel, "color", scale[11]))
         elif kind in ("border", "ring"):
             prop = "border-color" if kind == "border" else "--tw-ring-color"
-            rules.append((sel, prop, scale[6 if s <= 300 else 7]))
+            rules.append((sel, prop, "var(--border)"))
         elif kind == "shadow":
             # Sombras de color: sobre negro se ven como halos sucios.
             rules.append((sel, "--tw-shadow-color", "transparent"))
