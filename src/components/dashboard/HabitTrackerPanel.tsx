@@ -599,9 +599,7 @@ export function HabitTrackerPanel() {
             </ul>
           )}
 
-          {/* Tope de ancho: sin él, en pantalla panorámica los siete días se
-              estirarían a celdas de más de 300 px. */}
-          <div className="mt-8 max-w-5xl rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+          <div className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-start justify-between gap-3">
@@ -646,12 +644,15 @@ export function HabitTrackerPanel() {
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-7 gap-1.5 md:gap-2">
+            {/* Misma rejilla que el calendario de Tareas. */}
+            <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--ink-muted)] md:text-[11px]">
               {["L", "M", "X", "J", "V", "S", "D"].map((w) => (
-                <div key={w} className="text-center text-xs font-semibold text-[var(--ink-faint)]">
+                <div key={w} className="py-1">
                   {w}
                 </div>
               ))}
+            </div>
+            <div className="mt-1 grid grid-cols-7 gap-1">
               {calendarCells.map((c) => {
                 const meta = habitCalendarMeta[c.ymd] ?? { pct: 0, done: 0, total: 0 };
                 const dt = ymdToDate(c.ymd);
@@ -660,16 +661,20 @@ export function HabitTrackerPanel() {
                 // Regla: antes de que llegue el día (futuro) o si aún no hubo hábitos configurados ese día, mostrar gris.
                 const shouldColor = inPastOrToday && meta.total > 0;
                 const tone = shouldColor ? cellTone(meta.pct, meta.total) : "empty";
+                /* Tintes al estilo de Tareas: fondo translúcido + anillo, en vez
+                   de color plano con borde. */
                 const base =
                   tone === "empty"
-                    ? "bg-[var(--surface-muted)] text-[var(--ink-faint)] border-[var(--border)]"
+                    ? c.inMonth
+                      ? "bg-[var(--canvas)]/50"
+                      : "bg-[var(--surface-muted)]/30"
                     : tone === "full"
-                      ? "bg-emerald-100/80 text-emerald-900 border-emerald-200"
+                      ? "bg-emerald-500/15 ring-1 ring-emerald-500/25"
                       : tone === "high"
-                        ? "bg-emerald-50/70 text-emerald-900 border-emerald-200/70"
+                        ? "bg-emerald-500/10 ring-1 ring-emerald-500/20"
                         : tone === "mid"
-                          ? "bg-amber-50/80 text-amber-900 border-amber-200/70"
-                          : "bg-red-50/85 text-red-900 border-red-200/70";
+                          ? "bg-amber-500/12 ring-1 ring-amber-500/25"
+                          : "bg-red-500/12 ring-1 ring-red-500/25";
                 const dayNum = Number(c.ymd.slice(-2));
                 const isToday = c.ymd === dateToYmd(new Date());
                 const tooltip =
@@ -679,16 +684,29 @@ export function HabitTrackerPanel() {
                       ? `${c.ymd} · Sin hábitos`
                       : `${c.ymd} · ${meta.done}/${meta.total} · ${meta.pct}%`;
                 return (
-                  /* La celda llena su columna en vez de ser un cuadrado fijo de
-                     40 px: así crece con el ancho disponible y no deja huecos. */
                   <div
                     key={c.ymd}
                     title={tooltip}
-                    className={`flex aspect-square w-full items-center justify-center rounded-xl border text-sm font-bold tabular-nums md:text-base ${base} ${
-                      c.inMonth ? "" : "opacity-45"
-                    } ${isToday ? "ring-2 ring-[var(--ink)]/20" : ""}`}
+                    className={`flex min-h-[3rem] flex-col items-center justify-center rounded-xl px-0.5 py-1.5 text-center md:min-h-[3.5rem] ${base} ${
+                      isToday ? "ring-1 ring-[var(--ink-muted)]/50" : ""
+                    } ${c.inMonth ? "text-[var(--ink)]" : "text-[var(--ink-faint)]"}`}
                   >
-                    {Number.isFinite(dayNum) ? dayNum : "·"}
+                    <span
+                      className={`text-sm tabular-nums ${
+                        isToday ? "font-bold text-[var(--ink)]" : "font-semibold"
+                      }`}
+                    >
+                      {Number.isFinite(dayNum) ? dayNum : "·"}
+                    </span>
+                    {/* El hueco se reserva aunque no haya datos, para que todas
+                        las celdas midan lo mismo. */}
+                    {meta.total > 0 ? (
+                      <span className="mt-0.5 text-[9px] font-semibold tabular-nums text-[var(--ink-muted)] md:text-[10px]">
+                        {meta.done}/{meta.total}
+                      </span>
+                    ) : (
+                      <span className="mt-0.5 text-[9px] opacity-0 md:text-[10px]">·</span>
+                    )}
                   </div>
                 );
               })}
@@ -697,19 +715,19 @@ export function HabitTrackerPanel() {
             <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-[var(--ink-muted)]">
               <span className="text-[var(--ink-faint)]">Leyenda:</span>
               <span className="inline-flex items-center gap-1">
-                <span className="h-3 w-3 rounded bg-red-100 ring-1 ring-red-200/70" /> 0–33%
+                <span className="h-3 w-3 rounded bg-red-500/12 ring-1 ring-red-500/25" /> 0–33%
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-200/70" /> 34–66%
+                <span className="h-3 w-3 rounded bg-amber-500/12 ring-1 ring-amber-500/25" /> 34–66%
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="h-3 w-3 rounded bg-emerald-50 ring-1 ring-emerald-200/70" /> 67–99%
+                <span className="h-3 w-3 rounded bg-emerald-500/10 ring-1 ring-emerald-500/20" /> 67–99%
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-200" /> 100%
+                <span className="h-3 w-3 rounded bg-emerald-500/15 ring-1 ring-emerald-500/25" /> 100%
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="h-3 w-3 rounded bg-[var(--surface-muted)] ring-1 ring-[var(--border)]" /> sin hábitos
+                <span className="h-3 w-3 rounded bg-[var(--canvas)]/50 ring-1 ring-[var(--border)]" /> sin hábitos
               </span>
             </div>
           </div>
