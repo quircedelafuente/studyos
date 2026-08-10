@@ -2,7 +2,13 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
-import { useEffect, useMemo, useState } from "react";
+import { SectionsSettingsModal } from "@/components/dashboard/SectionsSettingsModal";
+import {
+  hiddenSectionsSnapshot,
+  loadHiddenSections,
+  subscribeToSections,
+} from "@/lib/section-visibility";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useStudyArena } from "@/components/study-arena/StudyArenaProvider";
 import type { MainTabId } from "@/types/dashboard";
@@ -29,6 +35,7 @@ import {
   IconDeadlines,
   IconFolder,
   IconMenu,
+  IconSettings,
   IconNotes,
   IconStudyPlanner,
   IconStudyArena,
@@ -68,6 +75,14 @@ export function DashboardApp() {
   const [studyPlannerNavOpenPlanId, setStudyPlannerNavOpenPlanId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sectionsSettingsOpen, setSectionsSettingsOpen] = useState(false);
+  /** Serializado, para que useSyncExternalStore pueda comparar por valor. */
+  const hiddenRaw = useSyncExternalStore(
+    subscribeToSections,
+    hiddenSectionsSnapshot,
+    () => "[]",
+  );
+  const hiddenSections = useMemo(() => loadHiddenSections(), [hiddenRaw]);
   const [isMdUp, setIsMdUp] = useState(() =>
     typeof window !== "undefined"
       ? window.matchMedia("(min-width: 768px)").matches
@@ -86,11 +101,21 @@ export function DashboardApp() {
   );
 
   /** En viewport móvil no se ofrece Bloqueo de apps (sigue en tablet/escritorio). */
-  const navTabs = useMemo(
-    () =>
-      isMdUp ? MAIN_TABS : MAIN_TABS.filter((t) => t.id !== "app-blocking"),
-    [MAIN_TABS, isMdUp],
-  );
+  const navTabs = useMemo(() => {
+    const base = isMdUp
+      ? MAIN_TABS
+      : MAIN_TABS.filter((t) => t.id !== "app-blocking");
+    return base.filter((t) => !hiddenSections.has(t.id));
+  }, [MAIN_TABS, isMdUp, hiddenSections]);
+
+  /**
+   * Sección realmente mostrada. Se deriva en vez de corregirse con un efecto:
+   * si ocultas la sección que tienes abierta, se cae a la primera visible sin
+   * escribir estado durante el render.
+   */
+  const activeTab: MainTabId = hiddenSections.has(mainTab)
+    ? (navTabs[0]?.id ?? "dashboard")
+    : mainTab;
 
   /** iPhone / iOS estrecho: menú hamburguesa → modal a pantalla completa (no drawer). */
   const iosMobileFullscreenMenu = isIOS && !isMdUp;
@@ -104,9 +129,9 @@ export function DashboardApp() {
   }, []);
 
   useEffect(() => {
-    setSuppressFloatingWidget(mainTab === "study-arena");
+    setSuppressFloatingWidget(activeTab === "study-arena");
     return () => setSuppressFloatingWidget(false);
-  }, [mainTab, setSuppressFloatingWidget]);
+  }, [activeTab, setSuppressFloatingWidget]);
 
   useEffect(() => {
     if (!sidebarOpen || !iosMobileFullscreenMenu) return;
@@ -118,10 +143,10 @@ export function DashboardApp() {
   }, [sidebarOpen, iosMobileFullscreenMenu]);
 
   useEffect(() => {
-    if (!isMdUp && mainTab === "app-blocking") {
+    if (!isMdUp && activeTab === "app-blocking") {
       setMainTab("calendario");
     }
-  }, [isMdUp, mainTab]);
+  }, [isMdUp, activeTab]);
 
   useEffect(() => {
     function onStudyPlannerNav(e: Event) {
@@ -144,14 +169,14 @@ export function DashboardApp() {
   }, []);
 
   useEffect(() => {
-    if (mainTab !== "study-planner") return;
+    if (activeTab !== "study-planner") return;
     if (!studyPlannerNavCreateDeadlineId && !studyPlannerNavOpenPlanId) return;
     const t = window.setTimeout(() => {
       setStudyPlannerNavCreateDeadlineId(null);
       setStudyPlannerNavOpenPlanId(null);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [mainTab, studyPlannerNavCreateDeadlineId, studyPlannerNavOpenPlanId]);
+  }, [activeTab, studyPlannerNavCreateDeadlineId, studyPlannerNavOpenPlanId]);
 
   const closeSidebar = () => setSidebarOpen(false);
 
@@ -191,7 +216,7 @@ export function DashboardApp() {
                   aria-label="Secciones"
                 >
                   {navTabs.map(({ id, label, Icon }) => {
-                    const active = mainTab === id;
+                    const active = activeTab === id;
                     return (
                       <button
                         key={id}
@@ -214,6 +239,17 @@ export function DashboardApp() {
                 </nav>
               </div>
               <div className="mt-4 shrink-0 border-t border-[var(--border)] pt-4 pb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeSidebar();
+                    setSectionsSettingsOpen(true);
+                  }}
+                  className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--ink)] transition active:bg-[var(--surface-muted)]"
+                >
+                  <IconSettings className="h-4 w-4 shrink-0" />
+                  Ajustes de secciones
+                </button>
                 <div className="mb-3">
                   <ThemeToggle />
                 </div>
@@ -292,7 +328,7 @@ export function DashboardApp() {
             Secciones
           </p>
           {navTabs.map(({ id, label, Icon }) => {
-            const active = mainTab === id;
+            const active = activeTab === id;
             return (
               <button
                 key={id}
@@ -320,6 +356,14 @@ export function DashboardApp() {
         </nav>
 
         <div className={`border-t border-[var(--border)] p-3 ${sidebarCollapsed ? "hidden" : ""}`}>
+          <button
+            type="button"
+            onClick={() => setSectionsSettingsOpen(true)}
+            className="mb-3 flex w-full items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-muted)]"
+          >
+            <IconSettings className="h-4 w-4 shrink-0" />
+            Ajustes de secciones
+          </button>
           <div className="mb-3">
             <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--ink-faint)]">
               Tema
@@ -349,6 +393,13 @@ export function DashboardApp() {
         </div>
       </aside>
 
+      <SectionsSettingsModal
+        open={sectionsSettingsOpen}
+        onClose={() => setSectionsSettingsOpen(false)}
+        sections={MAIN_TABS}
+        hidden={hiddenSections}
+      />
+
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:pl-0">
         <header className="z-30 flex items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-sm md:hidden">
           <button
@@ -368,40 +419,40 @@ export function DashboardApp() {
         </header>
 
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {mainTab === "dashboard" ? (
+          {activeTab === "dashboard" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scroll-smooth pb-[env(safe-area-inset-bottom,0px)]">
               <DashboardOverviewPanel />
             </div>
           ) : null}
-          {mainTab === "calendario" ? (
+          {activeTab === "calendario" ? (
             <CalendarPanel />
           ) : null}
-          {mainTab === "class-notes" ? (
+          {activeTab === "class-notes" ? (
             <div className="min-h-0 flex-1 overflow-y-auto md:flex md:flex-col md:overflow-hidden">
               <ClassNotesPanel />
             </div>
           ) : null}
-          {mainTab === "fechas" ? (
+          {activeTab === "fechas" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <DeadlinesPanel />
             </div>
           ) : null}
-          {mainTab === "daily-tasks" ? (
+          {activeTab === "daily-tasks" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <DailyTasksPanel />
             </div>
           ) : null}
-          {mainTab === "habits" ? (
+          {activeTab === "habits" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <HabitTrackerPanel />
             </div>
           ) : null}
-          {mainTab === "assignments" ? (
+          {activeTab === "assignments" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <AssignmentsPanel />
             </div>
           ) : null}
-          {mainTab === "study-planner" ? (
+          {activeTab === "study-planner" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <StudyPlannerPanel
                 navCreateDeadlineId={studyPlannerNavCreateDeadlineId}
@@ -409,22 +460,22 @@ export function DashboardApp() {
               />
             </div>
           ) : null}
-          {mainTab === "study-arena" ? (
+          {activeTab === "study-arena" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <StudyArenaPanel />
             </div>
           ) : null}
-          {mainTab === "notas" ? (
+          {activeTab === "notas" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <NotesPanel />
             </div>
           ) : null}
-          {mainTab === "notebooklm" ? (
+          {activeTab === "notebooklm" ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <NotebookLMPanel />
             </div>
           ) : null}
-          {mainTab === "app-blocking" && isMdUp ? (
+          {activeTab === "app-blocking" && isMdUp ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <AppBlockingPanel />
             </div>
