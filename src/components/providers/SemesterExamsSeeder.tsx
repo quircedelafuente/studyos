@@ -2,7 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { useCloudSyncStatus } from "@/components/providers/CloudSyncProvider";
-import { seedSemesterExamsOnce } from "@/lib/semester-exams-seed";
+import {
+  migrateMarketingColorOnce,
+  seedSemesterExamsOnce,
+} from "@/lib/semester-exams-seed";
 
 /**
  * Siembra las fechas evaluables del semestre en «Exámenes y fechas».
@@ -25,6 +28,10 @@ export function SemesterExamsSeeder() {
     const added = seedSemesterExamsOnce();
     if (added > 0) {
       console.log(`[exams-seed] ${added} fechas del semestre añadidas al calendario`);
+    }
+    const recolored = migrateMarketingColorOnce();
+    if (recolored > 0) {
+      console.log(`[exams-seed] ${recolored} eventos de Marketing recoloreados`);
     }
   }, [sync?.initialSyncDone, sync?.cloudEnabled]);
 

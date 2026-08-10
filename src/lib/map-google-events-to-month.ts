@@ -1,5 +1,6 @@
 import type { GoogleCalendarEventItem } from "@/lib/google-calendar-types";
 import { parseGoogleDateTimeToJsDate } from "@/lib/google-event-datetime";
+import { LOCAL_DEADLINES_CALENDAR_ID } from "@/lib/deadlines-to-calendar-events";
 
 export type CalendarDayEvent = {
   title: string;
@@ -46,8 +47,20 @@ export function mapGoogleEventsToMonthDays(
     m.set(day, list);
   }
 
+  /**
+   * Dentro de cada día, los eventos de «Exámenes y fechas» van siempre delante
+   * de los de Google: son los que no te puedes perder, así que se ven primero
+   * aunque ocurran más tarde. Dentro de cada grupo se mantiene el orden por hora.
+   */
+  const isDeadline = (e: CalendarDayEvent) =>
+    e.calendarId === LOCAL_DEADLINES_CALENDAR_ID;
+
   for (const [, list] of m) {
-    list.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
+    list.sort((a, b) => {
+      const byKind = Number(isDeadline(b)) - Number(isDeadline(a));
+      if (byKind !== 0) return byKind;
+      return a.timeLabel.localeCompare(b.timeLabel);
+    });
   }
 
   return m;

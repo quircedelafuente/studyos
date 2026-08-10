@@ -25,7 +25,7 @@ const COLOR = {
   calculus: "11", // rojo
   finance: "9", // azul oscuro
   macro: "10", // verde
-  marketing: "6", // naranja
+  marketing: "3", // morado
   history: "5", // amarillo
   programming: "7", // azul claro
 } as const;
@@ -264,6 +264,43 @@ export function seedSemesterExamsOnce(): number {
     return toAdd.length;
   } catch {
     // quota / modo privado: se reintentará en la siguiente carga
+    return 0;
+  }
+}
+
+/**
+ * Flag de la migración de color de Marketing (naranja → morado).
+ *
+ * Hace falta porque el sembrado solo corre una vez: a quien ya tenga las fechas
+ * creadas no le basta con cambiar la constante `COLOR`, hay que reescribir los
+ * registros existentes.
+ */
+export const MARKETING_COLOR_MIGRATION_FLAG_KEY =
+  "iestudio-exams-2026-fall-mkt-color-v2";
+
+/** Aplica el color nuevo a los deadlines de Marketing ya sembrados. */
+export function migrateMarketingColorOnce(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    if (window.localStorage.getItem(MARKETING_COLOR_MIGRATION_FLAG_KEY) === "1") {
+      return 0;
+    }
+    const all = loadImportantDeadlines();
+    let changed = 0;
+    const next = all.map((d) => {
+      if (
+        d.id.startsWith(`${SEED_ID_PREFIX}mkt-`) &&
+        d.calendarColorId !== COLOR.marketing
+      ) {
+        changed += 1;
+        return { ...d, calendarColorId: COLOR.marketing };
+      }
+      return d;
+    });
+    if (changed > 0) saveImportantDeadlines(next);
+    window.localStorage.setItem(MARKETING_COLOR_MIGRATION_FLAG_KEY, "1");
+    return changed;
+  } catch {
     return 0;
   }
 }
