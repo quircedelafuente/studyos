@@ -183,9 +183,29 @@ const PALETTE: Record<string, GoogleEventColorStyle> = {
     text: "var(--evc-17-text, #936701)",
     textMuted: "var(--evc-17-text-muted, #bb8302)",
   },
+  /**
+   * Neutro — el que se aplica a los eventos que llegan de Google **sin**
+   * `colorId` propio, que son la mayoría de los sincronizados.
+   *
+   * No lleva hex: se apoya en los tokens del tema, así que en claro es pastilla
+   * blanca con texto negro y en oscuro pastilla negra con trazo y texto
+   * blancos. Dentro del calendario, donde --surface es negro puro, queda
+   * exactamente eso: evento en blanco sobre negro.
+   */
+  "18": {
+    bg: "var(--surface)",
+    border: "var(--border)",
+    borderLeft: "var(--ink)",
+    text: "var(--ink)",
+    textMuted: "var(--ink-muted)",
+  },
 };
 
-const DEFAULT_ID = "6";
+/**
+ * Color de los eventos sin `colorId`. Antes era el "6" (naranja), que teñía de
+ * naranja todo lo sincronizado de Google.
+ */
+const DEFAULT_ID = "18";
 
 export function normalizeGoogleEventColorId(
   id: string | undefined | null,
@@ -219,4 +239,5 @@ export const GOOGLE_EVENT_COLOR_LABELS: Record<string, string> = {
   "15": "Violeta",
   "16": "Aguamarina",
   "17": "Ámbar",
+  "18": "Neutro",
 };
