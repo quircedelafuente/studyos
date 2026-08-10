@@ -11,6 +11,7 @@ import { WidgetDataSync } from "@/components/study-arena/WidgetDataSync";
 import { AppBlockerSync } from "@/components/app-blocking/AppBlockerSync";
 import { CloudSyncProvider } from "@/components/providers/CloudSyncProvider";
 import { CloudSyncIndicator } from "@/components/providers/CloudSyncIndicator";
+import { SemesterExamsSeeder } from "@/components/providers/SemesterExamsSeeder";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -32,6 +33,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
       <CloudSyncProvider>
+        <SemesterExamsSeeder />
         <StudyArenaProvider>
           <LiveActivitySync />
           <WidgetDataSync />
