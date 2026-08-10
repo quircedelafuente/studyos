@@ -159,6 +159,30 @@
  * de la rejilla.
  */
 
+/*
+ * Widgets planos (Prioridad Máxima, Planificación): negro con borde blanco.
+ *
+ * Igual que el calendario, se redefinen los tokens dentro del subárbol para que
+ * las superficies interiores caigan a negro sin ir clase por clase. El borde
+ * blanco se aplica solo a la raíz del widget, no a lo de dentro.
+ */
+[data-theme="dark"] [data-dark-flat] {
+  --surface: #000000;
+  --surface-muted: #000000;
+  background-color: #000000 !important;
+  background-image: none !important;
+  border-color: #ffffff !important;
+}
+
+/*
+ * Los adornos difuminados (`blur-*`) son manchas de color de fondo pensadas
+ * para el tema claro. Sobre negro quedan como halos sucios, y además pierden su
+ * transparencia al reasignarles el color, así que se ocultan.
+ */
+[data-theme="dark"] [data-dark-flat] [class*="blur-"] {
+  display: none !important;
+}
+
 /* Las imágenes y mapas de bits no deben invertirse, pero sí bajar de brillo. */
 [data-theme="dark"] img:not([src*=".svg"]) {
   filter: brightness(0.92);

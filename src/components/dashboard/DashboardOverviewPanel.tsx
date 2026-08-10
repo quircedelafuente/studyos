@@ -1939,7 +1939,10 @@ export function DashboardOverviewPanel() {
 
               {/* ── Prioridad Máxima ── */}
               {wid === "prioridad" && (
-                <section className="relative h-full overflow-hidden rounded-3xl border-2 border-red-500/20 bg-[#fffafa] transition-colors duration-300">
+                <section
+                  data-dark-flat
+                  className="relative h-full overflow-hidden rounded-3xl border-2 border-red-500/20 bg-[#fffafa] transition-colors duration-300"
+                >
                   <div className="relative flex h-full flex-col p-4 sm:p-5">
                     <header className="flex items-center justify-between mb-3">
                       <div className="min-w-0">
@@ -1986,7 +1989,10 @@ export function DashboardOverviewPanel() {
 
               {/* ── Sesiones de Estudio ── */}
               {wid === "sesiones" && (
-                <section className="relative h-full overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 transition-colors duration-300">
+                <section
+                  data-dark-flat
+                  className="relative h-full overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 transition-colors duration-300"
+                >
                   <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 translate-y-[-10px] rounded-full bg-blue-200/20 blur-2xl" />
                   <div className="relative flex h-full flex-col p-5">
                     <header className="flex items-center justify-between mb-4">
