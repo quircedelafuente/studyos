@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
+import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
 import { useEffect, useMemo, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useStudyArena } from "@/components/study-arena/StudyArenaProvider";
@@ -213,6 +214,9 @@ export function DashboardApp() {
                 </nav>
               </div>
               <div className="mt-4 shrink-0 border-t border-[var(--border)] pt-4 pb-2">
+                <div className="mb-3">
+                  <ThemeToggle />
+                </div>
                 {status === "authenticated" && session?.user ? (
                   <div className="space-y-3 text-center">
                     <p className="truncate text-xs text-[var(--ink-muted)]">
@@ -316,6 +320,12 @@ export function DashboardApp() {
         </nav>
 
         <div className={`border-t border-[var(--border)] p-3 ${sidebarCollapsed ? "hidden" : ""}`}>
+          <div className="mb-3">
+            <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--ink-faint)]">
+              Tema
+            </p>
+            <ThemeToggle />
+          </div>
           {status === "authenticated" && session?.user ? (
             <div className="space-y-2">
               <p className="truncate px-2 text-xs text-[var(--ink-muted)]">

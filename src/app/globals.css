@@ -57,6 +57,7 @@
 }
 
 :root {
+  color-scheme: light;
   --canvas: #fafafa;
   --sidebar: #ffffff;
   --surface: #ffffff;
@@ -67,6 +68,79 @@
   --border: #e4e4e7;
   --border-strong: #18181b;
   --accent: #0a0a0a;
+}
+
+/*
+ * Modo oscuro. Se activa con `data-theme="dark"` en <html>, que pone el script
+ * inline del layout antes del primer pintado (sin parpadeo blanco).
+ *
+ * Los tokens son la imagen especular de los claros: el lienzo es el tono más
+ * oscuro y las superficies suben, en vez de bajar como en claro. Así las
+ * tarjetas siguen destacando sobre el fondo sin necesitar sombras.
+ */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0b0b0d;
+  --sidebar: #131316;
+  --surface: #17171b;
+  --surface-muted: #202027;
+  --ink: #f4f4f5;
+  --ink-muted: #a1a1aa;
+  --ink-faint: #6b6b76;
+  --border: #2a2a32;
+  --border-strong: #52525b;
+  --accent: #f4f4f5;
+}
+
+/*
+ * Rescate para el ~20% de la interfaz que usa colores fijos de Tailwind en vez
+ * de tokens: los blancos y grises muy claros se reasignan a superficies del
+ * tema. Los colores con matiz (verdes, ámbares, rojos de estado) se dejan como
+ * están: siguen leyéndose bien y son señales semánticas.
+ */
+[data-theme="dark"] .bg-white {
+  background-color: var(--surface) !important;
+}
+[data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-zinc-50,
+[data-theme="dark"] .bg-neutral-50,
+[data-theme="dark"] .bg-slate-100,
+[data-theme="dark"] .bg-gray-100,
+[data-theme="dark"] .bg-zinc-100,
+[data-theme="dark"] .bg-neutral-100 {
+  background-color: var(--surface-muted) !important;
+}
+[data-theme="dark"] .text-slate-900,
+[data-theme="dark"] .text-gray-900,
+[data-theme="dark"] .text-zinc-900,
+[data-theme="dark"] .text-neutral-900,
+[data-theme="dark"] .text-slate-800,
+[data-theme="dark"] .text-gray-800,
+[data-theme="dark"] .text-zinc-800 {
+  color: var(--ink) !important;
+}
+[data-theme="dark"] .text-slate-600,
+[data-theme="dark"] .text-gray-600,
+[data-theme="dark"] .text-zinc-600,
+[data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-gray-500,
+[data-theme="dark"] .text-zinc-500 {
+  color: var(--ink-muted) !important;
+}
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-zinc-200,
+[data-theme="dark"] .border-neutral-200,
+[data-theme="dark"] .border-slate-300,
+[data-theme="dark"] .border-gray-300,
+[data-theme="dark"] .border-zinc-300 {
+  border-color: var(--border) !important;
+}
+
+/* Las imágenes y mapas de bits no deben invertirse, pero sí bajar de brillo. */
+[data-theme="dark"] img:not([src*=".svg"]) {
+  filter: brightness(0.92);
 }
 
 @theme inline {

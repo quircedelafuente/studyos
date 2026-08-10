@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { AppProviders } from "@/components/providers/AppProviders";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -38,6 +39,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-dvh flex flex-col" suppressHydrationWarning>
+        {/* Fija el tema antes de pintar el contenido, para evitar el fogonazo blanco. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <AppProviders>{children}</AppProviders>
       </body>
     </html>
