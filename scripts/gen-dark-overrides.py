@@ -209,6 +209,11 @@ def main():
             # Único sitio donde sobrevive el matiz. Paso 11 de Radix: legible
             # sobre negro sin deslumbrar.
             rules.append((sel, "color", scale[11]))
+            # …salvo en los widgets marcados como planos, donde el color se
+            # quita del todo: sus títulos y cifras son de color, no etiquetas
+            # sueltas, y con matiz quedan mucho más vistosos que «Entregas».
+            flat_sel = f'[data-theme="dark"] [data-dark-flat] .{esc(cls)}'
+            rules.append((flat_sel, "color", "var(--ink)" if s >= 700 else "var(--ink-muted)"))
         elif kind in ("border", "ring"):
             prop = "border-color" if kind == "border" else "--tw-ring-color"
             rules.append((sel, prop, "var(--border)"))
