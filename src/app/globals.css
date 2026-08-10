@@ -171,7 +171,8 @@
   --surface-muted: #000000;
   background-color: #000000 !important;
   background-image: none !important;
-  border-color: #ffffff !important;
+  /* Mismo borde que el resto de widgets, que usan border-zinc-200/50. */
+  border-color: var(--border) !important;
 }
 
 /*

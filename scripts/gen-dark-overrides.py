@@ -18,7 +18,7 @@ SURFACE_HEX = "#101010"   # debe coincidir con --surface de [data-theme="dark"]
 BORDER_HEX = "#262626"    # idem con --border
 NEUTRALS = {"slate", "gray", "zinc", "neutral", "stone"}
 
-CLASS_RE = r"(bg|text|border|ring|from|to)-(white|black|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-[0-9]{2,3})?(/[0-9]{1,3})?"
+CLASS_RE = r"(bg|text|border|ring|shadow|from|via|to)-(white|black|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-[0-9]{2,3})?(/[0-9]{1,3})?"
 
 
 def oklch_to_rgb(L, C, H):
@@ -72,6 +72,27 @@ def used_classes():
 
 GRADIENT_KINDS = ("from", "via", "to")
 
+# Los seis únicos colores que puede usar la interfaz en oscuro. Cada familia de
+# Tailwind se reasigna al neón de matiz más cercano, para que no aparezca ningún
+# rojo ladrillo, ámbar apagado ni verde esmeralda fuera de la paleta.
+NEON = {
+    "fucsia": "#f700d1",
+    "ambar": "#f7ad02",
+    "lima": "#92f705",
+    "agua": "#00f6bd",
+    "azul": "#027ff7",
+    "violeta": "#b130f7",
+}
+
+HUE_TO_NEON = {
+    "red": "fucsia", "rose": "fucsia", "pink": "fucsia", "fuchsia": "fucsia",
+    "orange": "ambar", "amber": "ambar", "yellow": "ambar",
+    "lime": "lima", "green": "lima",
+    "emerald": "agua", "teal": "agua", "cyan": "agua",
+    "sky": "azul", "blue": "azul",
+    "indigo": "violeta", "violet": "violeta", "purple": "violeta",
+}
+
 ARBITRARY_RE = r"(bg|text|border|ring)-\[#[0-9a-fA-F]{3,8}\]"
 
 
@@ -82,6 +103,24 @@ def arbitrary_classes():
         capture_output=True, text=True,
     ).stdout
     return sorted(set(out.split()))
+
+
+def readable_on(neon_hex, bg_rgb):
+    """El neón, aclarado lo justo para cumplir contraste AA sobre su chip."""
+    import colorsys
+
+    r, g, b = hex2rgb(neon_hex)
+    h, l0, s = colorsys.rgb_to_hls(r, g, b)
+    for L in [x / 100 for x in range(int(l0 * 100), 96)]:
+        cand = colorsys.hls_to_rgb(h, L, s)
+        if contrast_ratio(cand, bg_rgb) >= 4.5:
+            return hexs(cand)
+    return hexs(colorsys.hls_to_rgb(h, 0.95, s))
+
+
+def contrast_ratio(c1, c2):
+    a, b = sorted([relative_luminance(c1), relative_luminance(c2)], reverse=True)
+    return (a + 0.05) / (b + 0.05)
 
 
 def relative_luminance(rgb):
@@ -107,7 +146,7 @@ def main():
     surface, border = hex2rgb(SURFACE_HEX), hex2rgb(BORDER_HEX)
     rules = []
     for cls in used_classes():
-        m = re.match(r"(bg|text|border|ring|from|to)-([a-z]+)(?:-(\d{2,3}))?(?:/(\d+))?$", cls)
+        m = re.match(r"(bg|text|border|ring|shadow|from|via|to)-([a-z]+)(?:-(\d{2,3}))?(?:/(\d+))?$", cls)
         if not m:
             continue
         kind, hue, shade = m.group(1), m.group(2), m.group(3)
@@ -136,7 +175,10 @@ def main():
             continue
         s = int(shade or 500)
         if hue in NEUTRALS:
-            if kind in ("bg", "from", "to"):
+            if kind in GRADIENT_KINDS:
+                v = "var(--surface-muted)" if s <= 200 else "var(--surface)"
+                rules.append((sel, f"--tw-gradient-{kind}", v))
+            elif kind == "bg":
                 v = "var(--surface-muted)" if s <= 200 else ("var(--surface)" if s <= 400 else "var(--ink-faint)")
                 rules.append((sel, "background-color", v))
             elif kind == "text":
@@ -145,20 +187,26 @@ def main():
             elif kind in ("border", "ring"):
                 rules.append((sel, "border-color" if kind == "border" else "--tw-ring-color", "var(--border)"))
             continue
-        base = pal.get((hue, 500))
-        if not base:
+        neon_key = HUE_TO_NEON.get(hue)
+        if not neon_key:
             continue
+        base = hex2rgb(NEON[neon_key])
+        # Los fondos se mantienen oscuros con un tinte del neón: rellenar con el
+        # neón puro dejaría el texto blanco de los botones ilegible.
+        chip = mix(base, surface, 0.18 if s <= 300 else 0.30)
         if kind in GRADIENT_KINDS:
             # Las paradas de gradiente NO son background-color: van por variable.
-            rules.append((sel, f"--tw-gradient-{kind}", hexs(mix(base, surface, 0.16 if s <= 300 else 0.5))))
+            rules.append((sel, f"--tw-gradient-{kind}", hexs(chip)))
         elif kind == "bg":
-            rules.append((sel, "background-color", hexs(mix(base, surface, 0.16 if s <= 300 else 0.55))))
+            rules.append((sel, "background-color", hexs(chip)))
         elif kind == "text":
-            light = pal.get((hue, 300)) or pal.get((hue, 400)) or base
-            rules.append((sel, "color", hexs(light) if s >= 500 else hexs(pal.get((hue, 200), light))))
+            rules.append((sel, "color", readable_on(NEON[neon_key], chip)))
         elif kind in ("border", "ring"):
             prop = "border-color" if kind == "border" else "--tw-ring-color"
-            rules.append((sel, prop, hexs(mix(base, border, 0.35))))
+            rules.append((sel, prop, hexs(mix(base, border, 0.5))))
+        elif kind == "shadow":
+            # Sombras de color: sobre negro se ven como halos sucios.
+            rules.append((sel, "--tw-shadow-color", "transparent"))
 
     # ── Clases con valor arbitrario: bg-[#fffafa], text-[#111], border-[#eee] ──
     # No las cubre la paleta de Tailwind, así que se clasifican por luminancia:
