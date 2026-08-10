@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "react-grid-layout/css/styles.css";
 @import "react-resizable/css/styles.css";
+/* Equivalentes oscuros de las clases de color fijas. Generado por scripts/gen-dark-overrides.py */
+@import "./dark-overrides.css";
+/* Rampa oscura de los chips del calendario (estilos en línea, vía variables). */
+@import "./calendar-colors-dark.css";
 
 /* react-grid-layout: make the resize handle visible and styled */
 .react-resizable-handle {
@@ -80,62 +84,39 @@
  */
 [data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #0b0b0d;
-  --sidebar: #131316;
-  --surface: #17171b;
-  --surface-muted: #202027;
-  --ink: #f4f4f5;
-  --ink-muted: #a1a1aa;
-  --ink-faint: #6b6b76;
-  --border: #2a2a32;
-  --border-strong: #52525b;
-  --accent: #f4f4f5;
+  --canvas: #000000;
+  --sidebar: #0a0a0a;
+  --surface: #101010;
+  --surface-muted: #1c1c1c;
+  --ink: #fafafa;
+  --ink-muted: #a3a3a3;
+  --ink-faint: #6b6b6b;
+  --border: #262626;
+  --border-strong: #525252;
+  --accent: #fafafa;
+  /**
+   * Color que se lee ENCIMA de --ink / --accent. En claro esos fondos son
+   * negros y el texto va blanco; en oscuro se invierten, así que el texto
+   * encima tiene que volverse oscuro o desaparece.
+   */
+  --on-accent: #000000;
 }
 
 /*
- * Rescate para el ~20% de la interfaz que usa colores fijos de Tailwind en vez
- * de tokens: los blancos y grises muy claros se reasignan a superficies del
- * tema. Los colores con matiz (verdes, ámbares, rojos de estado) se dejan como
- * están: siguen leyéndose bien y son señales semánticas.
+ * Texto blanco sobre fondos de token.
+ *
+ * El patrón `bg-[var(--ink)] text-white` es correcto en claro (pastilla negra,
+ * texto blanco) pero se rompe en oscuro: --ink pasa a ser casi blanco y queda
+ * blanco sobre blanco. Hay 53 sitios así, sobre todo el ítem activo del menú.
+ * Se corrige solo cuando coinciden las dos clases, para no tocar el texto
+ * blanco legítimo sobre botones de color o sobre overlays negros.
  */
-[data-theme="dark"] .bg-white {
-  background-color: var(--surface) !important;
-}
-[data-theme="dark"] .bg-slate-50,
-[data-theme="dark"] .bg-gray-50,
-[data-theme="dark"] .bg-zinc-50,
-[data-theme="dark"] .bg-neutral-50,
-[data-theme="dark"] .bg-slate-100,
-[data-theme="dark"] .bg-gray-100,
-[data-theme="dark"] .bg-zinc-100,
-[data-theme="dark"] .bg-neutral-100 {
-  background-color: var(--surface-muted) !important;
-}
-[data-theme="dark"] .text-slate-900,
-[data-theme="dark"] .text-gray-900,
-[data-theme="dark"] .text-zinc-900,
-[data-theme="dark"] .text-neutral-900,
-[data-theme="dark"] .text-slate-800,
-[data-theme="dark"] .text-gray-800,
-[data-theme="dark"] .text-zinc-800 {
-  color: var(--ink) !important;
-}
-[data-theme="dark"] .text-slate-600,
-[data-theme="dark"] .text-gray-600,
-[data-theme="dark"] .text-zinc-600,
-[data-theme="dark"] .text-slate-500,
-[data-theme="dark"] .text-gray-500,
-[data-theme="dark"] .text-zinc-500 {
-  color: var(--ink-muted) !important;
-}
-[data-theme="dark"] .border-slate-200,
-[data-theme="dark"] .border-gray-200,
-[data-theme="dark"] .border-zinc-200,
-[data-theme="dark"] .border-neutral-200,
-[data-theme="dark"] .border-slate-300,
-[data-theme="dark"] .border-gray-300,
-[data-theme="dark"] .border-zinc-300 {
-  border-color: var(--border) !important;
+[data-theme="dark"] .bg-\[var\(--ink\)\].text-white,
+[data-theme="dark"] .bg-\[var\(--accent\)\].text-white,
+[data-theme="dark"] .bg-\[var\(--border-strong\)\].text-white,
+[data-theme="dark"] .bg-\[var\(--ink\)\] .text-white,
+[data-theme="dark"] .bg-\[var\(--accent\)\] .text-white {
+  color: var(--on-accent) !important;
 }
 
 /* Las imágenes y mapas de bits no deben invertirse, pero sí bajar de brillo. */
